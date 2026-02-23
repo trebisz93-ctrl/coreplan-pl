@@ -47,7 +47,7 @@ export interface DbProfile {
 export interface DbUserRole {
   id: string;
   user_id: string;
-  role: 'admin' | 'user';
+  role: 'admin' | 'manager' | 'user' | 'viewer';
 }
 
 // ── Clients ──
@@ -268,7 +268,7 @@ export const useMyRole = () => {
       const { data, error } = await supabase
         .from('user_roles').select('role').eq('user_id', user!.id);
       if (error) throw error;
-      return data?.[0]?.role as 'admin' | 'user' | undefined;
+      return data?.[0]?.role as 'admin' | 'manager' | 'user' | 'viewer' | undefined;
     },
     enabled: !!user,
   });
@@ -277,7 +277,7 @@ export const useMyRole = () => {
 export const useSetUserRole = () => {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async ({ userId, role }: { userId: string; role: 'admin' | 'user' }) => {
+    mutationFn: async ({ userId, role }: { userId: string; role: 'admin' | 'manager' | 'user' | 'viewer' }) => {
       // Upsert role
       const { error: delError } = await supabase.from('user_roles').delete().eq('user_id', userId);
       if (delError) throw delError;

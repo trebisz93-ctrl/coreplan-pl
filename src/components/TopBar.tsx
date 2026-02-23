@@ -1,5 +1,6 @@
 import { useApp } from '@/context/AppContext';
 import { BudgetBar } from './BudgetBar';
+import { useCanEdit } from '@/hooks/useRole';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -13,6 +14,7 @@ export const TopBar = () => {
     channelFilter, setChannelFilter,
     searchQuery, setSearchQuery,
   } = useApp();
+  const canEdit = useCanEdit();
   const [dialogOpen, setDialogOpen] = useState(false);
 
   return (
@@ -32,10 +34,12 @@ export const TopBar = () => {
             <BudgetBar />
           </div>
 
-          <Button onClick={() => setDialogOpen(true)} className="gap-2">
-            <Plus className="h-4 w-4" />
-            Dodaj aktywność
-          </Button>
+          {canEdit && (
+            <Button onClick={() => setDialogOpen(true)} className="gap-2">
+              <Plus className="h-4 w-4" />
+              Dodaj aktywność
+            </Button>
+          )}
         </div>
 
         <div className="flex items-center gap-3 flex-wrap">
