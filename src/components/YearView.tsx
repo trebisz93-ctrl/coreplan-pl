@@ -7,7 +7,7 @@ import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/h
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { ChevronDown, ChevronRight, Palette, Plus, Search, FileDown, Calendar } from 'lucide-react';
+import { ChevronDown, ChevronRight, Palette, Plus, Search, FileDown, Calendar, LayoutGrid, List } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { ActivityDetailDrawer } from './ActivityDetailDrawer';
 import { ActivityDialog } from './ActivityDialog';
@@ -70,7 +70,7 @@ export const YearView = () => {
   const [dialogOpen, setDialogOpen] = useState(false);
   const chartRef = useRef<HTMLDivElement>(null);
   const [exporting, setExporting] = useState(false);
-
+  const [viewMode, setViewMode] = useState<'monthly' | 'weekly'>('monthly');
   // Period selection
   const year = 2026;
   const [dateFrom, setDateFrom] = useState(`${year}-01-01`);
@@ -99,8 +99,36 @@ export const YearView = () => {
     return months.slice(startMonth, endMonth + 1);
   }, [dateFrom, dateTo]);
 
-  const startMonthIdx = parseInt(dateFrom.slice(5, 7)) - 1;
-  const endMonthIdx = parseInt(dateTo.slice(5, 7)) - 1;
+  // Compute visible weeks (ISO week numbers)
+  const visibleWeeks = useMemo(() => {
+    const start = new Date(dateFrom);
+    const end = new Date(dateTo);
+    const weeks: { label: string; start: Date; end: Date }[] = [];
+
+    // Find the Monday of the week containing 'start'
+    const d = new Date(start);
+    const day = d.getDay();
+    const diff = d.getDate() - day + (day === 0 ? -6 : 1); // Monday
+    d.setDate(diff);
+
+    while (d <= end) {
+      const weekStart = new Date(d);
+      const weekEnd = new Date(d);
+      weekEnd.setDate(weekEnd.getDate() + 6);
+
+      // ISO week number
+      const jan4 = new Date(weekStart.getFullYear(), 0, 4);
+      const dayOfYear = Math.floor((weekStart.getTime() - jan4.getTime()) / 86400000) + jan4.getDay();
+      const weekNum = Math.ceil((dayOfYear + 1) / 7);
+
+      weeks.push({ label: `W${weekNum}`, start: weekStart, end: weekEnd });
+      d.setDate(d.getDate() + 7);
+    }
+    return weeks;
+  }, [dateFrom, dateTo]);
+
+  const gridColumns = viewMode === 'weekly' ? visibleWeeks.length : visibleMonths.length;
+  const gridHeaders = viewMode === 'weekly' ? visibleWeeks.map(w => w.label) : visibleMonths;
 
   // In multi mode, fetch ALL products; in single mode, fetch for selected client
   const { data: fetchedProducts = [] } = useProducts(multiClientMode ? undefined : (selectedClientId || undefined));
@@ -243,8 +271,8 @@ export const YearView = () => {
     const rowHeight = Math.max(40, acts.length * 28 + 12);
     return (
       <div className="flex-1 relative" style={{ minHeight: rowHeight }}>
-        <div className={`absolute inset-0 grid pointer-events-none`} style={{ gridTemplateColumns: `repeat(${visibleMonths.length}, 1fr)` }}>
-          {visibleMonths.map((_, i) => (
+        <div className={`absolute inset-0 grid pointer-events-none`} style={{ gridTemplateColumns: `repeat(${gridColumns}, 1fr)` }}>
+          {gridHeaders.map((_, i) => (
             <div key={i} className={i > 0 ? 'border-l border-border' : ''} />
           ))}
         </div>
@@ -290,8 +318,8 @@ export const YearView = () => {
 
   const renderEmptyTimeline = () => (
     <div className="flex-1 relative" style={{ minHeight: 36 }}>
-      <div className={`absolute inset-0 grid pointer-events-none`} style={{ gridTemplateColumns: `repeat(${visibleMonths.length}, 1fr)` }}>
-        {visibleMonths.map((_, i) => (
+      <div className={`absolute inset-0 grid pointer-events-none`} style={{ gridTemplateColumns: `repeat(${gridColumns}, 1fr)` }}>
+        {gridHeaders.map((_, i) => (
           <div key={i} className={i > 0 ? 'border-l border-border' : ''} />
         ))}
       </div>
@@ -365,6 +393,17 @@ export const YearView = () => {
           ))}
           <div className="w-px bg-border mx-0.5" />
           <Button size="sm" variant={activePeriod === 'year' ? 'default' : 'outline'} onClick={() => setPeriod('year')} className="text-xs px-2 h-8">Rok</Button>
+          <div className="w-px bg-border mx-0.5" />
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => setViewMode(v => v === 'monthly' ? 'weekly' : 'monthly')}
+            className="text-xs px-2 h-8 gap-1"
+            title={viewMode === 'monthly' ? 'Przełącz na widok tygodniowy' : 'Przełącz na widok miesięczny'}
+          >
+            {viewMode === 'monthly' ? <List className="h-3.5 w-3.5" /> : <LayoutGrid className="h-3.5 w-3.5" />}
+            {viewMode === 'monthly' ? 'Tyg.' : 'Mies.'}
+          </Button>
         </div>
 
         {/* Date range */}
@@ -426,10 +465,10 @@ export const YearView = () => {
           <div className="w-52 shrink-0 px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
             {multiClientMode ? 'Klient / Subkat. / Produkt' : 'Subkategoria / Produkt'}
           </div>
-          <div className="flex-1 grid" style={{ gridTemplateColumns: `repeat(${visibleMonths.length}, 1fr)` }}>
-            {visibleMonths.map((m, i) => (
-              <div key={m} className={`text-center text-xs font-semibold py-3 text-muted-foreground ${i > 0 ? 'border-l border-border' : ''}`}>
-                {m}
+          <div className="flex-1 grid overflow-x-auto" style={{ gridTemplateColumns: `repeat(${gridColumns}, 1fr)` }}>
+            {gridHeaders.map((label, i) => (
+              <div key={i} className={`text-center text-xs font-semibold py-3 text-muted-foreground whitespace-nowrap ${i > 0 ? 'border-l border-border' : ''}`}>
+                {typeof label === 'string' ? label : label}
               </div>
             ))}
           </div>
