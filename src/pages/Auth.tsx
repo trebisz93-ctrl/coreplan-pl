@@ -1,20 +1,48 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
+import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
+import { Shield } from 'lucide-react';
 
 const Auth = () => {
-  const { user, loading, signIn, signUp, resetPassword } = useAuth();
+  const { user, loading, signIn, signUp, resetPassword, currentAal, nextAal, refreshAal } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showReset, setShowReset] = useState(false);
   const [resetEmail, setResetEmail] = useState('');
+
+  // MFA state
+  const [mfaCode, setMfaCode] = useState('');
+  const [factorId, setFactorId] = useState('');
+  const [challengeId, setChallengeId] = useState('');
+
+  const needsMfa = !!user && currentAal === 'aal1' && nextAal === 'aal2';
+
+  // When MFA is needed, fetch factors and create challenge
+  useEffect(() => {
+    if (needsMfa) {
+      (async () => {
+        try {
+          const { data } = await supabase.auth.mfa.listFactors();
+          const totp = data?.totp?.[0];
+          if (totp) {
+            setFactorId(totp.id);
+            const { data: challengeData } = await supabase.auth.mfa.challenge({ factorId: totp.id });
+            if (challengeData) setChallengeId(challengeData.id);
+          }
+        } catch (e) {
+          console.error('MFA factor loading error:', e);
+        }
+      })();
+    }
+  }, [needsMfa]);
 
   if (loading) {
     return (
@@ -24,8 +52,78 @@ const Auth = () => {
     );
   }
 
-  if (user) {
+  // User authenticated and MFA complete (or not required)
+  if (user && !needsMfa) {
     return <Navigate to="/" replace />;
+  }
+
+  // MFA verification screen
+  if (needsMfa) {
+    const handleMfaVerify = async (e: React.FormEvent) => {
+      e.preventDefault();
+      if (!factorId || !challengeId) {
+        toast.error('Błąd konfiguracji 2FA. Spróbuj wylogować się i zalogować ponownie.');
+        return;
+      }
+      setIsSubmitting(true);
+      const { error } = await supabase.auth.mfa.verify({
+        factorId,
+        challengeId,
+        code: mfaCode,
+      });
+      setIsSubmitting(false);
+      if (error) {
+        toast.error('Nieprawidłowy kod 2FA: ' + error.message);
+        // Create new challenge for retry
+        try {
+          const { data: newChallenge } = await supabase.auth.mfa.challenge({ factorId });
+          if (newChallenge) setChallengeId(newChallenge.id);
+        } catch {}
+        setMfaCode('');
+      } else {
+        await refreshAal();
+      }
+    };
+
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-background p-4">
+        <Card className="w-full max-w-md">
+          <CardHeader className="text-center">
+            <div className="mx-auto mb-2 h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center">
+              <Shield className="h-6 w-6 text-primary" />
+            </div>
+            <CardTitle className="text-2xl">Weryfikacja 2FA</CardTitle>
+            <CardDescription>Wprowadź 6-cyfrowy kod z aplikacji uwierzytelniającej</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handleMfaVerify} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="mfa-code">Kod TOTP</Label>
+                <Input
+                  id="mfa-code"
+                  type="text"
+                  inputMode="numeric"
+                  pattern="[0-9]{6}"
+                  maxLength={6}
+                  value={mfaCode}
+                  onChange={e => setMfaCode(e.target.value.replace(/\D/g, ''))}
+                  required
+                  placeholder="000000"
+                  className="text-center text-2xl tracking-widest font-mono"
+                  autoFocus
+                />
+              </div>
+              <Button type="submit" className="w-full" disabled={isSubmitting || mfaCode.length !== 6}>
+                {isSubmitting ? 'Weryfikacja...' : 'Zweryfikuj'}
+              </Button>
+              <Button type="button" variant="ghost" className="w-full" onClick={() => supabase.auth.signOut()}>
+                Wyloguj się
+              </Button>
+            </form>
+          </CardContent>
+        </Card>
+      </div>
+    );
   }
 
   const handleSignIn = async (e: React.FormEvent) => {
