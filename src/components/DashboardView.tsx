@@ -2,7 +2,8 @@ import { useState, useMemo } from 'react';
 import { useClients, useProducts, DbProduct } from '@/hooks/useData';
 import { useActivities } from '@/hooks/useActivities';
 import { useApp } from '@/context/AppContext';
-import { Building2, Package, DollarSign, ChevronDown, ChevronRight, Calendar, TrendingUp, GitCompare } from 'lucide-react';
+import { useUnreadCount } from '@/hooks/useNotifications';
+import { Building2, Package, DollarSign, ChevronDown, ChevronRight, Calendar, TrendingUp, GitCompare, Bell } from 'lucide-react';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -38,6 +39,7 @@ export const DashboardView = () => {
   const { clients, multiClientMode, selectedClientIds } = useApp();
   const { data: allProducts = [], isLoading: loadingProducts } = useProducts();
   const { data: allDbActivities = [] } = useActivities();
+  const { data: unreadCount = 0 } = useUnreadCount();
   const [expandedClient, setExpandedClient] = useState<string | null>(null);
 
   // Date range
@@ -151,6 +153,22 @@ export const DashboardView = () => {
 
   return (
     <div className="space-y-6">
+      {/* Notification widget */}
+      {unreadCount > 0 && (
+        <div className="bg-primary/5 border border-primary/20 rounded-xl p-4 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
+              <Bell className="h-5 w-5 text-primary" />
+            </div>
+            <div>
+              <p className="text-sm font-semibold">Masz {unreadCount} nieprzeczytanych powiadomień</p>
+              <p className="text-xs text-muted-foreground">Kliknij dzwonek w pasku nawigacji, aby sprawdzić szczegóły</p>
+            </div>
+          </div>
+          <Badge variant="destructive" className="text-sm px-3 py-1">{unreadCount}</Badge>
+        </div>
+      )}
+
       <div className="flex items-center justify-between flex-wrap gap-3">
         <h2 className="text-xl font-bold">Dashboard</h2>
         <div className="flex items-center gap-2 flex-wrap">
