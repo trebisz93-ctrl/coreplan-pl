@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -11,7 +11,7 @@ import { useProducts, useClients, usePackages } from '@/hooks/useData';
 import { useCreateActivity } from '@/hooks/useActivities';
 import { useCampaignTypes } from '@/hooks/useCampaignTypes';
 import { Channel, CampaignType, ActivityStatus, campaignTypeLabels } from '@/types/mediaplan';
-import { AlertTriangle } from 'lucide-react';
+import { AlertTriangle, Search } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface Props {
@@ -28,7 +28,8 @@ export const ActivityDialog = ({ open, onOpenChange }: Props) => {
   const createActivity = useCreateActivity();
   const [dialogClientId, setDialogClientId] = useState<string>('');
   const effectiveClientId = dialogClientId || selectedClientId;
-  const { data: clientProducts = [] } = useProducts(effectiveClientId || undefined);
+  // Fetch ALL products so user can pick from full catalog
+  const { data: allProducts = [] } = useProducts();
   const { data: packages = [] } = usePackages();
 
   // Merge default + custom campaign types
@@ -43,6 +44,7 @@ export const ActivityDialog = ({ open, onOpenChange }: Props) => {
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [selectedProducts, setSelectedProducts] = useState<string[]>([]);
+  const [productSearch, setProductSearch] = useState('');
   const [packageId, setPackageId] = useState<string>('');
   const [price, setPrice] = useState('');
   const [status, setStatus] = useState<ActivityStatus>('planned');
@@ -101,7 +103,7 @@ export const ActivityDialog = ({ open, onOpenChange }: Props) => {
 
   const resetForm = () => {
     setName(''); setChannel('online'); setCampaignType('display');
-    setStartDate(''); setEndDate(''); setSelectedProducts([]);
+    setStartDate(''); setEndDate(''); setSelectedProducts([]); setProductSearch('');
     setPackageId(''); setPrice(''); setStatus('planned'); setNote('');
     setConfirmed(false); setDialogClientId('');
   };
@@ -161,25 +163,49 @@ export const ActivityDialog = ({ open, onOpenChange }: Props) => {
             </Select>
           </div>
 
-          {effectiveClientId && clientProducts.length > 0 && (
-            <div>
-              <Label>Produkty (opcjonalnie)</Label>
-              <div className="space-y-2 mt-1 max-h-32 overflow-y-auto border border-border rounded-lg p-2">
-                {clientProducts.map(p => (
-                  <label key={p.id} className="flex items-center gap-2 text-sm cursor-pointer">
+          {/* Products from full catalog */}
+          <div>
+            <Label>Produkty (opcjonalnie)</Label>
+            <div className="relative mt-1">
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+              <Input
+                placeholder="Szukaj produktu po nazwie, EAN, marce..."
+                value={productSearch}
+                onChange={e => setProductSearch(e.target.value)}
+                className="pl-8 h-8 text-xs"
+              />
+            </div>
+            <div className="space-y-1 mt-2 max-h-40 overflow-y-auto border border-border rounded-lg p-2">
+              {allProducts
+                .filter(p => {
+                  if (!productSearch) return true;
+                  const q = productSearch.toLowerCase();
+                  return p.name.toLowerCase().includes(q)
+                    || (p.ean && p.ean.toLowerCase().includes(q))
+                    || (p.brand && p.brand.toLowerCase().includes(q))
+                    || (p.category && p.category.toLowerCase().includes(q));
+                })
+                .map(p => (
+                  <label key={p.id} className="flex items-center gap-2 text-sm cursor-pointer py-0.5">
                     <Checkbox
                       checked={selectedProducts.includes(p.id)}
                       onCheckedChange={checked => {
                         setSelectedProducts(prev => checked ? [...prev, p.id] : prev.filter(x => x !== p.id));
                       }}
                     />
-                    <span>{p.name}</span>
+                    <span className="truncate">{p.name}</span>
+                    {p.brand && <span className="text-xs text-muted-foreground">{p.brand}</span>}
                     {p.ean && <span className="text-xs text-muted-foreground font-mono">({p.ean})</span>}
                   </label>
                 ))}
-              </div>
+              {allProducts.length === 0 && (
+                <div className="text-xs text-muted-foreground py-2 text-center">Brak produktów w bazie</div>
+              )}
             </div>
-          )}
+            {selectedProducts.length > 0 && (
+              <div className="text-xs text-muted-foreground mt-1">Wybrano: {selectedProducts.length}</div>
+            )}
+          </div>
 
           <div>
             <Label>Pakiet (opcjonalnie)</Label>
