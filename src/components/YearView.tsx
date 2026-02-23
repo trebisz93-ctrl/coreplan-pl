@@ -1,12 +1,16 @@
 import { useMemo, useState, useCallback } from 'react';
 import { useApp } from '@/context/AppContext';
+import { useCanEdit } from '@/hooks/useRole';
 import { useProducts, DbProduct } from '@/hooks/useData';
 import { Activity, statusLabels, campaignTypeLabels } from '@/types/mediaplan';
 import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/hover-card';
 import { Badge } from '@/components/ui/badge';
-import { ChevronDown, ChevronRight, Palette } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { ChevronDown, ChevronRight, Palette, Plus, Search } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { ActivityDetailDrawer } from './ActivityDetailDrawer';
+import { ActivityDialog } from './ActivityDialog';
 
 const months = ['Sty', 'Lut', 'Mar', 'Kwi', 'Maj', 'Cze', 'Lip', 'Sie', 'Wrz', 'Paź', 'Lis', 'Gru'];
 const formatPLN = (n: number) => new Intl.NumberFormat('pl-PL', { style: 'currency', currency: 'PLN', maximumFractionDigits: 0 }).format(n);
@@ -46,9 +50,11 @@ interface ClientGroup {
 }
 
 export const YearView = () => {
-  const { filteredActivities, selectedClientId, clients, multiClientMode, selectedClientIds } = useApp();
+  const { filteredActivities, selectedClientId, clients, multiClientMode, selectedClientIds, channelFilter, setChannelFilter, searchQuery, setSearchQuery } = useApp();
+  const canEdit = useCanEdit();
   const [selectedActivity, setSelectedActivity] = useState<Activity | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [dialogOpen, setDialogOpen] = useState(false);
 
   // In multi mode, fetch ALL products (no client filter); in single mode, fetch for selected client
   const { data: fetchedProducts = [] } = useProducts(multiClientMode ? undefined : (selectedClientId || undefined));
@@ -268,6 +274,43 @@ export const YearView = () => {
 
   return (
     <div className="space-y-4">
+      {/* Local controls: channel filter + search + add button */}
+      <div className="flex items-center gap-3 flex-wrap">
+        <div className="flex rounded-lg border border-border overflow-hidden text-sm">
+          {(['all', 'online', 'offline'] as const).map(ch => (
+            <button
+              key={ch}
+              onClick={() => setChannelFilter(ch)}
+              className={`px-3 py-1.5 transition-colors ${
+                channelFilter === ch
+                  ? ch === 'online' ? 'bg-online text-primary-foreground'
+                  : ch === 'offline' ? 'bg-offline text-primary-foreground'
+                  : 'bg-primary text-primary-foreground'
+                  : 'bg-card text-muted-foreground hover:bg-secondary'
+              }`}
+            >
+              {ch === 'all' ? 'Wszystkie' : ch === 'online' ? 'Online' : 'Offline'}
+            </button>
+          ))}
+        </div>
+        <div className="relative">
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Szukaj aktywności..."
+            value={searchQuery}
+            onChange={e => setSearchQuery(e.target.value)}
+            className="pl-9 w-64"
+          />
+        </div>
+        <div className="flex-1" />
+        {canEdit && !multiClientMode && (
+          <Button onClick={() => setDialogOpen(true)} className="gap-2">
+            <Plus className="h-4 w-4" />
+            Dodaj aktywność
+          </Button>
+        )}
+      </div>
+
       <div className="bg-card rounded-xl border border-border shadow-sm overflow-hidden">
         {/* Month header */}
         <div className="flex border-b border-border">
@@ -368,6 +411,7 @@ export const YearView = () => {
         onOpenChange={setDrawerOpen}
         clientId={selectedClientId}
       />
+      <ActivityDialog open={dialogOpen} onOpenChange={setDialogOpen} />
     </div>
   );
 };
