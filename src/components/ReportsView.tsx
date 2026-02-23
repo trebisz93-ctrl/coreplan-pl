@@ -1,20 +1,33 @@
+import { useState } from 'react';
 import { useApp } from '@/context/AppContext';
 import { useProducts } from '@/hooks/useData';
+import { useCampaignTypes } from '@/hooks/useCampaignTypes';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
 import { FileText, Download, Search } from 'lucide-react';
-import { statusLabels, campaignTypeLabels } from '@/types/mediaplan';
+import { statusLabels, campaignTypeLabels, Activity } from '@/types/mediaplan';
+import { ActivityDetailDrawer } from './ActivityDetailDrawer';
 
 const formatPLN = (n: number) => new Intl.NumberFormat('pl-PL', { style: 'currency', currency: 'PLN', maximumFractionDigits: 0 }).format(n);
 
 export const ReportsView = () => {
-  const { allActivities, selectedClientId, selectedClient, channelFilter, setChannelFilter, searchQuery, setSearchQuery } = useApp();
+  const { allActivities, filteredActivities, selectedClientId, selectedClient, channelFilter, setChannelFilter, searchQuery, setSearchQuery } = useApp();
   const { data: clientProducts = [] } = useProducts(selectedClientId || undefined);
+  const { data: campaignTypes = [] } = useCampaignTypes();
+  const [selectedActivity, setSelectedActivity] = useState<Activity | null>(null);
+  const [drawerOpen, setDrawerOpen] = useState(false);
+
+  const getCampaignLabel = (type: string) => {
+    const custom = campaignTypes.find(ct => ct.name === type);
+    if (custom) return custom.label;
+    return campaignTypeLabels[type as keyof typeof campaignTypeLabels] || type;
+  };
 
   const exportCSV = () => {
     const headers = ['Nazwa', 'Kanał', 'Typ', 'Start', 'Koniec', 'Cena', 'Status', 'Produkty', 'Notatka'];
-    const rows = allActivities.map(a => [
-      a.name, a.channel, campaignTypeLabels[a.campaignType],
+    const rows = filteredActivities.map(a => [
+      a.name, a.channel, getCampaignLabel(a.campaignType),
       a.startDate, a.endDate, a.price.toString(),
       statusLabels[a.status],
       a.productIds.map(pid => clientProducts.find(p => p.id === pid)?.name || pid).join('; '),
@@ -84,16 +97,22 @@ export const ReportsView = () => {
               </tr>
             </thead>
             <tbody>
-              {allActivities.map((a, i) => (
-                <tr key={a.id} className={`border-b border-border last:border-0 ${i % 2 ? 'bg-secondary/20' : ''}`}>
+              {filteredActivities.map((a, i) => (
+                <tr
+                  key={a.id}
+                  className={`border-b border-border last:border-0 cursor-pointer hover:bg-secondary/40 transition-colors ${i % 2 ? 'bg-secondary/20' : ''}`}
+                  onClick={() => { setSelectedActivity(a); setDrawerOpen(true); }}
+                >
                   <td className="px-4 py-3 font-medium">{a.name}</td>
                   <td className="px-4 py-3">
                     <span className={a.channel === 'online' ? 'text-online' : 'text-offline'}>{a.channel}</span>
                   </td>
-                  <td className="px-4 py-3">{campaignTypeLabels[a.campaignType]}</td>
+                  <td className="px-4 py-3">{getCampaignLabel(a.campaignType)}</td>
                   <td className="px-4 py-3 text-muted-foreground whitespace-nowrap">{a.startDate} → {a.endDate}</td>
                   <td className="px-4 py-3 text-right font-medium">{formatPLN(a.price)}</td>
-                  <td className="px-4 py-3">{statusLabels[a.status]}</td>
+                  <td className="px-4 py-3">
+                    <Badge variant="outline" className="text-xs">{statusLabels[a.status]}</Badge>
+                  </td>
                   <td className="px-4 py-3 text-xs text-muted-foreground">{a.productIds.map(pid => clientProducts.find(p => p.id === pid)?.name).filter(Boolean).join(', ')}</td>
                   <td className="px-4 py-3 text-xs text-muted-foreground max-w-32 truncate">{a.note || '—'}</td>
                 </tr>
@@ -102,16 +121,23 @@ export const ReportsView = () => {
             <tfoot>
               <tr className="bg-secondary/50 border-t border-border">
                 <td className="px-4 py-3 font-bold" colSpan={4}>SUMA</td>
-                <td className="px-4 py-3 text-right font-bold">{formatPLN(allActivities.filter(a => a.status !== 'cancelled').reduce((s, a) => s + a.price, 0))}</td>
+                <td className="px-4 py-3 text-right font-bold">{formatPLN(filteredActivities.filter(a => a.status !== 'cancelled').reduce((s, a) => s + a.price, 0))}</td>
                 <td colSpan={3} className="px-4 py-3 text-muted-foreground text-xs">
                   <FileText className="inline h-3 w-3 mr-1" />
-                  {allActivities.length} aktywności
+                  {filteredActivities.length} aktywności
                 </td>
               </tr>
             </tfoot>
           </table>
         </div>
       </div>
+
+      <ActivityDetailDrawer
+        activity={selectedActivity}
+        open={drawerOpen}
+        onOpenChange={setDrawerOpen}
+        clientId={selectedClientId}
+      />
     </div>
   );
 };
