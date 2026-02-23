@@ -2,12 +2,14 @@ import { useState, useMemo } from 'react';
 import { useClients, useProducts, DbProduct } from '@/hooks/useData';
 import { useActivities } from '@/hooks/useActivities';
 import { useApp } from '@/context/AppContext';
-import { Building2, Package, DollarSign, ChevronDown, ChevronRight, Calendar, TrendingUp } from 'lucide-react';
+import { Building2, Package, DollarSign, ChevronDown, ChevronRight, Calendar, TrendingUp, GitCompare } from 'lucide-react';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
 import { statusLabels, ActivityStatus } from '@/types/mediaplan';
 import { BarChart, Bar, XAxis, YAxis, Tooltip as RechartsTooltip, ResponsiveContainer, CartesianGrid, Legend } from 'recharts';
 
@@ -19,6 +21,9 @@ const quarterRanges: Record<string, [string, string]> = {
   Q2: ['04-01', '06-30'],
   Q3: ['07-01', '09-30'],
   Q4: ['10-01', '12-31'],
+  C1: ['01-01', '04-30'],
+  C2: ['05-01', '08-31'],
+  C3: ['09-01', '12-31'],
   year: ['01-01', '12-31'],
 };
 
@@ -30,7 +35,7 @@ const statusColors: Record<string, string> = {
 };
 
 export const DashboardView = () => {
-  const { clients, multiClientMode, selectedClientIds, multiClientBudgets } = useApp();
+  const { clients, multiClientMode, selectedClientIds } = useApp();
   const { data: allProducts = [], isLoading: loadingProducts } = useProducts();
   const { data: allDbActivities = [] } = useActivities();
   const [expandedClient, setExpandedClient] = useState<string | null>(null);
@@ -40,21 +45,60 @@ export const DashboardView = () => {
   const [dateFrom, setDateFrom] = useState(`${year}-01-01`);
   const [dateTo, setDateTo] = useState(`${year}-12-31`);
 
+  // YoY comparison
+  const [yoyEnabled, setYoyEnabled] = useState(false);
+
+  // Category/subcategory filters
+  const [categoryFilter, setCategoryFilter] = useState<string>('all');
+  const [subcategoryFilter, setSubcategoryFilter] = useState<string>('all');
+
+  const categories = useMemo(() => [...new Set(allProducts.map(p => p.category).filter(Boolean))] as string[], [allProducts]);
+  const subcategories = useMemo(() => {
+    const filtered = categoryFilter !== 'all' ? allProducts.filter(p => p.category === categoryFilter) : allProducts;
+    return [...new Set(filtered.map(p => p.subcategory).filter(Boolean))] as string[];
+  }, [allProducts, categoryFilter]);
+
   const setQuarter = (q: string) => {
     const [from, to] = quarterRanges[q];
     setDateFrom(`${year}-${from}`);
     setDateTo(`${year}-${to}`);
   };
 
-  // Filter activities by date range and selected clients
-  const filteredActivities = useMemo(() => {
+  // Filter activities by date range, clients, and product category
+  const filterActivities = (acts: typeof allDbActivities, from: string, to: string) => {
     const clientIds = multiClientMode ? new Set(selectedClientIds) : new Set(clients.map(c => c.id));
-    return allDbActivities.filter(a => {
+
+    // Get product IDs matching category/subcategory filters
+    let matchingProductIds: Set<string> | null = null;
+    if (categoryFilter !== 'all' || subcategoryFilter !== 'all') {
+      const filtered = allProducts.filter(p => {
+        if (categoryFilter !== 'all' && p.category !== categoryFilter) return false;
+        if (subcategoryFilter !== 'all' && p.subcategory !== subcategoryFilter) return false;
+        return true;
+      });
+      matchingProductIds = new Set(filtered.map(p => p.id));
+    }
+
+    return acts.filter(a => {
       if (!clientIds.has(a.client_id)) return false;
-      if (a.end_date < dateFrom || a.start_date > dateTo) return false;
+      if (a.end_date < from || a.start_date > to) return false;
+      if (matchingProductIds && !a.product_ids.some(pid => matchingProductIds!.has(pid))) return false;
       return true;
     });
-  }, [allDbActivities, dateFrom, dateTo, multiClientMode, selectedClientIds, clients]);
+  };
+
+  const filteredActivities = useMemo(() =>
+    filterActivities(allDbActivities, dateFrom, dateTo),
+    [allDbActivities, dateFrom, dateTo, multiClientMode, selectedClientIds, clients, categoryFilter, subcategoryFilter, allProducts]
+  );
+
+  // YoY previous year activities
+  const prevYearFrom = `${year - 1}-${dateFrom.slice(5)}`;
+  const prevYearTo = `${year - 1}-${dateTo.slice(5)}`;
+  const prevYearActivities = useMemo(() => {
+    if (!yoyEnabled) return [];
+    return filterActivities(allDbActivities, prevYearFrom, prevYearTo);
+  }, [yoyEnabled, allDbActivities, prevYearFrom, prevYearTo, multiClientMode, selectedClientIds, clients, categoryFilter, subcategoryFilter, allProducts]);
 
   // Status counts
   const statusCounts = useMemo(() => {
@@ -66,20 +110,21 @@ export const DashboardView = () => {
   // Monthly trend data
   const monthlyData = useMemo(() => {
     return months.map((m, i) => {
-      const monthStr = String(i + 1).padStart(2, '0');
-      const monthActivities = filteredActivities.filter(a => {
-        const startMonth = parseInt(a.start_date.slice(5, 7));
-        return startMonth === i + 1;
-      });
-      return {
+      const monthActivities = filteredActivities.filter(a => parseInt(a.start_date.slice(5, 7)) === i + 1);
+      const entry: any = {
         name: m,
         Zaplanowane: monthActivities.filter(a => a.status === 'planned').length,
         'W trakcie': monthActivities.filter(a => a.status === 'in_progress').length,
         Zrealizowane: monthActivities.filter(a => a.status === 'completed').length,
         Anulowane: monthActivities.filter(a => a.status === 'cancelled').length,
       };
+      if (yoyEnabled) {
+        const prevMonthActs = prevYearActivities.filter(a => parseInt(a.start_date.slice(5, 7)) === i + 1);
+        entry['Poprzedni rok'] = prevMonthActs.length;
+      }
+      return entry;
     });
-  }, [filteredActivities]);
+  }, [filteredActivities, yoyEnabled, prevYearActivities]);
 
   // Status bar chart data
   const statusBarData = useMemo(() => {
@@ -110,11 +155,15 @@ export const DashboardView = () => {
         <h2 className="text-xl font-bold">Dashboard</h2>
         <div className="flex items-center gap-2 flex-wrap">
           <div className="flex gap-1">
-            {['Q1', 'Q2', 'Q3', 'Q4', 'year'].map(q => (
-              <Button key={q} size="sm" variant="outline" onClick={() => setQuarter(q)} className="text-xs px-2">
-                {q === 'year' ? 'Rok' : q}
-              </Button>
+            {['Q1', 'Q2', 'Q3', 'Q4'].map(q => (
+              <Button key={q} size="sm" variant="outline" onClick={() => setQuarter(q)} className="text-xs px-2">{q}</Button>
             ))}
+            <div className="w-px bg-border mx-1" />
+            {['C1', 'C2', 'C3'].map(q => (
+              <Button key={q} size="sm" variant="outline" onClick={() => setQuarter(q)} className="text-xs px-2">{q}</Button>
+            ))}
+            <div className="w-px bg-border mx-1" />
+            <Button size="sm" variant="outline" onClick={() => setQuarter('year')} className="text-xs px-2">Rok</Button>
           </div>
           <div className="flex items-center gap-1">
             <Calendar className="h-4 w-4 text-muted-foreground" />
@@ -122,6 +171,34 @@ export const DashboardView = () => {
             <span className="text-xs text-muted-foreground">→</span>
             <Input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)} className="w-36 h-8 text-xs" />
           </div>
+        </div>
+      </div>
+
+      {/* Filters row */}
+      <div className="flex items-center gap-3 flex-wrap">
+        {categories.length > 0 && (
+          <Select value={categoryFilter} onValueChange={v => { setCategoryFilter(v); setSubcategoryFilter('all'); }}>
+            <SelectTrigger className="w-44 h-8 text-xs"><SelectValue placeholder="Kategoria" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Wszystkie kategorie</SelectItem>
+              {categories.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        )}
+        {subcategories.length > 0 && (
+          <Select value={subcategoryFilter} onValueChange={setSubcategoryFilter}>
+            <SelectTrigger className="w-44 h-8 text-xs"><SelectValue placeholder="Subkategoria" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Wszystkie subkategorie</SelectItem>
+              {subcategories.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        )}
+        <div className="flex items-center gap-2">
+          <Switch id="yoy" checked={yoyEnabled} onCheckedChange={setYoyEnabled} />
+          <Label htmlFor="yoy" className="text-xs text-muted-foreground cursor-pointer flex items-center gap-1">
+            <GitCompare className="h-3.5 w-3.5" /> Porównaj z {year - 1}
+          </Label>
         </div>
       </div>
 
@@ -162,7 +239,6 @@ export const DashboardView = () => {
 
       {/* Charts */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Status bar chart */}
         <div className="bg-card rounded-xl border border-border p-5 shadow-sm">
           <h3 className="text-sm font-semibold mb-4 flex items-center gap-2">
             <TrendingUp className="h-4 w-4" /> Aktywności wg statusu
@@ -171,11 +247,9 @@ export const DashboardView = () => {
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={statusBarData}>
                 <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
-                <XAxis dataKey="name" className="text-xs" tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 11 }} />
+                <XAxis dataKey="name" tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 11 }} />
                 <YAxis allowDecimals={false} tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 11 }} />
-                <RechartsTooltip
-                  contentStyle={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: 8, fontSize: 12 }}
-                />
+                <RechartsTooltip contentStyle={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: 8, fontSize: 12 }} />
                 <Bar dataKey="count" name="Liczba" radius={[4, 4, 0, 0]}>
                   {statusBarData.map((entry, i) => (
                     <rect key={i} fill={entry.fill} />
@@ -186,10 +260,9 @@ export const DashboardView = () => {
           </div>
         </div>
 
-        {/* Monthly trend */}
         <div className="bg-card rounded-xl border border-border p-5 shadow-sm">
           <h3 className="text-sm font-semibold mb-4 flex items-center gap-2">
-            <Calendar className="h-4 w-4" /> Trend miesięczny
+            <Calendar className="h-4 w-4" /> Trend miesięczny {yoyEnabled && `(vs ${year - 1})`}
           </h3>
           <div className="h-64">
             <ResponsiveContainer width="100%" height="100%">
@@ -197,14 +270,15 @@ export const DashboardView = () => {
                 <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
                 <XAxis dataKey="name" tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 11 }} />
                 <YAxis allowDecimals={false} tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 11 }} />
-                <RechartsTooltip
-                  contentStyle={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: 8, fontSize: 12 }}
-                />
+                <RechartsTooltip contentStyle={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: 8, fontSize: 12 }} />
                 <Legend wrapperStyle={{ fontSize: 11 }} />
-                <Bar dataKey="Zaplanowane" fill="hsl(221, 83%, 53%)" stackId="a" radius={[0, 0, 0, 0]} />
+                <Bar dataKey="Zaplanowane" fill="hsl(221, 83%, 53%)" stackId="a" />
                 <Bar dataKey="W trakcie" fill="hsl(38, 92%, 50%)" stackId="a" />
                 <Bar dataKey="Zrealizowane" fill="hsl(142, 71%, 45%)" stackId="a" />
                 <Bar dataKey="Anulowane" fill="hsl(0, 84%, 60%)" stackId="a" radius={[4, 4, 0, 0]} />
+                {yoyEnabled && (
+                  <Bar dataKey="Poprzedni rok" fill="hsl(var(--muted-foreground))" opacity={0.4} radius={[4, 4, 0, 0]} />
+                )}
               </BarChart>
             </ResponsiveContainer>
           </div>
@@ -218,9 +292,7 @@ export const DashboardView = () => {
           const clientProducts = allProducts.filter(p => p.client_id === client.id);
           const budget = client.annual_budget ?? 0;
           const clientActivities = filteredActivities.filter(a => a.client_id === client.id);
-          const budgetUsed = clientActivities
-            .filter(a => a.status !== 'cancelled')
-            .reduce((s, a) => s + Number(a.price), 0);
+          const budgetUsed = clientActivities.filter(a => a.status !== 'cancelled').reduce((s, a) => s + Number(a.price), 0);
           const pct = budget > 0 ? (budgetUsed / budget) * 100 : 0;
           const isExpanded = expandedClient === client.id;
 
@@ -252,16 +324,11 @@ export const DashboardView = () => {
                 <div className="text-xs text-muted-foreground italic">Brak budżetu</div>
               )}
 
-              {/* Status breakdown */}
               <div className="flex flex-wrap gap-2">
                 {(['planned', 'in_progress', 'completed', 'cancelled'] as const).map(s => {
                   const count = clientActivities.filter(a => a.status === s).length;
                   if (count === 0) return null;
-                  return (
-                    <Badge key={s} variant="outline" className="text-[10px]">
-                      {statusLabels[s]}: {count}
-                    </Badge>
-                  );
+                  return <Badge key={s} variant="outline" className="text-[10px]">{statusLabels[s]}: {count}</Badge>;
                 })}
               </div>
 

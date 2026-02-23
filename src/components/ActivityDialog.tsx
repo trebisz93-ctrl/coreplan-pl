@@ -9,6 +9,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { useApp } from '@/context/AppContext';
 import { useProducts, useClients, usePackages } from '@/hooks/useData';
 import { useCreateActivity } from '@/hooks/useActivities';
+import { useCampaignTypes } from '@/hooks/useCampaignTypes';
 import { Channel, CampaignType, ActivityStatus, campaignTypeLabels } from '@/types/mediaplan';
 import { AlertTriangle } from 'lucide-react';
 import { toast } from 'sonner';
@@ -23,11 +24,18 @@ const formatPLN = (n: number) => new Intl.NumberFormat('pl-PL', { style: 'curren
 export const ActivityDialog = ({ open, onOpenChange }: Props) => {
   const { selectedClientId, selectedClient, budgetUsed } = useApp();
   const { data: clients = [] } = useClients();
+  const { data: campaignTypes = [] } = useCampaignTypes();
   const createActivity = useCreateActivity();
   const [dialogClientId, setDialogClientId] = useState<string>('');
   const effectiveClientId = dialogClientId || selectedClientId;
   const { data: clientProducts = [] } = useProducts(effectiveClientId || undefined);
   const { data: packages = [] } = usePackages();
+
+  // Merge default + custom campaign types
+  const allCampaignTypes = [
+    ...Object.entries(campaignTypeLabels).map(([k, v]) => ({ name: k, label: v })),
+    ...campaignTypes.filter(ct => !campaignTypeLabels[ct.name as CampaignType]).map(ct => ({ name: ct.name, label: ct.label })),
+  ];
 
   const [name, setName] = useState('');
   const [channel, setChannel] = useState<Channel>('online');
@@ -125,8 +133,8 @@ export const ActivityDialog = ({ open, onOpenChange }: Props) => {
               <Select value={campaignType} onValueChange={v => setCampaignType(v as CampaignType)}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  {Object.entries(campaignTypeLabels).map(([k, v]) => (
-                    <SelectItem key={k} value={k}>{v}</SelectItem>
+                  {allCampaignTypes.map(ct => (
+                    <SelectItem key={ct.name} value={ct.name}>{ct.label}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
