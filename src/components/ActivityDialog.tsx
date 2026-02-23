@@ -53,14 +53,26 @@ export const ActivityDialog = ({ open, onOpenChange }: Props) => {
     }
   };
 
+  const validate = (): string | null => {
+    if (!name.trim()) return 'Podaj nazwę aktywności';
+    if (!effectiveClientId) return 'Wybierz klienta';
+    if (!startDate) return 'Podaj datę rozpoczęcia';
+    if (!endDate) return 'Podaj datę zakończenia';
+    if (endDate < startDate) return 'Data zakończenia musi być późniejsza niż data rozpoczęcia';
+    if (!price) return 'Podaj cenę';
+    if (priceNum < 0) return 'Cena nie może być ujemna';
+    if (wouldExceed && !confirmed) return 'Potwierdź przekroczenie budżetu';
+    return null;
+  };
+
   const handleSubmit = async () => {
-    if (!name || !startDate || !endDate || !price || !effectiveClientId) return;
-    if (wouldExceed && !confirmed) return;
+    const error = validate();
+    if (error) { toast.error(error); return; }
 
     try {
       await createActivity.mutateAsync({
         client_id: effectiveClientId,
-        name,
+        name: name.trim(),
         channel,
         campaign_type: campaignType,
         start_date: startDate,
@@ -75,7 +87,7 @@ export const ActivityDialog = ({ open, onOpenChange }: Props) => {
       onOpenChange(false);
       resetForm();
     } catch (err: any) {
-      toast.error('Błąd: ' + (err.message || 'Nie udało się dodać'));
+      toast.error('Nie udało się zapisać: ' + (err.message || 'Nieznany błąd'));
     }
   };
 
@@ -132,7 +144,7 @@ export const ActivityDialog = ({ open, onOpenChange }: Props) => {
           </div>
 
           <div>
-            <Label>Klient (kategoria)</Label>
+            <Label>Klient</Label>
             <Select value={effectiveClientId} onValueChange={v => { setDialogClientId(v); setSelectedProducts([]); }}>
               <SelectTrigger><SelectValue placeholder="Wybierz klienta" /></SelectTrigger>
               <SelectContent>
@@ -176,7 +188,7 @@ export const ActivityDialog = ({ open, onOpenChange }: Props) => {
           <div className="grid grid-cols-2 gap-4">
             <div>
               <Label>Cena (PLN)</Label>
-              <Input type="number" value={price} onChange={e => setPrice(e.target.value)} placeholder="0" />
+              <Input type="number" value={price} onChange={e => setPrice(e.target.value)} placeholder="0" min="0" />
             </div>
             <div>
               <Label>Status</Label>
@@ -214,7 +226,7 @@ export const ActivityDialog = ({ open, onOpenChange }: Props) => {
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>Anuluj</Button>
-          <Button onClick={handleSubmit} disabled={!name || !startDate || !endDate || !price || (wouldExceed && !confirmed) || createActivity.isPending}>
+          <Button onClick={handleSubmit} disabled={createActivity.isPending}>
             {createActivity.isPending ? 'Dodawanie...' : 'Dodaj'}
           </Button>
         </DialogFooter>

@@ -3,7 +3,7 @@ import { useApp } from '@/context/AppContext';
 const formatPLN = (n: number) => new Intl.NumberFormat('pl-PL', { style: 'currency', currency: 'PLN', maximumFractionDigits: 0 }).format(n);
 
 export const BudgetBar = () => {
-  const { selectedClient, budgetUsed } = useApp();
+  const { selectedClient, budgetUsed, budgetPlanned, budgetCompleted } = useApp();
   if (!selectedClient) return null;
 
   const annualBudget = selectedClient.annual_budget || 0;
@@ -25,9 +25,10 @@ export const BudgetBar = () => {
           <div className={`h-full rounded-full transition-all ${barColor}`} style={{ width: `${Math.min(pct, 100)}%` }} />
         </div>
       </div>
-      <div className="flex gap-4 text-xs whitespace-nowrap">
+      <div className="flex gap-3 text-xs whitespace-nowrap">
         <span className="text-muted-foreground">Plan: <strong className="text-foreground">{formatPLN(annualBudget)}</strong></span>
-        <span className="text-muted-foreground">Użyte: <strong className="text-foreground">{formatPLN(budgetUsed)}</strong></span>
+        <span className="text-muted-foreground">Zaplanowane: <strong className="text-foreground">{formatPLN(budgetPlanned)}</strong></span>
+        <span className="text-muted-foreground">Zrealizowane: <strong className="text-foreground">{formatPLN(budgetCompleted)}</strong></span>
         <span className="text-muted-foreground">Zostało: <strong className={remaining < 0 ? 'text-destructive' : 'text-foreground'}>{formatPLN(remaining)}</strong></span>
         <span className="font-bold" style={{ color: pct > 90 ? 'hsl(0,84%,60%)' : pct > 70 ? 'hsl(38,92%,50%)' : 'hsl(142,71%,45%)' }}>
           {pct.toFixed(0)}%

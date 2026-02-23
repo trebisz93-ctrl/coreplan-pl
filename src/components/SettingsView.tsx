@@ -6,6 +6,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { User, Mail, Shield, Users } from 'lucide-react';
 import { toast } from 'sonner';
 
+const roleLabels: Record<string, string> = {
+  admin: 'Administrator',
+  manager: 'Manager',
+  user: 'Użytkownik',
+  viewer: 'Viewer (tylko podgląd)',
+};
+
 export const SettingsView = () => {
   const { user } = useAuth();
   const { data: myRole } = useMyRole();
@@ -15,11 +22,11 @@ export const SettingsView = () => {
 
   const isAdmin = myRole === 'admin';
 
-  const handleRoleChange = async (userId: string, role: 'admin' | 'user') => {
+  const handleRoleChange = async (userId: string, role: 'admin' | 'manager' | 'user' | 'viewer') => {
     try {
-      await setUserRole.mutateAsync({ userId, role });
+      await setUserRole.mutateAsync({ userId, role: role as any });
       toast.success('Rola zaktualizowana');
-    } catch (e: any) { toast.error(e.message); }
+    } catch (e: any) { toast.error('Nie udało się zmienić roli: ' + (e.message || 'Nieznany błąd')); }
   };
 
   const getUserRole = (userId: string) => roles.find(r => r.user_id === userId)?.role ?? 'user';
@@ -47,7 +54,7 @@ export const SettingsView = () => {
             <Shield className="h-4 w-4 text-muted-foreground" />
             <div>
               <p className="text-sm font-medium">Rola</p>
-              <Badge variant={isAdmin ? 'default' : 'secondary'}>{isAdmin ? 'Administrator' : 'Użytkownik'}</Badge>
+              <Badge variant={isAdmin ? 'default' : 'secondary'}>{roleLabels[myRole || 'user'] || myRole}</Badge>
             </div>
           </div>
         </CardContent>
@@ -81,15 +88,17 @@ export const SettingsView = () => {
                       {isSelf && <Badge variant="outline" className="text-xs">Ty</Badge>}
                       <Select
                         value={role}
-                        onValueChange={v => handleRoleChange(profile.user_id, v as 'admin' | 'user')}
+                        onValueChange={v => handleRoleChange(profile.user_id, v as any)}
                         disabled={isSelf}
                       >
-                        <SelectTrigger className="w-36 h-8 text-sm">
+                        <SelectTrigger className="w-44 h-8 text-sm">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
                           <SelectItem value="admin">Administrator</SelectItem>
+                          <SelectItem value="manager">Manager</SelectItem>
                           <SelectItem value="user">Użytkownik</SelectItem>
+                          <SelectItem value="viewer">Viewer (tylko podgląd)</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>

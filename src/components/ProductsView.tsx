@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useClients, useProducts, useCreateProduct, useUpdateProduct, useDeleteProduct, useSeedProducts } from '@/hooks/useData';
+import { useCanEdit } from '@/hooks/useRole';
 import { allSeedProducts } from '@/data/seedProducts';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -23,6 +24,7 @@ export const ProductsView = () => {
   const updateProduct = useUpdateProduct();
   const deleteProduct = useDeleteProduct();
   const seedProducts = useSeedProducts();
+  const canEdit = useCanEdit();
 
   const [newName, setNewName] = useState('');
   const [newEan, setNewEan] = useState('');
@@ -41,26 +43,27 @@ export const ProductsView = () => {
 
   const handleCreate = async () => {
     const clientId = newClientId || (selectedClientId !== 'all' ? selectedClientId : '');
-    if (!newName.trim() || !clientId) { toast.error('Podaj nazwę produktu i wybierz klienta'); return; }
+    if (!newName.trim()) { toast.error('Podaj nazwę produktu'); return; }
+    if (!clientId) { toast.error('Wybierz klienta'); return; }
     try {
       await createProduct.mutateAsync({ name: newName.trim(), clientId, ean: newEan.trim() || undefined });
       setNewName(''); setNewEan('');
       toast.success('Produkt dodany');
-    } catch (e: any) { toast.error(e.message); }
+    } catch (e: any) { toast.error('Nie udało się zapisać: ' + (e.message || 'Nieznany błąd')); }
   };
 
   const handleUpdate = async (id: string) => {
-    if (!editName.trim()) return;
+    if (!editName.trim()) { toast.error('Podaj nazwę produktu'); return; }
     try {
       await updateProduct.mutateAsync({ id, name: editName.trim(), ean: editEan.trim() || undefined });
       setEditingId(null);
       toast.success('Produkt zaktualizowany');
-    } catch (e: any) { toast.error(e.message); }
+    } catch (e: any) { toast.error('Nie udało się zapisać: ' + (e.message || 'Nieznany błąd')); }
   };
 
   const handleDelete = async (id: string) => {
     try { await deleteProduct.mutateAsync(id); toast.success('Produkt usunięty'); }
-    catch (e: any) { toast.error(e.message); }
+    catch (e: any) { toast.error('Nie udało się usunąć: ' + (e.message || 'Nieznany błąd')); }
   };
 
   const handleSeed = async () => {
@@ -69,7 +72,7 @@ export const ProductsView = () => {
     try {
       await seedProducts.mutateAsync({ clientId: seedClientId, products: group.products });
       toast.success(`Zaimportowano ${group.products.length} produktów (${group.group})`);
-    } catch (e: any) { toast.error(e.message); }
+    } catch (e: any) { toast.error('Nie udało się zaimportować: ' + (e.message || 'Nieznany błąd')); }
   };
 
   if (isLoading) {
@@ -84,32 +87,34 @@ export const ProductsView = () => {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h2 className="text-xl font-bold">Produkty</h2>
-        <Dialog>
-          <DialogTrigger asChild>
-            <Button variant="outline" className="gap-2"><Download className="h-4 w-4" /> Importuj produkty</Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader><DialogTitle>Importuj produkty startowe</DialogTitle></DialogHeader>
-            <div className="space-y-4">
-              <Select value={seedClientId} onValueChange={setSeedClientId}>
-                <SelectTrigger><SelectValue placeholder="Wybierz klienta" /></SelectTrigger>
-                <SelectContent>{clients.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}</SelectContent>
-              </Select>
-              <Select value={String(seedGroupIdx)} onValueChange={v => setSeedGroupIdx(Number(v))}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {allSeedProducts.map((g, i) => <SelectItem key={i} value={String(i)}>{g.group} ({g.products.length} szt.)</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
-            <DialogFooter>
-              <DialogClose asChild><Button variant="outline">Anuluj</Button></DialogClose>
-              <Button onClick={handleSeed} disabled={seedProducts.isPending}>
-                {seedProducts.isPending ? 'Importuję...' : 'Importuj'}
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+        {canEdit && (
+          <Dialog>
+            <DialogTrigger asChild>
+              <Button variant="outline" className="gap-2"><Download className="h-4 w-4" /> Importuj produkty</Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader><DialogTitle>Importuj produkty startowe</DialogTitle></DialogHeader>
+              <div className="space-y-4">
+                <Select value={seedClientId} onValueChange={setSeedClientId}>
+                  <SelectTrigger><SelectValue placeholder="Wybierz klienta" /></SelectTrigger>
+                  <SelectContent>{clients.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}</SelectContent>
+                </Select>
+                <Select value={String(seedGroupIdx)} onValueChange={v => setSeedGroupIdx(Number(v))}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {allSeedProducts.map((g, i) => <SelectItem key={i} value={String(i)}>{g.group} ({g.products.length} szt.)</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <DialogFooter>
+                <DialogClose asChild><Button variant="outline">Anuluj</Button></DialogClose>
+                <Button onClick={handleSeed} disabled={seedProducts.isPending}>
+                  {seedProducts.isPending ? 'Importuję...' : 'Importuj'}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+        )}
       </div>
 
       {/* Filters */}
@@ -133,21 +138,23 @@ export const ProductsView = () => {
       </div>
 
       {/* Add */}
-      <div className="flex gap-2 flex-wrap">
-        <Input placeholder="Nazwa produktu..." value={newName} onChange={e => setNewName(e.target.value)}
-          onKeyDown={e => e.key === 'Enter' && handleCreate()} className="max-w-xs" />
-        <Input placeholder="EAN (opcjonalnie)" value={newEan} onChange={e => setNewEan(e.target.value)}
-          className="w-40" />
-        {selectedClientId === 'all' && (
-          <Select value={newClientId} onValueChange={setNewClientId}>
-            <SelectTrigger className="w-48"><SelectValue placeholder="Klient" /></SelectTrigger>
-            <SelectContent>{clients.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}</SelectContent>
-          </Select>
-        )}
-        <Button onClick={handleCreate} disabled={createProduct.isPending} className="gap-2">
-          <Plus className="h-4 w-4" /> Dodaj
-        </Button>
-      </div>
+      {canEdit && (
+        <div className="flex gap-2 flex-wrap">
+          <Input placeholder="Nazwa produktu..." value={newName} onChange={e => setNewName(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && handleCreate()} className="max-w-xs" />
+          <Input placeholder="EAN (opcjonalnie)" value={newEan} onChange={e => setNewEan(e.target.value)}
+            className="w-40" />
+          {selectedClientId === 'all' && (
+            <Select value={newClientId} onValueChange={setNewClientId}>
+              <SelectTrigger className="w-48"><SelectValue placeholder="Klient" /></SelectTrigger>
+              <SelectContent>{clients.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}</SelectContent>
+            </Select>
+          )}
+          <Button onClick={handleCreate} disabled={createProduct.isPending} className="gap-2">
+            <Plus className="h-4 w-4" /> Dodaj
+          </Button>
+        </div>
+      )}
 
       {/* Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -186,29 +193,31 @@ export const ProductsView = () => {
               <div className="text-xs text-muted-foreground">
                 Klient: <span className="font-medium text-foreground">{clientName}</span>
               </div>
-              <div className="flex gap-1">
-                <Button size="sm" variant="outline" className="gap-1"
-                  onClick={() => { setEditingId(product.id); setEditName(product.name); setEditEan(product.ean || ''); }}>
-                  <Pencil className="h-3 w-3" /> Edytuj
-                </Button>
-                <AlertDialog>
-                  <AlertDialogTrigger asChild>
-                    <Button size="sm" variant="outline" className="gap-1 text-destructive hover:text-destructive">
-                      <Trash2 className="h-3 w-3" /> Usuń
-                    </Button>
-                  </AlertDialogTrigger>
-                  <AlertDialogContent>
-                    <AlertDialogHeader>
-                      <AlertDialogTitle>Usunąć produkt?</AlertDialogTitle>
-                      <AlertDialogDescription>Usunięcie produktu "{product.name}" jest nieodwracalne.</AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                      <AlertDialogCancel>Anuluj</AlertDialogCancel>
-                      <AlertDialogAction onClick={() => handleDelete(product.id)}>Usuń</AlertDialogAction>
-                    </AlertDialogFooter>
-                  </AlertDialogContent>
-                </AlertDialog>
-              </div>
+              {canEdit && (
+                <div className="flex gap-1">
+                  <Button size="sm" variant="outline" className="gap-1"
+                    onClick={() => { setEditingId(product.id); setEditName(product.name); setEditEan(product.ean || ''); }}>
+                    <Pencil className="h-3 w-3" /> Edytuj
+                  </Button>
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button size="sm" variant="outline" className="gap-1 text-destructive hover:text-destructive">
+                        <Trash2 className="h-3 w-3" /> Usuń
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Usunąć produkt?</AlertDialogTitle>
+                        <AlertDialogDescription>Usunięcie produktu "{product.name}" jest nieodwracalne.</AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Anuluj</AlertDialogCancel>
+                        <AlertDialogAction onClick={() => handleDelete(product.id)}>Usuń</AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                </div>
+              )}
             </div>
           );
         })}
