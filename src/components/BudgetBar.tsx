@@ -3,19 +3,22 @@ import { useApp } from '@/context/AppContext';
 const formatPLN = (n: number) => new Intl.NumberFormat('pl-PL', { style: 'currency', currency: 'PLN', maximumFractionDigits: 0 }).format(n);
 
 export const BudgetBar = () => {
-  const { selectedPlan, budgetUsed } = useApp();
-  if (!selectedPlan) return null;
+  const { selectedClient, budgetUsed } = useApp();
+  if (!selectedClient) return null;
 
-  const { annualBudget } = selectedPlan;
+  const annualBudget = selectedClient.annual_budget || 0;
+  if (annualBudget === 0) return (
+    <div className="text-xs text-muted-foreground">Ustaw budżet roczny dla klienta w zakładce Klienci</div>
+  );
+
   const remaining = annualBudget - budgetUsed;
   const pct = annualBudget > 0 ? (budgetUsed / annualBudget) * 100 : 0;
-
   const barColor = pct > 90 ? 'bg-budget-danger' : pct > 70 ? 'bg-budget-warning' : 'bg-budget-safe';
 
   return (
     <div className="flex items-center gap-4">
       <div className="text-xs font-semibold text-muted-foreground whitespace-nowrap">
-        BUDŻET {selectedPlan.year}
+        BUDŻET {selectedClient.name}
       </div>
       <div className="flex-1 min-w-32">
         <div className="h-2.5 rounded-full bg-secondary overflow-hidden">

@@ -1,4 +1,5 @@
 import { useApp } from '@/context/AppContext';
+import { useProducts } from '@/hooks/useData';
 import { Button } from '@/components/ui/button';
 import { FileText, Download } from 'lucide-react';
 import { statusLabels, campaignTypeLabels } from '@/types/mediaplan';
@@ -6,7 +7,8 @@ import { statusLabels, campaignTypeLabels } from '@/types/mediaplan';
 const formatPLN = (n: number) => new Intl.NumberFormat('pl-PL', { style: 'currency', currency: 'PLN', maximumFractionDigits: 0 }).format(n);
 
 export const ReportsView = () => {
-  const { allActivities, clientProducts, selectedPlan } = useApp();
+  const { allActivities, selectedClientId, selectedClient } = useApp();
+  const { data: clientProducts = [] } = useProducts(selectedClientId || undefined);
 
   const exportCSV = () => {
     const headers = ['Nazwa', 'Kanał', 'Typ', 'Start', 'Koniec', 'Cena', 'Status', 'Produkty', 'Notatka'];
@@ -22,7 +24,7 @@ export const ReportsView = () => {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `raport-${selectedPlan?.name || 'mediaplan'}.csv`;
+    a.download = `raport-${selectedClient?.name || 'mediaplan'}.csv`;
     a.click();
     URL.revokeObjectURL(url);
   };

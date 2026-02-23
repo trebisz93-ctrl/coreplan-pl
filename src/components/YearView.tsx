@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 import { useApp } from '@/context/AppContext';
+import { useProducts } from '@/hooks/useData';
 import { Activity, campaignColors, statusLabels, campaignTypeLabels } from '@/types/mediaplan';
 import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/hover-card';
 import { Badge } from '@/components/ui/badge';
@@ -15,8 +16,9 @@ const statusBadgeClass: Record<string, string> = {
 };
 
 export const YearView = () => {
-  const { filteredActivities, clientProducts, selectedPlan } = useApp();
-  const year = selectedPlan?.year || 2026;
+  const { filteredActivities, selectedClientId } = useApp();
+  const { data: clientProducts = [] } = useProducts(selectedClientId || undefined);
+  const year = 2026;
 
   const activitiesByProduct = useMemo(() => {
     const map: Record<string, Activity[]> = {};
@@ -119,7 +121,9 @@ export const YearView = () => {
       })}
 
       {clientProducts.length === 0 && (
-        <div className="p-12 text-center text-muted-foreground">Brak produktów dla wybranego klienta</div>
+        <div className="p-12 text-center text-muted-foreground">
+          {selectedClientId ? 'Brak produktów dla wybranego klienta. Dodaj produkty w zakładce Produkty.' : 'Wybierz klienta na górze.'}
+        </div>
       )}
     </div>
   );
