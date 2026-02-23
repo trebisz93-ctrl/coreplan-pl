@@ -196,29 +196,38 @@ export type Database = {
       }
       products: {
         Row: {
+          brand: string | null
+          category: string | null
           client_id: string
           created_at: string
           ean: string | null
           id: string
           name: string
+          subcategory: string | null
           updated_at: string
           user_id: string
         }
         Insert: {
+          brand?: string | null
+          category?: string | null
           client_id: string
           created_at?: string
           ean?: string | null
           id?: string
           name: string
+          subcategory?: string | null
           updated_at?: string
           user_id: string
         }
         Update: {
+          brand?: string | null
+          category?: string | null
           client_id?: string
           created_at?: string
           ean?: string | null
           id?: string
           name?: string
+          subcategory?: string | null
           updated_at?: string
           user_id?: string
         }
