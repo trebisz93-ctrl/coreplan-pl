@@ -22,6 +22,31 @@ export interface DbProduct {
   updated_at: string;
 }
 
+export interface DbPackage {
+  id: string;
+  user_id: string;
+  name: string;
+  description: string;
+  default_price: number;
+  items: { id: string; name: string; quantity: number; unitPrice: number }[];
+  created_at: string;
+  updated_at: string;
+}
+
+export interface DbProfile {
+  id: string;
+  user_id: string;
+  display_name: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface DbUserRole {
+  id: string;
+  user_id: string;
+  role: 'admin' | 'user';
+}
+
 // ── Clients ──
 
 export const useClients = () => {
@@ -43,10 +68,7 @@ export const useCreateClient = () => {
   return useMutation({
     mutationFn: async (name: string) => {
       const { data, error } = await supabase
-        .from('clients')
-        .insert({ name, user_id: user!.id })
-        .select()
-        .single();
+        .from('clients').insert({ name, user_id: user!.id }).select().single();
       if (error) throw error;
       return data as DbClient;
     },
@@ -113,10 +135,7 @@ export const useCreateProduct = () => {
   return useMutation({
     mutationFn: async ({ name, clientId, ean }: { name: string; clientId: string; ean?: string }) => {
       const { data, error } = await supabase
-        .from('products')
-        .insert({ name, client_id: clientId, user_id: user!.id, ean: ean || null } as any)
-        .select()
-        .single();
+        .from('products').insert({ name, client_id: clientId, user_id: user!.id, ean: ean || null } as any).select().single();
       if (error) throw error;
       return data as DbProduct;
     },
@@ -146,22 +165,122 @@ export const useDeleteProduct = () => {
   });
 };
 
-// ── Seed Products ──
-
 export const useSeedProducts = () => {
   const qc = useQueryClient();
   const { user } = useAuth();
   return useMutation({
     mutationFn: async ({ clientId, products }: { clientId: string; products: SeedProduct[] }) => {
-      const rows = products.map(p => ({
-        name: p.name,
-        ean: p.ean,
-        client_id: clientId,
-        user_id: user!.id,
-      }));
+      const rows = products.map(p => ({ name: p.name, ean: p.ean, client_id: clientId, user_id: user!.id }));
       const { error } = await supabase.from('products').insert(rows as any);
       if (error) throw error;
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['products'] }),
+  });
+};
+
+// ── Packages ──
+
+export const usePackages = () => {
+  const { user } = useAuth();
+  return useQuery({
+    queryKey: ['packages', user?.id],
+    queryFn: async () => {
+      const { data, error } = await supabase.from('packages').select('*').order('name');
+      if (error) throw error;
+      return data as DbPackage[];
+    },
+    enabled: !!user,
+  });
+};
+
+export const useCreatePackage = () => {
+  const qc = useQueryClient();
+  const { user } = useAuth();
+  return useMutation({
+    mutationFn: async (pkg: { name: string; description: string; default_price: number; items: any[] }) => {
+      const { data, error } = await supabase
+        .from('packages').insert({ ...pkg, user_id: user!.id } as any).select().single();
+      if (error) throw error;
+      return data as DbPackage;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['packages'] }),
+  });
+};
+
+export const useUpdatePackage = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, ...pkg }: { id: string; name?: string; description?: string; default_price?: number; items?: any[] }) => {
+      const { error } = await supabase.from('packages').update(pkg as any).eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['packages'] }),
+  });
+};
+
+export const useDeletePackage = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from('packages').delete().eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['packages'] }),
+  });
+};
+
+// ── Profiles & Roles (admin) ──
+
+export const useProfiles = () => {
+  const { user } = useAuth();
+  return useQuery({
+    queryKey: ['profiles'],
+    queryFn: async () => {
+      const { data, error } = await supabase.from('profiles').select('*').order('display_name');
+      if (error) throw error;
+      return data as DbProfile[];
+    },
+    enabled: !!user,
+  });
+};
+
+export const useUserRoles = () => {
+  const { user } = useAuth();
+  return useQuery({
+    queryKey: ['user_roles'],
+    queryFn: async () => {
+      const { data, error } = await supabase.from('user_roles').select('*');
+      if (error) throw error;
+      return data as DbUserRole[];
+    },
+    enabled: !!user,
+  });
+};
+
+export const useMyRole = () => {
+  const { user } = useAuth();
+  return useQuery({
+    queryKey: ['my_role', user?.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('user_roles').select('role').eq('user_id', user!.id);
+      if (error) throw error;
+      return data?.[0]?.role as 'admin' | 'user' | undefined;
+    },
+    enabled: !!user,
+  });
+};
+
+export const useSetUserRole = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ userId, role }: { userId: string; role: 'admin' | 'user' }) => {
+      // Upsert role
+      const { error: delError } = await supabase.from('user_roles').delete().eq('user_id', userId);
+      if (delError) throw delError;
+      const { error } = await supabase.from('user_roles').insert({ user_id: userId, role } as any);
+      if (error) throw error;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['user_roles'] }),
   });
 };

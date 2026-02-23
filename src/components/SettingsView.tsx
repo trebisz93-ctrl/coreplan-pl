@@ -1,20 +1,37 @@
 import { useAuth } from '@/context/AuthContext';
+import { useProfiles, useUserRoles, useMyRole, useSetUserRole } from '@/hooks/useData';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { User, Mail, Shield } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { User, Mail, Shield, Users } from 'lucide-react';
+import { toast } from 'sonner';
 
 export const SettingsView = () => {
   const { user } = useAuth();
+  const { data: myRole } = useMyRole();
+  const { data: profiles = [] } = useProfiles();
+  const { data: roles = [] } = useUserRoles();
+  const setUserRole = useSetUserRole();
+
+  const isAdmin = myRole === 'admin';
+
+  const handleRoleChange = async (userId: string, role: 'admin' | 'user') => {
+    try {
+      await setUserRole.mutateAsync({ userId, role });
+      toast.success('Rola zaktualizowana');
+    } catch (e: any) { toast.error(e.message); }
+  };
+
+  const getUserRole = (userId: string) => roles.find(r => r.user_id === userId)?.role ?? 'user';
 
   return (
-    <div className="space-y-6 max-w-2xl">
+    <div className="space-y-6 max-w-3xl">
       <h2 className="text-xl font-bold">Ustawienia</h2>
 
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-base">
-            <User className="h-4 w-4" />
-            Konto
+            <User className="h-4 w-4" /> Konto
           </CardTitle>
           <CardDescription>Informacje o Twoim koncie</CardDescription>
         </CardHeader>
@@ -30,11 +47,62 @@ export const SettingsView = () => {
             <Shield className="h-4 w-4 text-muted-foreground" />
             <div>
               <p className="text-sm font-medium">Rola</p>
-              <Badge variant="secondary">Użytkownik</Badge>
+              <Badge variant={isAdmin ? 'default' : 'secondary'}>{isAdmin ? 'Administrator' : 'Użytkownik'}</Badge>
             </div>
           </div>
         </CardContent>
       </Card>
+
+      {isAdmin && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Users className="h-4 w-4" /> Zarządzanie użytkownikami
+            </CardTitle>
+            <CardDescription>Zarządzaj kontami i rolami użytkowników</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              {profiles.map(profile => {
+                const role = getUserRole(profile.user_id);
+                const isSelf = profile.user_id === user?.id;
+                return (
+                  <div key={profile.id} className="flex items-center justify-between py-2 border-b border-border last:border-0">
+                    <div className="flex items-center gap-3">
+                      <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
+                        <User className="h-4 w-4 text-primary" />
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium">{profile.display_name || 'Bez nazwy'}</p>
+                        <p className="text-xs text-muted-foreground">{profile.user_id.slice(0, 8)}...</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {isSelf && <Badge variant="outline" className="text-xs">Ty</Badge>}
+                      <Select
+                        value={role}
+                        onValueChange={v => handleRoleChange(profile.user_id, v as 'admin' | 'user')}
+                        disabled={isSelf}
+                      >
+                        <SelectTrigger className="w-36 h-8 text-sm">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="admin">Administrator</SelectItem>
+                          <SelectItem value="user">Użytkownik</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                );
+              })}
+              {profiles.length === 0 && (
+                <p className="text-sm text-muted-foreground">Brak użytkowników.</p>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       <Card>
         <CardHeader>
