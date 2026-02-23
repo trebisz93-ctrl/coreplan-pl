@@ -1,130 +1,101 @@
 
 
-# Migracja aktywnosci i planow mediowych do bazy danych
+# Plan: MediaPlan CRM -- Etap 1 (Naprawa) + Etap 2 (UX/Ulepszenia)
 
-## Podsumowanie
+## ETAP 1 -- NAPRAWA (krytyczne)
 
-Aktywnosci i media plany sa obecnie przechowywane w pamieci (mock data / local state). Po odswiezeniu strony znikaja. Ta migracja przeniesie je w 100% do bazy danych, dzieki czemu bedzie mozna:
-- Trwale zapisywac aktywnosci
-- Widziec je na planie mediowym po odswiezeniu
-- Filtrowac aktywnosci per klient
-- Obliczac budzet na podstawie prawdziwych danych
+### 1.1 Aktywnosci: zapis, timeline, budzet
 
----
+**Problem**: Aktywnosci zapisuja sie, ale logika budzetu w `AppContext.tsx` liczy `budgetUsed` jako **wszystkie nie-anulowane** (linia 66). Trzeba rozdzielic na:
+- `budgetPlanned` = planned + in_progress (rezerwacja)
+- `budgetCompleted` = completed (realizacja)  
+- `budgetUsed` = planned + in_progress + completed (bez cancelled)
 
-## Etap 1: Migracja bazy danych (nowe tabele)
+**Zmiany**:
+- **`src/context/AppContext.tsx`**: Juz ma `budgetPlanned` i `budgetCompleted` -- logika jest poprawna. Upewnij sie, ze `BudgetBar` wyswietla te wartosci osobno.
+- **`src/components/BudgetBar.tsx`**: Rozszerz o wyswietlanie "Zaplanowane" i "Zrealizowane" oddzielnie. Aktualnie pokazuje tylko "Uzyte" (wszystko bez cancelled).
+- **`src/components/ActivityDialog.tsx`**: Popraw walidacje (punkt 1.3) i upewnij sie, ze `effectiveClientId` jest zawsze ustawiony.
 
-### Tabela `media_plans`
-Przechowuje media plany przypisane do klienta:
+### 1.2 Obsluga bledow zapisu -- feedback
 
-```text
-media_plans
------------
-id           uuid (PK, default gen_random_uuid())
-user_id      uuid (NOT NULL, ref auth.users)
-client_id    uuid (NOT NULL, ref clients)
-name         text (NOT NULL)
-year         integer (NOT NULL, default 2026)
-version      text (default 'v1')
-created_at   timestamptz (default now())
-updated_at   timestamptz (default now())
-```
+**Problem**: Wiekszosc catch-ow juz pokazuje `toast.error(e.message)`, ale komunikaty moga byc niejasne (surowe bledy Postgres).
 
-### Tabela `activities`
-Przechowuje poszczegolne aktywnosci reklamowe:
+**Zmiany**:
+- **`src/hooks/useActivities.ts`**: Dodaj lepsze formatowanie bledow w mutacjach (`onError` callback).
+- **`src/hooks/useData.ts`**: Analogicznie -- ustandaryzuj komunikaty bledow.
+- **`src/components/ActivityDialog.tsx`**: Juz ma `toast.error('Blad: ' + ...)` -- popraw format.
 
-```text
-activities
-----------
-id              uuid (PK, default gen_random_uuid())
-user_id         uuid (NOT NULL, ref auth.users)
-client_id       uuid (NOT NULL, ref clients)
-plan_id         uuid (ref media_plans, nullable)
-name            text (NOT NULL)
-channel         text (NOT NULL) -- 'online' / 'offline'
-campaign_type   text (NOT NULL) -- 'display','social', etc.
-start_date      date (NOT NULL)
-end_date        date (NOT NULL)
-product_ids     uuid[] (default '{}')
-package_id      uuid (ref packages, nullable)
-price           numeric (default 0)
-status          text (default 'planned')
-note            text
-created_at      timestamptz (default now())
-updated_at      timestamptz (default now())
-```
+### 1.3 Walidacje (blokady)
 
-### RLS na obu tabelach
-- SELECT/INSERT/UPDATE/DELETE -- `auth.uid() = user_id`
-- Standardowe polityki per uzytkownik (tak jak na clients/products)
+**Zmiany w `ActivityDialog.tsx`**:
+- Walidacja: `end_date >= start_date` -- blokuj z komunikatem "Data zakonczenia musi byc pozniejsza niz data rozpoczecia".
+- Walidacja: `price >= 0` -- blokuj z komunikatem "Cena nie moze byc ujemna".
+- Walidacja: `effectiveClientId` musi byc wybrany.
+- Popraw komunikaty -- osobne dla kazdego pola.
+
+**Zmiany w `PackagesView.tsx`**:
+- Walidacja `default_price >= 0`.
+- Walidacja ze `name` nie jest pusty (juz jest).
+
+**Zmiany w `ProductsView.tsx`**:
+- Rozdziel komunikaty: "Podaj nazwe produktu" vs "Wybierz klienta" osobno.
 
 ---
 
-## Etap 2: Hooki danych (`useData.ts`)
+## ETAP 2 -- POPRAWKI / UX / Ulepszenia
 
-Nowe interfejsy i hooki:
+### 2.1 Pakiety zgodnie ze specyfikacja
 
-| Hook | Opis |
-|------|------|
-| `DbActivity` | Interfejs odzwierciedlajacy kolumny tabeli activities |
-| `DbMediaPlan` | Interfejs dla media_plans |
-| `useActivities(clientId?)` | Pobiera aktywnosci, opcjonalnie filtrowane per klient |
-| `useCreateActivity()` | Tworzy nowa aktywnosc w bazie |
-| `useUpdateActivity()` | Aktualizuje istniejaca aktywnosc |
-| `useDeleteActivity()` | Usuwa aktywnosc |
-| `useMediaPlans(clientId?)` | Pobiera plany mediowe |
-| `useCreateMediaPlan()` | Tworzy nowy plan |
+**Dane**: Seed 6 pakietow z dokladnymi nazwami, cenami i elementami zakresu.
 
----
+**Zmiany**:
+- **Baza danych**: Uzyj narzedzia insert do wstawienia 6 predefiniowanych pakietow dla aktualnego uzytkownika. Kazdy pakiet ma `items` jako tablice JSON z elementami zakresu.
+- Pakiety:
+  1. PAKIET MINI -- 12 000 zl (Rich Content: SI, Kategoria, Listing: Pozycjonowanie produktu 1.2)
+  2. STANDARD -- 30 000 zl (3 elementy)
+  3. CORE SOCIAL MEDIA -- 40 000 zl (3 elementy)
+  4. KORZYSTNY -- 80 000 zl (5 elementow)
+  5. TYDZIEN Z MARKA -- 100 000 zl (7 elementow)
+  6. WIDOCZNOSC -- 130 000 zl (7 elementow)
 
-## Etap 3: Aktualizacja `AppContext.tsx`
+### 2.2 UX i dostepnosc
 
-- Usuniecie importu `mockActivities` -- aktywnosci beda pobierane z bazy przez `useActivities(effectiveClientId)`
-- `addActivity` i `updateActivity` przestana uzywac `useState`, zamiast tego beda invalidiowac query cache
-- Obliczanie budzetow (`budgetUsed`, `budgetPlanned`, etc.) na bazie danych z bazy
-- Eksport mutacji zamiast setterow stanu
+**Zmiany**:
+- **`src/components/ActivityDialog.tsx`**: Zmien label "Klient (kategoria)" na "Klient".
+- **`src/components/ClientsView.tsx`**: Dodaj Tooltip do przyciskow Check/X w edycji budzetu z etykietami "Zapisz" i "Anuluj".
+- **`src/components/PackagesView.tsx`**: Dodaj Tooltip "Usun element" do przycisku X przy elementach pakietu. Popraw formatowanie cen w elementach (formatPLN).
+- **Selecty**: Upewnij sie, ze `<SelectValue>` wyswietla aktualnie wybrana wartosc (powinno dzialac domyslnie z Radix -- weryfikacja).
 
----
+### 2.3 Role i separacja danych (multi-tenant enforcement)
 
-## Etap 4: Aktualizacja komponentow
+**Zmiany w bazie danych** (migracja SQL):
+- Rozszerz enum `app_role` o wartosc `'manager'` i `'viewer'`.
+- RLS juz jest poprawne (user_id = auth.uid() na wszystkich tabelach) -- multi-tenant jest wymuszony.
 
-### `ActivityDialog.tsx`
-- `handleSubmit` zamiast `addActivity(localObj)` uzyje `useCreateActivity().mutateAsync()`
-- `planId` zostanie zamieniony na `client_id` (aktywnosc jest przypisana do klienta)
-
-### `YearView.tsx`
-- Aktywnosci beda pobierane z kontekstu (ktory teraz ciagnie z bazy)
-- Bez zmian w logice wyswietlania
-
-### `DashboardView.tsx`
-- `budgetUsed` per klient -- obliczany z `useActivities(clientId)` lub z kontekstu
-- Zamiast hardcoded `0`, prawdziwe dane
-
-### `ReportsView.tsx`
-- Tabela i eksport CSV na bazie danych z bazy
-
-### `BudgetBar.tsx`
-- Bez zmian -- juz korzysta z kontekstu
+**Zmiany w kodzie**:
+- **`src/hooks/useData.ts`**: Zaktualizuj typ `DbUserRole.role` na `'admin' | 'manager' | 'viewer'`.
+- **`src/components/SettingsView.tsx`**: Dodaj opcje Manager i Viewer w select roli.
+- **`src/context/AppContext.tsx`**: Dodaj `userRole` do kontekstu (pobierz z `useMyRole`).
+- **Utworz `src/hooks/useRole.ts`**: Hook `useCanEdit()` ktory zwraca `true` jesli rola != 'viewer'.
+- **Komponenty**: W `ClientsView`, `ProductsView`, `PackagesView`, `ActivityDialog`, `TopBar` -- ukryj przyciski edycji/usuwania/dodawania jesli `useCanEdit() === false`.
+- **`src/components/BudgetBar.tsx`**: Viewer widzi budzet ale nie moze edytowac.
 
 ---
 
-## Etap 5: Usuniecie mock data
+## Podsumowanie zmian w plikach
 
-- Plik `src/data/mockData.ts` -- usuniecie `activities` i `mediaPlans` (plik moze zostac pusty lub usuniety)
-- Zadne komponenty nie beda juz importowac mockow
-
----
-
-## Zmienione pliki
-
-| Plik | Zmiana |
-|------|--------|
-| `supabase/migrations/...` | Nowa migracja: tabele `media_plans` + `activities` z RLS |
-| `src/hooks/useData.ts` | Nowe hooki: useActivities, useCreateActivity, useUpdateActivity, useDeleteActivity, useMediaPlans |
-| `src/context/AppContext.tsx` | Refaktor: aktywnosci z bazy, mutacje przez hooki, usuniety mock import |
-| `src/components/ActivityDialog.tsx` | Submit przez useCreateActivity, client_id zamiast planId |
-| `src/components/DashboardView.tsx` | Prawdziwe dane budzetowe per klient |
-| `src/components/ReportsView.tsx` | Dane z bazy |
-| `src/data/mockData.ts` | Usuniecie/wyczyszczenie |
-| `src/integrations/supabase/types.ts` | Automatycznie zaktualizowany po migracji |
+| Plik | Typ zmiany |
+|------|-----------|
+| `src/components/BudgetBar.tsx` | Rozdzielenie budgetu na zaplanowane/zrealizowane |
+| `src/components/ActivityDialog.tsx` | Walidacje, label "Klient", error handling |
+| `src/components/PackagesView.tsx` | Tooltip usun element, formatowanie cen, walidacja ceny |
+| `src/components/ProductsView.tsx` | Rozdzielone komunikaty walidacji |
+| `src/components/ClientsView.tsx` | Tooltip na przyciskach budzetu |
+| `src/components/SettingsView.tsx` | Manager/Viewer role |
+| `src/components/TopBar.tsx` | Ukrycie "Dodaj" dla Viewer |
+| `src/context/AppContext.tsx` | Eksport roli uzytkownika |
+| `src/hooks/useData.ts` | Rozszerzenie typow rol |
+| `src/hooks/useRole.ts` | **NOWY** -- hook useCanEdit |
+| Migracja SQL | ALTER TYPE app_role ADD VALUE |
+| Insert danych | 6 pakietow seedowych |
 
