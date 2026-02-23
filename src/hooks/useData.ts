@@ -141,9 +141,9 @@ export const useCreateProduct = () => {
   const qc = useQueryClient();
   const { user } = useAuth();
   return useMutation({
-    mutationFn: async ({ name, clientId, ean }: { name: string; clientId: string; ean?: string }) => {
+    mutationFn: async ({ name, clientId, ean, category, subcategory, brand }: { name: string; clientId?: string; ean?: string; category?: string; subcategory?: string; brand?: string }) => {
       const { data, error } = await supabase
-        .from('products').insert({ name, client_id: clientId, user_id: user!.id, ean: ean || null } as any).select().single();
+        .from('products').insert({ name, client_id: clientId || null, user_id: user!.id, ean: ean || null, category: category || null, subcategory: subcategory || null, brand: brand || null } as any).select().single();
       if (error) throw error;
       return data as DbProduct;
     },
@@ -154,8 +154,8 @@ export const useCreateProduct = () => {
 export const useUpdateProduct = () => {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async ({ id, name, ean }: { id: string; name: string; ean?: string }) => {
-      const { error } = await supabase.from('products').update({ name, ean: ean || null } as any).eq('id', id);
+    mutationFn: async ({ id, name, ean, category, subcategory, brand }: { id: string; name: string; ean?: string; category?: string; subcategory?: string; brand?: string }) => {
+      const { error } = await supabase.from('products').update({ name, ean: ean || null, category: category || null, subcategory: subcategory || null, brand: brand || null } as any).eq('id', id);
       if (error) throw error;
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['products'] }),
