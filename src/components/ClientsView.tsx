@@ -1,32 +1,125 @@
-import { useApp } from '@/context/AppContext';
+import { useState } from 'react';
+import { useClients, useCreateClient, useUpdateClient, useDeleteClient } from '@/hooks/useData';
+import { useProducts } from '@/hooks/useData';
 import { Badge } from '@/components/ui/badge';
-import { Building2, Package } from 'lucide-react';
-import { products } from '@/data/mockData';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Building2, Package, Plus, Pencil, Trash2, Check, X } from 'lucide-react';
+import { toast } from 'sonner';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
 
 export const ClientsView = () => {
-  const { clients, selectedClientId, setSelectedClientId } = useApp();
+  const { data: clients = [], isLoading } = useClients();
+  const { data: allProducts = [] } = useProducts();
+  const createClient = useCreateClient();
+  const updateClient = useUpdateClient();
+  const deleteClient = useDeleteClient();
+
+  const [newName, setNewName] = useState('');
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editName, setEditName] = useState('');
+
+  const handleCreate = async () => {
+    if (!newName.trim()) return;
+    try {
+      await createClient.mutateAsync(newName.trim());
+      setNewName('');
+      toast.success('Klient dodany');
+    } catch (e: any) {
+      toast.error(e.message);
+    }
+  };
+
+  const handleUpdate = async (id: string) => {
+    if (!editName.trim()) return;
+    try {
+      await updateClient.mutateAsync({ id, name: editName.trim() });
+      setEditingId(null);
+      toast.success('Klient zaktualizowany');
+    } catch (e: any) {
+      toast.error(e.message);
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    try {
+      await deleteClient.mutateAsync(id);
+      toast.success('Klient usunięty');
+    } catch (e: any) {
+      toast.error(e.message);
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
-      <h2 className="text-xl font-bold">Klienci</h2>
+      <div className="flex items-center justify-between">
+        <h2 className="text-xl font-bold">Klienci</h2>
+      </div>
+
+      {/* Add new client */}
+      <div className="flex gap-2">
+        <Input
+          placeholder="Nazwa nowego klienta..."
+          value={newName}
+          onChange={e => setNewName(e.target.value)}
+          onKeyDown={e => e.key === 'Enter' && handleCreate()}
+          className="max-w-sm"
+        />
+        <Button onClick={handleCreate} disabled={createClient.isPending} className="gap-2">
+          <Plus className="h-4 w-4" />
+          Dodaj
+        </Button>
+      </div>
+
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {clients.map(client => {
-          const clientProducts = products.filter(p => p.clientId === client.id);
-          const isSelected = client.id === selectedClientId;
+          const clientProducts = allProducts.filter(p => p.client_id === client.id);
+          const isEditing = editingId === client.id;
+
           return (
-            <div
-              key={client.id}
-              onClick={() => setSelectedClientId(client.id)}
-              className={`bg-card rounded-xl border p-5 shadow-sm cursor-pointer transition-all hover:shadow-md ${
-                isSelected ? 'border-primary ring-2 ring-primary/20' : 'border-border'
-              }`}
-            >
+            <div key={client.id} className="bg-card rounded-xl border border-border p-5 shadow-sm">
               <div className="flex items-start gap-3">
                 <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
                   <Building2 className="h-5 w-5 text-primary" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <h3 className="font-bold text-base truncate">{client.name}</h3>
+                  {isEditing ? (
+                    <div className="flex gap-1">
+                      <Input
+                        value={editName}
+                        onChange={e => setEditName(e.target.value)}
+                        onKeyDown={e => e.key === 'Enter' && handleUpdate(client.id)}
+                        className="h-8 text-sm"
+                        autoFocus
+                      />
+                      <Button size="icon" variant="ghost" className="h-8 w-8 shrink-0" onClick={() => handleUpdate(client.id)}>
+                        <Check className="h-3 w-3" />
+                      </Button>
+                      <Button size="icon" variant="ghost" className="h-8 w-8 shrink-0" onClick={() => setEditingId(null)}>
+                        <X className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  ) : (
+                    <h3 className="font-bold text-base truncate">{client.name}</h3>
+                  )}
                   <div className="flex items-center gap-1 mt-2 text-xs text-muted-foreground">
                     <Package className="h-3 w-3" />
                     <span>{clientProducts.length} produktów</span>
@@ -38,13 +131,47 @@ export const ClientsView = () => {
                   </div>
                 </div>
               </div>
-              {isSelected && (
-                <Badge className="mt-3" variant="default">Aktywny</Badge>
-              )}
+              <div className="flex gap-1 mt-3">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="gap-1"
+                  onClick={() => { setEditingId(client.id); setEditName(client.name); }}
+                >
+                  <Pencil className="h-3 w-3" />
+                  Edytuj
+                </Button>
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button size="sm" variant="outline" className="gap-1 text-destructive hover:text-destructive">
+                      <Trash2 className="h-3 w-3" />
+                      Usuń
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Usunąć klienta?</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        Usunięcie klienta "{client.name}" spowoduje usunięcie wszystkich jego produktów. Tej operacji nie można cofnąć.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Anuluj</AlertDialogCancel>
+                      <AlertDialogAction onClick={() => handleDelete(client.id)}>Usuń</AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              </div>
             </div>
           );
         })}
       </div>
+
+      {clients.length === 0 && (
+        <div className="text-center text-muted-foreground py-12">
+          Brak klientów. Dodaj pierwszego klienta powyżej.
+        </div>
+      )}
     </div>
   );
 };
