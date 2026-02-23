@@ -19,10 +19,11 @@ interface Props {
 const formatPLN = (n: number) => new Intl.NumberFormat('pl-PL', { style: 'currency', currency: 'PLN', maximumFractionDigits: 0 }).format(n);
 
 export const ActivityDialog = ({ open, onOpenChange }: Props) => {
-  const { selectedPlanId, selectedPlan, addActivity, budgetUsed } = useApp();
+  const { selectedClientId, selectedClient, addActivity, budgetUsed } = useApp();
   const { data: clients = [] } = useClients();
-  const [selectedClientId, setSelectedClientId] = useState<string>('');
-  const { data: clientProducts = [] } = useProducts(selectedClientId || undefined);
+  const [dialogClientId, setDialogClientId] = useState<string>('');
+  const effectiveClientId = dialogClientId || selectedClientId;
+  const { data: clientProducts = [] } = useProducts(effectiveClientId || undefined);
   const { data: packages = [] } = usePackages();
 
   const [name, setName] = useState('');
@@ -38,7 +39,8 @@ export const ActivityDialog = ({ open, onOpenChange }: Props) => {
   const [confirmed, setConfirmed] = useState(false);
 
   const priceNum = parseFloat(price) || 0;
-  const wouldExceed = selectedPlan && (budgetUsed + priceNum > selectedPlan.annualBudget);
+  const annualBudget = selectedClient?.annual_budget || 0;
+  const wouldExceed = annualBudget > 0 && (budgetUsed + priceNum > annualBudget);
 
   const handlePackageChange = (pkgId: string) => {
     setPackageId(pkgId);
@@ -54,7 +56,7 @@ export const ActivityDialog = ({ open, onOpenChange }: Props) => {
 
     const activity: Activity = {
       id: `a-${Date.now()}`,
-      planId: selectedPlanId,
+      planId: selectedClientId,
       name,
       channel,
       campaignType,
@@ -76,7 +78,7 @@ export const ActivityDialog = ({ open, onOpenChange }: Props) => {
     setName(''); setChannel('online'); setCampaignType('display');
     setStartDate(''); setEndDate(''); setSelectedProducts([]);
     setPackageId(''); setPrice(''); setStatus('planned'); setNote('');
-    setConfirmed(false); setSelectedClientId('');
+    setConfirmed(false); setDialogClientId('');
   };
 
   return (
@@ -127,7 +129,7 @@ export const ActivityDialog = ({ open, onOpenChange }: Props) => {
           {/* Client/Category -> Product (optional) */}
           <div>
             <Label>Klient (kategoria)</Label>
-            <Select value={selectedClientId} onValueChange={v => { setSelectedClientId(v); setSelectedProducts([]); }}>
+            <Select value={effectiveClientId} onValueChange={v => { setDialogClientId(v); setSelectedProducts([]); }}>
               <SelectTrigger><SelectValue placeholder="Wybierz klienta" /></SelectTrigger>
               <SelectContent>
                 {clients.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
@@ -135,7 +137,7 @@ export const ActivityDialog = ({ open, onOpenChange }: Props) => {
             </Select>
           </div>
 
-          {selectedClientId && clientProducts.length > 0 && (
+          {effectiveClientId && clientProducts.length > 0 && (
             <div>
               <Label>Produkty (opcjonalnie)</Label>
               <div className="space-y-2 mt-1 max-h-32 overflow-y-auto border border-border rounded-lg p-2">
@@ -196,7 +198,7 @@ export const ActivityDialog = ({ open, onOpenChange }: Props) => {
               <div>
                 <div className="text-sm font-medium text-destructive">Przekroczenie budżetu!</div>
                 <div className="text-xs text-muted-foreground mt-1">
-                  Dodanie tej aktywności przekroczy budżet roczny o {formatPLN(budgetUsed + priceNum - selectedPlan!.annualBudget)}.
+                  Dodanie tej aktywności przekroczy budżet roczny o {formatPLN(budgetUsed + priceNum - annualBudget)}.
                 </div>
                 <label className="flex items-center gap-2 mt-2 text-sm cursor-pointer">
                   <Checkbox checked={confirmed} onCheckedChange={v => setConfirmed(!!v)} />

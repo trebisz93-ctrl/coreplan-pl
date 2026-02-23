@@ -10,7 +10,6 @@ import { ActivityDialog } from './ActivityDialog';
 export const TopBar = () => {
   const {
     clients, selectedClientId, setSelectedClientId,
-    clientPlans, selectedPlanId, setSelectedPlanId,
     channelFilter, setChannelFilter,
     searchQuery, setSearchQuery,
   } = useApp();
@@ -22,19 +21,10 @@ export const TopBar = () => {
         <div className="flex items-center gap-4 flex-wrap">
           <Select value={selectedClientId} onValueChange={setSelectedClientId}>
             <SelectTrigger className="w-48">
-              <SelectValue placeholder="Klient" />
+              <SelectValue placeholder="Wybierz klienta" />
             </SelectTrigger>
             <SelectContent>
               {clients.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
-            </SelectContent>
-          </Select>
-
-          <Select value={selectedPlanId} onValueChange={setSelectedPlanId}>
-            <SelectTrigger className="w-48">
-              <SelectValue placeholder="Plan" />
-            </SelectTrigger>
-            <SelectContent>
-              {clientPlans.map(p => <SelectItem key={p.id} value={p.id}>{p.name} ({p.version})</SelectItem>)}
             </SelectContent>
           </Select>
 

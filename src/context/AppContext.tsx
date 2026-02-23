@@ -1,22 +1,20 @@
 import React, { createContext, useContext, useState, useMemo, useCallback } from 'react';
-import { Client, Product, Activity, MediaPlan, Channel, ActivityStatus } from '@/types/mediaplan';
-import { activities as mockActivities, mediaPlans as mockPlans } from '@/data/mockData';
-
-// Stub empty arrays since clients/products now come from DB
-const mockClients: Client[] = [];
-const mockProducts: Product[] = [];
+import { Activity, Channel, ActivityStatus } from '@/types/mediaplan';
+import { activities as mockActivities } from '@/data/mockData';
+import { useClients, useProducts, DbClient } from '@/hooks/useData';
 
 interface AppContextType {
-  clients: Client[];
+  // DB-backed client selection
+  clients: DbClient[];
+  clientsLoading: boolean;
   selectedClientId: string;
   setSelectedClientId: (id: string) => void;
-  selectedPlanId: string;
-  setSelectedPlanId: (id: string) => void;
-  clientPlans: MediaPlan[];
-  selectedPlan: MediaPlan | undefined;
-  clientProducts: Product[];
+
+  // Activities (still local/mock for now)
   allActivities: Activity[];
   filteredActivities: Activity[];
+
+  // Filters
   channelFilter: 'all' | Channel;
   setChannelFilter: (f: 'all' | Channel) => void;
   productFilter: string[];
@@ -25,8 +23,13 @@ interface AppContextType {
   setStatusFilter: (s: ActivityStatus[]) => void;
   searchQuery: string;
   setSearchQuery: (q: string) => void;
+
+  // Mutations
   addActivity: (a: Activity) => void;
   updateActivity: (a: Activity) => void;
+
+  // Budget (from DB client)
+  selectedClient: DbClient | undefined;
   budgetUsed: number;
   budgetPlanned: number;
   budgetCompleted: number;
@@ -43,19 +46,24 @@ export const useApp = () => {
 };
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [selectedClientId, setSelectedClientId] = useState(mockClients[0]?.id ?? '');
-  const [selectedPlanId, setSelectedPlanId] = useState(mockPlans[0]?.id ?? '');
+  const { data: dbClients = [], isLoading: clientsLoading } = useClients();
+  const [selectedClientId, setSelectedClientId] = useState('');
   const [activitiesState, setActivities] = useState<Activity[]>(mockActivities);
   const [channelFilter, setChannelFilter] = useState<'all' | Channel>('all');
   const [productFilter, setProductFilter] = useState<string[]>([]);
   const [statusFilter, setStatusFilter] = useState<ActivityStatus[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
 
-  const clientPlans = useMemo(() => mockPlans.filter(p => p.clientId === selectedClientId), [selectedClientId]);
-  const selectedPlan = useMemo(() => mockPlans.find(p => p.id === selectedPlanId), [selectedPlanId]);
-  const clientProducts = useMemo(() => mockProducts.filter(p => p.clientId === selectedClientId), [selectedClientId]);
+  // Auto-select first client when data loads
+  const effectiveClientId = selectedClientId || dbClients[0]?.id || '';
 
-  const allActivities = useMemo(() => activitiesState.filter(a => a.planId === selectedPlanId), [activitiesState, selectedPlanId]);
+  const selectedClient = useMemo(() => dbClients.find(c => c.id === effectiveClientId), [dbClients, effectiveClientId]);
+
+  // Activities filtered by client (for now all mock activities show for any client)
+  const allActivities = useMemo(() => activitiesState.filter(a => {
+    // Show all activities when a client is selected (mock data doesn't have real client IDs)
+    return true;
+  }), [activitiesState]);
 
   const filteredActivities = useMemo(() => {
     return allActivities.filter(a => {
@@ -78,14 +86,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const handleClientChange = useCallback((id: string) => {
     setSelectedClientId(id);
-    const firstPlan = mockPlans.find(p => p.clientId === id);
-    if (firstPlan) setSelectedPlanId(firstPlan.id);
   }, []);
 
   return (
     <AppContext.Provider value={{
-      clients: mockClients, selectedClientId, setSelectedClientId: handleClientChange,
-      selectedPlanId, setSelectedPlanId, clientPlans, selectedPlan, clientProducts,
+      clients: dbClients, clientsLoading,
+      selectedClientId: effectiveClientId, setSelectedClientId: handleClientChange,
+      selectedClient,
       allActivities, filteredActivities, channelFilter, setChannelFilter,
       productFilter, setProductFilter, statusFilter, setStatusFilter,
       searchQuery, setSearchQuery, addActivity, updateActivity,
