@@ -1,18 +1,19 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useMemo } from 'react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Activity, statusLabels, campaignTypeLabels, ActivityStatus, Channel, CampaignType } from '@/types/mediaplan';
 import { useConfirmations, useUploadConfirmation, useSetCover, useDeleteConfirmation } from '@/hooks/useConfirmations';
 import { useUpdateActivity } from '@/hooks/useActivities';
 import { useCampaignTypes } from '@/hooks/useCampaignTypes';
-import { useProducts } from '@/hooks/useData';
+import { useProducts, usePackages } from '@/hooks/useData';
 import { useCanEdit } from '@/hooks/useRole';
-import { Upload, Star, StarOff, Trash2, Image as ImageIcon, ExternalLink, Pencil, Save, X } from 'lucide-react';
+import { Upload, Star, StarOff, Trash2, Image as ImageIcon, ExternalLink, Pencil, Save, X, Search } from 'lucide-react';
 import { toast } from 'sonner';
 
 const formatPLN = (n: number) => new Intl.NumberFormat('pl-PL', { style: 'currency', currency: 'PLN', maximumFractionDigits: 0 }).format(n);
@@ -31,7 +32,8 @@ export const ActivityDetailDrawer = ({ activity, open, onOpenChange, clientId }:
   const setCover = useSetCover();
   const deleteConfirmation = useDeleteConfirmation();
   const updateActivity = useUpdateActivity();
-  const { data: products = [] } = useProducts(clientId);
+  const { data: allProducts = [] } = useProducts();
+  const { data: packages = [] } = usePackages();
   const { data: campaignTypes = [] } = useCampaignTypes();
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -44,8 +46,10 @@ export const ActivityDetailDrawer = ({ activity, open, onOpenChange, clientId }:
   const [editPrice, setEditPrice] = useState('');
   const [editStatus, setEditStatus] = useState<ActivityStatus>('planned');
   const [editNote, setEditNote] = useState('');
+  const [editProductIds, setEditProductIds] = useState<string[]>([]);
+  const [editProductSearch, setEditProductSearch] = useState('');
+  const [editPackageId, setEditPackageId] = useState<string>('');
 
-  // Merge campaign types
   const allCampaignTypes = [
     ...Object.entries(campaignTypeLabels).map(([k, v]) => ({ name: k, label: v })),
     ...campaignTypes.filter(ct => !campaignTypeLabels[ct.name as CampaignType]).map(ct => ({ name: ct.name, label: ct.label })),
@@ -57,9 +61,19 @@ export const ActivityDetailDrawer = ({ activity, open, onOpenChange, clientId }:
     return campaignTypeLabels[type as CampaignType] || type;
   };
 
+  const filteredProducts = useMemo(() => {
+    if (!editProductSearch) return allProducts;
+    const q = editProductSearch.toLowerCase();
+    return allProducts.filter(p =>
+      p.name.toLowerCase().includes(q)
+      || (p.ean && p.ean.toLowerCase().includes(q))
+      || (p.brand && p.brand.toLowerCase().includes(q))
+      || (p.category && p.category.toLowerCase().includes(q))
+    );
+  }, [allProducts, editProductSearch]);
+
   useEffect(() => {
-    if (!editing) return;
-    if (!activity) return;
+    if (!editing || !activity) return;
     setEditName(activity.name);
     setEditChannel(activity.channel);
     setEditCampaignType(activity.campaignType);
@@ -68,9 +82,19 @@ export const ActivityDetailDrawer = ({ activity, open, onOpenChange, clientId }:
     setEditPrice(String(activity.price));
     setEditStatus(activity.status);
     setEditNote(activity.note || '');
+    setEditProductIds(activity.productIds || []);
+    setEditPackageId(activity.packageId || '');
   }, [editing, activity]);
 
   if (!activity) return null;
+
+  const handlePackageChange = (pkgId: string) => {
+    setEditPackageId(pkgId);
+    if (pkgId && pkgId !== 'none') {
+      const pkg = packages.find(p => p.id === pkgId);
+      if (pkg) setEditPrice(String(pkg.default_price));
+    }
+  };
 
   const handleSaveEdit = async () => {
     if (!editName.trim()) { toast.error('Podaj nazwę'); return; }
@@ -85,6 +109,8 @@ export const ActivityDetailDrawer = ({ activity, open, onOpenChange, clientId }:
         price: parseFloat(editPrice) || 0,
         status: editStatus,
         note: editNote || null,
+        product_ids: editProductIds,
+        package_id: editPackageId && editPackageId !== 'none' ? editPackageId : null,
       });
       toast.success('Aktywność zaktualizowana');
       setEditing(false);
@@ -138,8 +164,10 @@ export const ActivityDetailDrawer = ({ activity, open, onOpenChange, clientId }:
   };
 
   const productNames = activity.productIds
-    .map(pid => products.find(p => p.id === pid)?.name)
+    .map(pid => allProducts.find(p => p.id === pid)?.name)
     .filter(Boolean);
+
+  const packageName = activity.packageId ? packages.find(p => p.id === activity.packageId)?.name : null;
 
   return (
     <Sheet open={open} onOpenChange={v => { onOpenChange(v); if (!v) setEditing(false); }}>
@@ -194,6 +222,56 @@ export const ActivityDetailDrawer = ({ activity, open, onOpenChange, clientId }:
                   <Input type="date" value={editEndDate} onChange={e => setEditEndDate(e.target.value)} />
                 </div>
               </div>
+
+              {/* Package selection */}
+              <div>
+                <Label>Pakiet</Label>
+                <Select value={editPackageId || 'none'} onValueChange={handlePackageChange}>
+                  <SelectTrigger><SelectValue placeholder="Wybierz pakiet" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Brak pakietu</SelectItem>
+                    {packages.map(p => (
+                      <SelectItem key={p.id} value={p.id}>{p.name} ({formatPLN(p.default_price)})</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Product selection */}
+              <div>
+                <Label>Produkty</Label>
+                <div className="relative mt-1">
+                  <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                  <Input
+                    placeholder="Szukaj produktu po nazwie, EAN, marce..."
+                    value={editProductSearch}
+                    onChange={e => setEditProductSearch(e.target.value)}
+                    className="pl-8 h-8 text-xs"
+                  />
+                </div>
+                <div className="space-y-1 mt-2 max-h-40 overflow-y-auto border border-border rounded-lg p-2">
+                  {filteredProducts.map(p => (
+                    <label key={p.id} className="flex items-center gap-2 text-sm cursor-pointer py-0.5">
+                      <Checkbox
+                        checked={editProductIds.includes(p.id)}
+                        onCheckedChange={checked => {
+                          setEditProductIds(prev => checked ? [...prev, p.id] : prev.filter(x => x !== p.id));
+                        }}
+                      />
+                      <span className="truncate">{p.name}</span>
+                      {p.brand && <span className="text-xs text-muted-foreground">{p.brand}</span>}
+                      {p.ean && <span className="text-xs text-muted-foreground font-mono">({p.ean})</span>}
+                    </label>
+                  ))}
+                  {allProducts.length === 0 && (
+                    <div className="text-xs text-muted-foreground py-2 text-center">Brak produktów w bazie</div>
+                  )}
+                </div>
+                {editProductIds.length > 0 && (
+                  <div className="text-xs text-muted-foreground mt-1">Wybrano: {editProductIds.length}</div>
+                )}
+              </div>
+
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <Label>Cena (PLN)</Label>
@@ -227,16 +305,15 @@ export const ActivityDetailDrawer = ({ activity, open, onOpenChange, clientId }:
             </div>
           ) : (
             <>
-              {/* Status & type */}
               <div className="flex flex-wrap gap-2">
                 <Badge variant="secondary">{statusLabels[activity.status]}</Badge>
                 <Badge variant="outline">{getCampaignLabel(activity.campaignType)}</Badge>
                 <Badge variant="outline" className={activity.channel === 'online' ? 'border-online text-online' : 'border-offline text-offline'}>
                   {activity.channel}
                 </Badge>
+                {packageName && <Badge variant="outline">📦 {packageName}</Badge>}
               </div>
 
-              {/* Details */}
               <div className="space-y-2 text-sm">
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Okres</span>
@@ -266,7 +343,7 @@ export const ActivityDetailDrawer = ({ activity, open, onOpenChange, clientId }:
             </>
           )}
 
-          {/* Confirmations / Proofs */}
+          {/* Confirmations */}
           <div className="space-y-3">
             <div className="flex items-center justify-between">
               <h4 className="text-sm font-semibold flex items-center gap-2">
