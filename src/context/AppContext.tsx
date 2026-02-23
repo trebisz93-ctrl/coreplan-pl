@@ -43,8 +43,8 @@ export const useApp = () => {
 };
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [selectedClientId, setSelectedClientId] = useState(mockClients[0].id);
-  const [selectedPlanId, setSelectedPlanId] = useState(mockPlans[0].id);
+  const [selectedClientId, setSelectedClientId] = useState(mockClients[0]?.id ?? '');
+  const [selectedPlanId, setSelectedPlanId] = useState(mockPlans[0]?.id ?? '');
   const [activitiesState, setActivities] = useState<Activity[]>(mockActivities);
   const [channelFilter, setChannelFilter] = useState<'all' | Channel>('all');
   const [productFilter, setProductFilter] = useState<string[]>([]);
