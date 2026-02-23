@@ -1,20 +1,17 @@
 import React, { createContext, useContext, useState, useMemo, useCallback } from 'react';
 import { Activity, Channel, ActivityStatus } from '@/types/mediaplan';
-import { activities as mockActivities } from '@/data/mockData';
-import { useClients, useProducts, DbClient } from '@/hooks/useData';
+import { useClients, DbClient } from '@/hooks/useData';
+import { useActivities, dbToActivity } from '@/hooks/useActivities';
 
 interface AppContextType {
-  // DB-backed client selection
   clients: DbClient[];
   clientsLoading: boolean;
   selectedClientId: string;
   setSelectedClientId: (id: string) => void;
 
-  // Activities (still local/mock for now)
   allActivities: Activity[];
   filteredActivities: Activity[];
 
-  // Filters
   channelFilter: 'all' | Channel;
   setChannelFilter: (f: 'all' | Channel) => void;
   productFilter: string[];
@@ -24,11 +21,6 @@ interface AppContextType {
   searchQuery: string;
   setSearchQuery: (q: string) => void;
 
-  // Mutations
-  addActivity: (a: Activity) => void;
-  updateActivity: (a: Activity) => void;
-
-  // Budget (from DB client)
   selectedClient: DbClient | undefined;
   budgetUsed: number;
   budgetPlanned: number;
@@ -48,22 +40,18 @@ export const useApp = () => {
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { data: dbClients = [], isLoading: clientsLoading } = useClients();
   const [selectedClientId, setSelectedClientId] = useState('');
-  const [activitiesState, setActivities] = useState<Activity[]>(mockActivities);
   const [channelFilter, setChannelFilter] = useState<'all' | Channel>('all');
   const [productFilter, setProductFilter] = useState<string[]>([]);
   const [statusFilter, setStatusFilter] = useState<ActivityStatus[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
 
-  // Auto-select first client when data loads
   const effectiveClientId = selectedClientId || dbClients[0]?.id || '';
-
   const selectedClient = useMemo(() => dbClients.find(c => c.id === effectiveClientId), [dbClients, effectiveClientId]);
 
-  // Activities filtered by client (for now all mock activities show for any client)
-  const allActivities = useMemo(() => activitiesState.filter(a => {
-    // Show all activities when a client is selected (mock data doesn't have real client IDs)
-    return true;
-  }), [activitiesState]);
+  // Activities from DB
+  const { data: dbActivities = [] } = useActivities(effectiveClientId || undefined);
+
+  const allActivities: Activity[] = useMemo(() => dbActivities.map(dbToActivity), [dbActivities]);
 
   const filteredActivities = useMemo(() => {
     return allActivities.filter(a => {
@@ -81,9 +69,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const onlineSpend = useMemo(() => allActivities.filter(a => a.channel === 'online' && a.status !== 'cancelled').reduce((s, a) => s + a.price, 0), [allActivities]);
   const offlineSpend = useMemo(() => allActivities.filter(a => a.channel === 'offline' && a.status !== 'cancelled').reduce((s, a) => s + a.price, 0), [allActivities]);
 
-  const addActivity = useCallback((a: Activity) => setActivities(prev => [...prev, a]), []);
-  const updateActivity = useCallback((a: Activity) => setActivities(prev => prev.map(x => x.id === a.id ? a : x)), []);
-
   const handleClientChange = useCallback((id: string) => {
     setSelectedClientId(id);
   }, []);
@@ -95,7 +80,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       selectedClient,
       allActivities, filteredActivities, channelFilter, setChannelFilter,
       productFilter, setProductFilter, statusFilter, setStatusFilter,
-      searchQuery, setSearchQuery, addActivity, updateActivity,
+      searchQuery, setSearchQuery,
       budgetUsed, budgetPlanned, budgetCompleted, onlineSpend, offlineSpend,
     }}>
       {children}

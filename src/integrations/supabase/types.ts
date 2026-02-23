@@ -14,6 +14,85 @@ export type Database = {
   }
   public: {
     Tables: {
+      activities: {
+        Row: {
+          campaign_type: string
+          channel: string
+          client_id: string
+          created_at: string
+          end_date: string
+          id: string
+          name: string
+          note: string | null
+          package_id: string | null
+          plan_id: string | null
+          price: number
+          product_ids: string[]
+          start_date: string
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          campaign_type?: string
+          channel?: string
+          client_id: string
+          created_at?: string
+          end_date?: string
+          id?: string
+          name: string
+          note?: string | null
+          package_id?: string | null
+          plan_id?: string | null
+          price?: number
+          product_ids?: string[]
+          start_date?: string
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          campaign_type?: string
+          channel?: string
+          client_id?: string
+          created_at?: string
+          end_date?: string
+          id?: string
+          name?: string
+          note?: string | null
+          package_id?: string | null
+          plan_id?: string | null
+          price?: number
+          product_ids?: string[]
+          start_date?: string
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "activities_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "activities_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "packages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "activities_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "media_plans"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       clients: {
         Row: {
           annual_budget: number
@@ -40,6 +119,47 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      media_plans: {
+        Row: {
+          client_id: string
+          created_at: string
+          id: string
+          name: string
+          updated_at: string
+          user_id: string
+          version: string | null
+          year: number
+        }
+        Insert: {
+          client_id: string
+          created_at?: string
+          id?: string
+          name: string
+          updated_at?: string
+          user_id: string
+          version?: string | null
+          year?: number
+        }
+        Update: {
+          client_id?: string
+          created_at?: string
+          id?: string
+          name?: string
+          updated_at?: string
+          user_id?: string
+          version?: string | null
+          year?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "media_plans_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       packages: {
         Row: {

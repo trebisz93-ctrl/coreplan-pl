@@ -8,8 +8,10 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Textarea } from '@/components/ui/textarea';
 import { useApp } from '@/context/AppContext';
 import { useProducts, useClients, usePackages } from '@/hooks/useData';
-import { Activity, Channel, CampaignType, ActivityStatus, campaignTypeLabels } from '@/types/mediaplan';
+import { useCreateActivity } from '@/hooks/useActivities';
+import { Channel, CampaignType, ActivityStatus, campaignTypeLabels } from '@/types/mediaplan';
 import { AlertTriangle } from 'lucide-react';
+import { toast } from 'sonner';
 
 interface Props {
   open: boolean;
@@ -19,8 +21,9 @@ interface Props {
 const formatPLN = (n: number) => new Intl.NumberFormat('pl-PL', { style: 'currency', currency: 'PLN', maximumFractionDigits: 0 }).format(n);
 
 export const ActivityDialog = ({ open, onOpenChange }: Props) => {
-  const { selectedClientId, selectedClient, addActivity, budgetUsed } = useApp();
+  const { selectedClientId, selectedClient, budgetUsed } = useApp();
   const { data: clients = [] } = useClients();
+  const createActivity = useCreateActivity();
   const [dialogClientId, setDialogClientId] = useState<string>('');
   const effectiveClientId = dialogClientId || selectedClientId;
   const { data: clientProducts = [] } = useProducts(effectiveClientId || undefined);
@@ -50,28 +53,30 @@ export const ActivityDialog = ({ open, onOpenChange }: Props) => {
     }
   };
 
-  const handleSubmit = () => {
-    if (!name || !startDate || !endDate || !price) return;
+  const handleSubmit = async () => {
+    if (!name || !startDate || !endDate || !price || !effectiveClientId) return;
     if (wouldExceed && !confirmed) return;
 
-    const activity: Activity = {
-      id: `a-${Date.now()}`,
-      planId: selectedClientId,
-      name,
-      channel,
-      campaignType,
-      startDate,
-      endDate,
-      productIds: selectedProducts,
-      packageId: packageId && packageId !== 'none' ? packageId : undefined,
-      price: priceNum,
-      status,
-      note: note || undefined,
-      confirmations: [],
-    };
-    addActivity(activity);
-    onOpenChange(false);
-    resetForm();
+    try {
+      await createActivity.mutateAsync({
+        client_id: effectiveClientId,
+        name,
+        channel,
+        campaign_type: campaignType,
+        start_date: startDate,
+        end_date: endDate,
+        product_ids: selectedProducts,
+        package_id: packageId && packageId !== 'none' ? packageId : undefined,
+        price: priceNum,
+        status,
+        note: note || undefined,
+      });
+      toast.success('Aktywność dodana');
+      onOpenChange(false);
+      resetForm();
+    } catch (err: any) {
+      toast.error('Błąd: ' + (err.message || 'Nie udało się dodać'));
+    }
   };
 
   const resetForm = () => {
@@ -126,7 +131,6 @@ export const ActivityDialog = ({ open, onOpenChange }: Props) => {
             </div>
           </div>
 
-          {/* Client/Category -> Product (optional) */}
           <div>
             <Label>Klient (kategoria)</Label>
             <Select value={effectiveClientId} onValueChange={v => { setDialogClientId(v); setSelectedProducts([]); }}>
@@ -210,8 +214,8 @@ export const ActivityDialog = ({ open, onOpenChange }: Props) => {
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>Anuluj</Button>
-          <Button onClick={handleSubmit} disabled={!name || !startDate || !endDate || !price || (wouldExceed && !confirmed)}>
-            Dodaj
+          <Button onClick={handleSubmit} disabled={!name || !startDate || !endDate || !price || (wouldExceed && !confirmed) || createActivity.isPending}>
+            {createActivity.isPending ? 'Dodawanie...' : 'Dodaj'}
           </Button>
         </DialogFooter>
       </DialogContent>
