@@ -1,6 +1,8 @@
+import { useState } from 'react';
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
-import { useMyProfileStatus } from '@/hooks/useProfileStatus';
+import { useMyProfileStatus, useMyProfile } from '@/hooks/useProfileStatus';
+import { OnboardingDialog } from './OnboardingDialog';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Clock, LogOut } from 'lucide-react';
@@ -8,8 +10,10 @@ import { Clock, LogOut } from 'lucide-react';
 export const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const { user, loading, currentAal, nextAal, signOut } = useAuth();
   const { data: profileStatus, isLoading: statusLoading } = useMyProfileStatus();
+  const { data: myProfile, isLoading: profileLoading } = useMyProfile();
+  const [onboardingDone, setOnboardingDone] = useState(false);
 
-  if (loading || (user && statusLoading)) {
+  if (loading || (user && (statusLoading || profileLoading))) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-background">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
@@ -21,12 +25,10 @@ export const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
     return <Navigate to="/auth" replace />;
   }
 
-  // User has MFA enrolled but hasn't completed verification
   if (currentAal === 'aal1' && nextAal === 'aal2') {
     return <Navigate to="/auth" replace />;
   }
 
-  // User is pending approval
   if (profileStatus === 'pending') {
     return (
       <div className="flex items-center justify-center min-h-screen bg-background p-4">
@@ -50,7 +52,6 @@ export const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
     );
   }
 
-  // User is rejected
   if (profileStatus === 'rejected') {
     return (
       <div className="flex items-center justify-center min-h-screen bg-background p-4">
@@ -71,5 +72,15 @@ export const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
     );
   }
 
-  return <>{children}</>;
+  // Onboarding check
+  const needsOnboarding = myProfile && !myProfile.onboarding_completed && !onboardingDone;
+
+  return (
+    <>
+      {needsOnboarding && (
+        <OnboardingDialog open={true} onComplete={() => setOnboardingDone(true)} />
+      )}
+      {children}
+    </>
+  );
 };

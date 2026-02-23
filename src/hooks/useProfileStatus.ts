@@ -2,6 +2,11 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/context/AuthContext';
 
+interface MyProfile {
+  status: string;
+  onboarding_completed: boolean;
+}
+
 export const useMyProfileStatus = () => {
   const { user } = useAuth();
   return useQuery({
@@ -14,6 +19,23 @@ export const useMyProfileStatus = () => {
         .single();
       if (error) throw error;
       return data?.status as string;
+    },
+    enabled: !!user,
+  });
+};
+
+export const useMyProfile = () => {
+  const { user } = useAuth();
+  return useQuery({
+    queryKey: ['my_profile', user?.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('user_id', user!.id)
+        .single();
+      if (error) throw error;
+      return data as MyProfile & Record<string, any>;
     },
     enabled: !!user,
   });

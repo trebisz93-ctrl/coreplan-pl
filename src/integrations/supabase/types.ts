@@ -390,7 +390,11 @@ export type Database = {
         Row: {
           created_at: string
           display_name: string | null
+          first_name: string | null
           id: string
+          job_role: string | null
+          last_name: string | null
+          onboarding_completed: boolean
           status: string
           updated_at: string
           user_id: string
@@ -398,7 +402,11 @@ export type Database = {
         Insert: {
           created_at?: string
           display_name?: string | null
+          first_name?: string | null
           id?: string
+          job_role?: string | null
+          last_name?: string | null
+          onboarding_completed?: boolean
           status?: string
           updated_at?: string
           user_id: string
@@ -406,7 +414,11 @@ export type Database = {
         Update: {
           created_at?: string
           display_name?: string | null
+          first_name?: string | null
           id?: string
+          job_role?: string | null
+          last_name?: string | null
+          onboarding_completed?: boolean
           status?: string
           updated_at?: string
           user_id?: string

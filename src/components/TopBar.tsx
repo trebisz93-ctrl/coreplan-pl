@@ -20,6 +20,7 @@ const routeTitles: Record<string, string> = {
   '/products': 'Produkty',
   '/packages': 'Pakiety',
   '/reports': 'Raporty',
+  '/users': 'Użytkownicy',
   '/settings': 'Ustawienia',
 };
 
