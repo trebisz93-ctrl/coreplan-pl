@@ -1,6 +1,10 @@
 import React, { createContext, useContext, useState, useMemo, useCallback } from 'react';
 import { Client, Product, Activity, MediaPlan, Channel, ActivityStatus } from '@/types/mediaplan';
-import { clients as mockClients, products as mockProducts, activities as mockActivities, mediaPlans as mockPlans } from '@/data/mockData';
+import { activities as mockActivities, mediaPlans as mockPlans } from '@/data/mockData';
+
+// Stub empty arrays since clients/products now come from DB
+const mockClients: Client[] = [];
+const mockProducts: Product[] = [];
 
 interface AppContextType {
   clients: Client[];

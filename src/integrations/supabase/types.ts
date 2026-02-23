@@ -16,6 +16,7 @@ export type Database = {
     Tables: {
       clients: {
         Row: {
+          annual_budget: number
           created_at: string
           id: string
           name: string
@@ -23,6 +24,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          annual_budget?: number
           created_at?: string
           id?: string
           name: string
@@ -30,6 +32,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          annual_budget?: number
           created_at?: string
           id?: string
           name?: string
@@ -42,6 +45,7 @@ export type Database = {
         Row: {
           client_id: string
           created_at: string
+          ean: string | null
           id: string
           name: string
           updated_at: string
@@ -50,6 +54,7 @@ export type Database = {
         Insert: {
           client_id: string
           created_at?: string
+          ean?: string | null
           id?: string
           name: string
           updated_at?: string
@@ -58,6 +63,7 @@ export type Database = {
         Update: {
           client_id?: string
           created_at?: string
+          ean?: string | null
           id?: string
           name?: string
           updated_at?: string
