@@ -40,6 +40,11 @@ export interface DbProfile {
   id: string;
   user_id: string;
   display_name: string | null;
+  first_name: string | null;
+  last_name: string | null;
+  job_role: string | null;
+  onboarding_completed: boolean;
+  status: string;
   created_at: string;
   updated_at: string;
 }

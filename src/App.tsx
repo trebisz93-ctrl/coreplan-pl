@@ -14,6 +14,7 @@ import { ReportsView } from "./components/ReportsView";
 import { ClientsView } from "./components/ClientsView";
 import { ProductsView } from "./components/ProductsView";
 import { SettingsView } from "./components/SettingsView";
+import { UsersView } from "./components/UsersView";
 import Auth from "./pages/Auth";
 import ResetPassword from "./pages/ResetPassword";
 import NotFound from "./pages/NotFound";
@@ -37,6 +38,7 @@ const App = () => (
               <Route path="/products" element={<ProductsView />} />
               <Route path="/packages" element={<PackagesView />} />
               <Route path="/reports" element={<ReportsView />} />
+              <Route path="/users" element={<UsersView />} />
               <Route path="/settings" element={<SettingsView />} />
             </Route>
             <Route path="*" element={<NotFound />} />

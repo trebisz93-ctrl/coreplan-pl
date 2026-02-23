@@ -1,22 +1,32 @@
 import { Link, useLocation } from 'react-router-dom';
-import { CalendarDays, BarChart3, Package, FileText, Settings, LogOut, Building2, ShoppingBag } from 'lucide-react';
+import { CalendarDays, BarChart3, Package, FileText, Settings, LogOut, Building2, ShoppingBag, Users } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/context/AuthContext';
+import { useIsAdmin } from '@/hooks/useRole';
 
-const navItems = [
+const baseNavItems = [
   { label: 'Media plan', icon: CalendarDays, path: '/' },
   { label: 'Dashboard', icon: BarChart3, path: '/dashboard' },
   { label: 'Klienci', icon: Building2, path: '/clients' },
   { label: 'Produkty', icon: ShoppingBag, path: '/products' },
   { label: 'Pakiety', icon: Package, path: '/packages' },
   { label: 'Raporty', icon: FileText, path: '/reports' },
+];
+
+const adminNavItems = [
+  { label: 'Użytkownicy', icon: Users, path: '/users' },
+];
+
+const bottomNavItems = [
   { label: 'Ustawienia', icon: Settings, path: '/settings' },
 ];
 
 export const AppSidebar = () => {
   const { signOut } = useAuth();
   const { pathname } = useLocation();
+  const isAdmin = useIsAdmin();
 
+  const navItems = [...baseNavItems, ...(isAdmin ? adminNavItems : []), ...bottomNavItems];
   return (
     <aside className="w-60 shrink-0 bg-sidebar text-sidebar-foreground flex flex-col border-r border-sidebar-border">
       <div className="p-5 border-b border-sidebar-border">
