@@ -11,6 +11,9 @@ import { YearView } from "./components/YearView";
 import { DashboardView } from "./components/DashboardView";
 import { PackagesView } from "./components/PackagesView";
 import { ReportsView } from "./components/ReportsView";
+import { ClientsView } from "./components/ClientsView";
+import { ProductsView } from "./components/ProductsView";
+import { SettingsView } from "./components/SettingsView";
 import Auth from "./pages/Auth";
 import ResetPassword from "./pages/ResetPassword";
 import NotFound from "./pages/NotFound";
@@ -30,8 +33,11 @@ const App = () => (
             <Route element={<ProtectedRoute><AppProvider><AppLayout /></AppProvider></ProtectedRoute>}>
               <Route path="/" element={<YearView />} />
               <Route path="/dashboard" element={<DashboardView />} />
+              <Route path="/clients" element={<ClientsView />} />
+              <Route path="/products" element={<ProductsView />} />
               <Route path="/packages" element={<PackagesView />} />
               <Route path="/reports" element={<ReportsView />} />
+              <Route path="/settings" element={<SettingsView />} />
             </Route>
             <Route path="*" element={<NotFound />} />
           </Routes>
