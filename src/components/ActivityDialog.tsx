@@ -7,8 +7,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Checkbox } from '@/components/ui/checkbox';
 import { Textarea } from '@/components/ui/textarea';
 import { useApp } from '@/context/AppContext';
+import { useProducts, useClients, usePackages } from '@/hooks/useData';
 import { Activity, Channel, CampaignType, ActivityStatus, campaignTypeLabels } from '@/types/mediaplan';
-import { mediaPackages } from '@/data/mockData';
 import { AlertTriangle } from 'lucide-react';
 
 interface Props {
@@ -19,7 +19,12 @@ interface Props {
 const formatPLN = (n: number) => new Intl.NumberFormat('pl-PL', { style: 'currency', currency: 'PLN', maximumFractionDigits: 0 }).format(n);
 
 export const ActivityDialog = ({ open, onOpenChange }: Props) => {
-  const { clientProducts, selectedPlanId, selectedPlan, addActivity, budgetUsed } = useApp();
+  const { selectedPlanId, selectedPlan, addActivity, budgetUsed } = useApp();
+  const { data: clients = [] } = useClients();
+  const [selectedClientId, setSelectedClientId] = useState<string>('');
+  const { data: clientProducts = [] } = useProducts(selectedClientId || undefined);
+  const { data: packages = [] } = usePackages();
+
   const [name, setName] = useState('');
   const [channel, setChannel] = useState<Channel>('online');
   const [campaignType, setCampaignType] = useState<CampaignType>('display');
@@ -38,13 +43,13 @@ export const ActivityDialog = ({ open, onOpenChange }: Props) => {
   const handlePackageChange = (pkgId: string) => {
     setPackageId(pkgId);
     if (pkgId && pkgId !== 'none') {
-      const pkg = mediaPackages.find(p => p.id === pkgId);
-      if (pkg) setPrice(pkg.defaultPrice.toString());
+      const pkg = packages.find(p => p.id === pkgId);
+      if (pkg) setPrice(String(pkg.default_price));
     }
   };
 
   const handleSubmit = () => {
-    if (!name || !startDate || !endDate || selectedProducts.length === 0 || !price) return;
+    if (!name || !startDate || !endDate || !price) return;
     if (wouldExceed && !confirmed) return;
 
     const activity: Activity = {
@@ -70,7 +75,8 @@ export const ActivityDialog = ({ open, onOpenChange }: Props) => {
   const resetForm = () => {
     setName(''); setChannel('online'); setCampaignType('display');
     setStartDate(''); setEndDate(''); setSelectedProducts([]);
-    setPackageId(''); setPrice(''); setStatus('planned'); setNote(''); setConfirmed(false);
+    setPackageId(''); setPrice(''); setStatus('planned'); setNote('');
+    setConfirmed(false); setSelectedClientId('');
   };
 
   return (
@@ -117,30 +123,46 @@ export const ActivityDialog = ({ open, onOpenChange }: Props) => {
               <Input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} />
             </div>
           </div>
+
+          {/* Client/Category -> Product (optional) */}
           <div>
-            <Label>Produkty</Label>
-            <div className="space-y-2 mt-1 max-h-32 overflow-y-auto border border-border rounded-lg p-2">
-              {clientProducts.map(p => (
-                <label key={p.id} className="flex items-center gap-2 text-sm cursor-pointer">
-                  <Checkbox
-                    checked={selectedProducts.includes(p.id)}
-                    onCheckedChange={checked => {
-                      setSelectedProducts(prev => checked ? [...prev, p.id] : prev.filter(x => x !== p.id));
-                    }}
-                  />
-                  {p.name}
-                </label>
-              ))}
-            </div>
+            <Label>Klient (kategoria)</Label>
+            <Select value={selectedClientId} onValueChange={v => { setSelectedClientId(v); setSelectedProducts([]); }}>
+              <SelectTrigger><SelectValue placeholder="Wybierz klienta" /></SelectTrigger>
+              <SelectContent>
+                {clients.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+              </SelectContent>
+            </Select>
           </div>
+
+          {selectedClientId && clientProducts.length > 0 && (
+            <div>
+              <Label>Produkty (opcjonalnie)</Label>
+              <div className="space-y-2 mt-1 max-h-32 overflow-y-auto border border-border rounded-lg p-2">
+                {clientProducts.map(p => (
+                  <label key={p.id} className="flex items-center gap-2 text-sm cursor-pointer">
+                    <Checkbox
+                      checked={selectedProducts.includes(p.id)}
+                      onCheckedChange={checked => {
+                        setSelectedProducts(prev => checked ? [...prev, p.id] : prev.filter(x => x !== p.id));
+                      }}
+                    />
+                    <span>{p.name}</span>
+                    {p.ean && <span className="text-xs text-muted-foreground font-mono">({p.ean})</span>}
+                  </label>
+                ))}
+              </div>
+            </div>
+          )}
+
           <div>
             <Label>Pakiet (opcjonalnie)</Label>
             <Select value={packageId} onValueChange={handlePackageChange}>
               <SelectTrigger><SelectValue placeholder="Wybierz pakiet" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="none">Brak pakietu</SelectItem>
-                {mediaPackages.map(p => (
-                  <SelectItem key={p.id} value={p.id}>{p.name} ({formatPLN(p.defaultPrice)})</SelectItem>
+                {packages.map(p => (
+                  <SelectItem key={p.id} value={p.id}>{p.name} ({formatPLN(p.default_price)})</SelectItem>
                 ))}
               </SelectContent>
             </Select>
@@ -186,7 +208,7 @@ export const ActivityDialog = ({ open, onOpenChange }: Props) => {
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>Anuluj</Button>
-          <Button onClick={handleSubmit} disabled={!name || !startDate || !endDate || selectedProducts.length === 0 || !price || (wouldExceed && !confirmed)}>
+          <Button onClick={handleSubmit} disabled={!name || !startDate || !endDate || !price || (wouldExceed && !confirmed)}>
             Dodaj
           </Button>
         </DialogFooter>
