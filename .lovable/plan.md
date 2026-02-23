@@ -1,101 +1,247 @@
 
+# Plan: Enterprise CRM -- Rozbudowa do wersji Enterprise
 
-# Plan: MediaPlan CRM -- Etap 1 (Naprawa) + Etap 2 (UX/Ulepszenia)
-
-## ETAP 1 -- NAPRAWA (krytyczne)
-
-### 1.1 Aktywnosci: zapis, timeline, budzet
-
-**Problem**: Aktywnosci zapisuja sie, ale logika budzetu w `AppContext.tsx` liczy `budgetUsed` jako **wszystkie nie-anulowane** (linia 66). Trzeba rozdzielic na:
-- `budgetPlanned` = planned + in_progress (rezerwacja)
-- `budgetCompleted` = completed (realizacja)  
-- `budgetUsed` = planned + in_progress + completed (bez cancelled)
-
-**Zmiany**:
-- **`src/context/AppContext.tsx`**: Juz ma `budgetPlanned` i `budgetCompleted` -- logika jest poprawna. Upewnij sie, ze `BudgetBar` wyswietla te wartosci osobno.
-- **`src/components/BudgetBar.tsx`**: Rozszerz o wyswietlanie "Zaplanowane" i "Zrealizowane" oddzielnie. Aktualnie pokazuje tylko "Uzyte" (wszystko bez cancelled).
-- **`src/components/ActivityDialog.tsx`**: Popraw walidacje (punkt 1.3) i upewnij sie, ze `effectiveClientId` jest zawsze ustawiony.
-
-### 1.2 Obsluga bledow zapisu -- feedback
-
-**Problem**: Wiekszosc catch-ow juz pokazuje `toast.error(e.message)`, ale komunikaty moga byc niejasne (surowe bledy Postgres).
-
-**Zmiany**:
-- **`src/hooks/useActivities.ts`**: Dodaj lepsze formatowanie bledow w mutacjach (`onError` callback).
-- **`src/hooks/useData.ts`**: Analogicznie -- ustandaryzuj komunikaty bledow.
-- **`src/components/ActivityDialog.tsx`**: Juz ma `toast.error('Blad: ' + ...)` -- popraw format.
-
-### 1.3 Walidacje (blokady)
-
-**Zmiany w `ActivityDialog.tsx`**:
-- Walidacja: `end_date >= start_date` -- blokuj z komunikatem "Data zakonczenia musi byc pozniejsza niz data rozpoczecia".
-- Walidacja: `price >= 0` -- blokuj z komunikatem "Cena nie moze byc ujemna".
-- Walidacja: `effectiveClientId` musi byc wybrany.
-- Popraw komunikaty -- osobne dla kazdego pola.
-
-**Zmiany w `PackagesView.tsx`**:
-- Walidacja `default_price >= 0`.
-- Walidacja ze `name` nie jest pusty (juz jest).
-
-**Zmiany w `ProductsView.tsx`**:
-- Rozdziel komunikaty: "Podaj nazwe produktu" vs "Wybierz klienta" osobno.
+To jest duza specyfikacja obejmujaca 10 modulow. Plan jest podzielony na fazy implementacji wedlug priorytetow i zaleznosci.
 
 ---
 
-## ETAP 2 -- POPRAWKI / UX / Ulepszenia
+## FAZA 1: TopBar (minimalistyczny) + Centrum Powiadomien
 
-### 2.1 Pakiety zgodnie ze specyfikacja
+### 1.1 Przebudowa TopBar
 
-**Dane**: Seed 6 pakietow z dokladnymi nazwami, cenami i elementami zakresu.
+**Cel**: Czysty, lekki TopBar bez przeladowania informacjami.
 
-**Zmiany**:
-- **Baza danych**: Uzyj narzedzia insert do wstawienia 6 predefiniowanych pakietow dla aktualnego uzytkownika. Kazdy pakiet ma `items` jako tablice JSON z elementami zakresu.
-- Pakiety:
-  1. PAKIET MINI -- 12 000 zl (Rich Content: SI, Kategoria, Listing: Pozycjonowanie produktu 1.2)
-  2. STANDARD -- 30 000 zl (3 elementy)
-  3. CORE SOCIAL MEDIA -- 40 000 zl (3 elementy)
-  4. KORZYSTNY -- 80 000 zl (5 elementow)
-  5. TYDZIEN Z MARKA -- 100 000 zl (7 elementow)
-  6. WIDOCZNOSC -- 130 000 zl (7 elementow)
+**Co sie zmienia**:
+- Lewa strona: Toggle "Jeden klient" + Dropdown klienta (bez zmian logiki multi-client)
+- Srodek: Dynamiczny tytul widoku (na podstawie aktualnej trasy: Media Plan / Dashboard / Produkty / Uzytkownicy / Raporty)
+- Prawa strona: Ikona dzwonka z badge
+- **USUWAMY** z TopBar: BudgetBar, progress bar, globalna wyszukiwarka, filtr online/offline, przycisk "Dodaj aktywnosc"
+- Filtr kanalow i wyszukiwarka przenosimy do poszczegolnych widokow (YearView, ReportsView) jako lokalne kontrolki
 
-### 2.2 UX i dostepnosc
+**Pliki**: `TopBar.tsx`, `BudgetBar.tsx` (usunac z TopBar), `YearView.tsx`, `ReportsView.tsx`
 
-**Zmiany**:
-- **`src/components/ActivityDialog.tsx`**: Zmien label "Klient (kategoria)" na "Klient".
-- **`src/components/ClientsView.tsx`**: Dodaj Tooltip do przyciskow Check/X w edycji budzetu z etykietami "Zapisz" i "Anuluj".
-- **`src/components/PackagesView.tsx`**: Dodaj Tooltip "Usun element" do przycisku X przy elementach pakietu. Popraw formatowanie cen w elementach (formatPLN).
-- **Selecty**: Upewnij sie, ze `<SelectValue>` wyswietla aktualnie wybrana wartosc (powinno dzialac domyslnie z Radix -- weryfikacja).
+### 1.2 Centrum Powiadomien -- Backend
 
-### 2.3 Role i separacja danych (multi-tenant enforcement)
+**Migracja SQL** -- nowa tabela `notifications`:
 
-**Zmiany w bazie danych** (migracja SQL):
-- Rozszerz enum `app_role` o wartosc `'manager'` i `'viewer'`.
-- RLS juz jest poprawne (user_id = auth.uid() na wszystkich tabelach) -- multi-tenant jest wymuszony.
+```text
+notifications
+  id          uuid PK
+  user_id     uuid NOT NULL (ref auth.users)
+  type        text NOT NULL (success/warning/error/info)
+  category    text NOT NULL (system/activity/account/budget)
+  title       text NOT NULL
+  description text
+  entity_id   uuid (opcjonalny -- link do aktywnosci/klienta)
+  is_read     boolean DEFAULT false
+  cta_path    text (sciezka np. /settings)
+  created_at  timestamptz DEFAULT now()
+```
 
-**Zmiany w kodzie**:
-- **`src/hooks/useData.ts`**: Zaktualizuj typ `DbUserRole.role` na `'admin' | 'manager' | 'viewer'`.
-- **`src/components/SettingsView.tsx`**: Dodaj opcje Manager i Viewer w select roli.
-- **`src/context/AppContext.tsx`**: Dodaj `userRole` do kontekstu (pobierz z `useMyRole`).
-- **Utworz `src/hooks/useRole.ts`**: Hook `useCanEdit()` ktory zwraca `true` jesli rola != 'viewer'.
-- **Komponenty**: W `ClientsView`, `ProductsView`, `PackagesView`, `ActivityDialog`, `TopBar` -- ukryj przyciski edycji/usuwania/dodawania jesli `useCanEdit() === false`.
-- **`src/components/BudgetBar.tsx`**: Viewer widzi budzet ale nie moze edytowac.
+RLS: Uzytkownik widzi tylko swoje powiadomienia. Admin widzi wszystkie.
+
+**Realtime**: Wlaczenie realtime na tabeli notifications.
+
+### 1.3 Centrum Powiadomien -- Frontend
+
+**Nowy komponent** `NotificationCenter.tsx`:
+- Drawer z prawej strony (Sheet z @radix-ui)
+- Naglowek: "Centrum powiadomien" + przycisk "Oznacz wszystkie jako przeczytane"
+- Zakladki (Tabs): Wszystkie / Systemowe / Aktywnosci / Konta / Budzet
+- Kazde powiadomienie: ikona typu, tytul, opis, data, CTA, status przeczytane/nie
+- Badge na ikonce dzwonka znika przy 0 nowych
+- Scroll z lazy loading (paginacja po 20)
+
+**Nowy hook** `useNotifications.ts`:
+- `useNotifications(category?)` -- pobieranie z paginacja
+- `useUnreadCount()` -- liczba nieprzeczytanych (realtime subscription)
+- `useMarkAsRead()`, `useMarkAllAsRead()`
+
+### 1.4 Automatyczne generowanie powiadomien
+
+**Trigger SQL** lub logika w hookach:
+- Nowe konto sie rejestruje -> powiadomienie dla admina
+- Budzet > 100% -> powiadomienie dla wlasciciela klienta
+- Aktywnosc = "Zrealizowana" bez proofu -> powiadomienie
+- 3 dni przed startem aktywnosci -> (wymaga cron job / edge function)
+
+**Edge function** `check-upcoming-activities`: uruchamiana cron co godzine, sprawdza aktywnosci rozpoczynajace sie za 3 dni i tworzy powiadomienia.
+
+---
+
+## FAZA 2: Zarzadzanie Uzytkownikami (rozszerzone)
+
+### 2.1 Rozszerzenie profilu
+
+**Migracja SQL** -- dodanie kolumn do `profiles`:
+- `first_name text`
+- `last_name text`
+- `job_role text` (KAM / Marketing / Admin)
+- `onboarding_completed boolean DEFAULT false`
+
+### 2.2 Pierwsze logowanie -- onboarding
+
+**Nowy komponent** `OnboardingDialog.tsx`:
+- Wymuszony modal przy pierwszym logowaniu (jesli `onboarding_completed = false`)
+- Pola: imie, nazwisko, rola
+- Bez uzupelnienia brak dostepu do systemu
+
+**Zmiana w** `ProtectedRoute.tsx`: Sprawdzenie `onboarding_completed` i przekierowanie do onboardingu.
+
+### 2.3 Panel administracyjny uzytkownikow
+
+**Rozbudowa** `SettingsView.tsx` lub nowy widok `UsersView.tsx`:
+- Lista uzytkownikow z polami: display name, imie, nazwisko, rola, przypisani klienci, status
+- Edycja wszystkich pol przez admina
+- Usuwanie uzytkownikow (soft delete -- status = 'deactivated')
+- Dezaktywacja (zmiana statusu na 'deactivated')
+- Odbieranie dostepu do klientow
+
+**Nowa trasa**: `/users` w `App.tsx` + nowa pozycja w sidebarze
+
+---
+
+## FAZA 3: Dashboard -- rozszerzenia
+
+### 3.1 Okresy C1/C2/C3
+
+**Zmiana w** `DashboardView.tsx`:
+- Dodanie przyciskow C1 (sty-kwi), C2 (maj-sie), C3 (wrz-gru) obok Q1-Q4
+- Zakres dat `quarterRanges` rozszerzony o C1, C2, C3
+
+### 3.2 Porownania YoY
+
+- Dodanie toggle "Porownaj z poprzednim rokiem"
+- Drugi zakres dat automatycznie: `dateFrom - 1 rok` do `dateTo - 1 rok`
+- Wykres z dwiema seriami (obecny vs poprzedni rok)
+
+### 3.3 Filtry kategoria/subkategoria
+
+- Dodanie dropdownow filtrowania po kategorii i subkategorii produktow
+- Aktywnosci filtrowane przez product_ids -> dopasowanie do kategorii produktu
+
+---
+
+## FAZA 4: Produkty -- zmiany
+
+### 4.1 Produkty globalne (usuniecie kolumny Klient)
+
+**Zmiana**: Produkty staja sie globalne -- nie sa przypisane bezposrednio do klienta.
+- W widoku `ProductsView.tsx`: usunac kolumne "Klient", usunac wymaganie klienta przy dodawaniu
+- Wszystkie pola wymagane przy dodawaniu (nazwa, kategoria, subkategoria, EAN)
+- Kolumna "Akcje" -> pelna edycja wszystkich pol
+
+### 4.2 Subkategorie w Ustawieniach
+
+**Nowa sekcja** w `SettingsView.tsx` lub osobny widok:
+- CRUD na kategoriach i subkategoriach
+- Tabela `categories` i `subcategories` w bazie lub zarzadzanie jako unikalne wartosci z produktow
+- Produkt musi miec subkategorie (walidacja)
+
+---
+
+## FAZA 5: Typy kampanii (konfigurowalny modul)
+
+### 5.1 Tabela kampanii
+
+**Migracja SQL** -- nowa tabela `campaign_types`:
+
+```text
+campaign_types
+  id        uuid PK
+  user_id   uuid NOT NULL
+  name      text NOT NULL
+  label     text NOT NULL
+  created_at timestamptz
+```
+
+### 5.2 UI w Ustawieniach
+
+- Sekcja "Typy kampanii" w `SettingsView.tsx`
+- CRUD: dodawanie, edycja, usuwanie
+- W `ActivityDialog.tsx`: dropdown pobiera z bazy zamiast z hardcodowanego `campaignTypeLabels`
+
+---
+
+## FAZA 6: Raporty -- edytowalne
+
+### 6.1 Interaktywna tabela raportow
+
+**Zmiana w** `ReportsView.tsx`:
+- Kazdy wiersz klikalny -> otwiera `ActivityDetailDrawer`
+- W drawer: edycja aktywnosci (zmiana statusu, poprawa danych, podglad proofow)
+- Drawer rozszerzony o formularz edycji (reuse z ActivityDialog ale w trybie edycji)
+
+---
+
+## FAZA 7: Workflow aktywnosci (automat)
+
+### 7.1 Edge function `activity-workflow`
+
+- Cron co godzine
+- Jesli aktywnosc ma `start_date = dzisiaj` i `status = planned`:
+  - Tworzy powiadomienie dla KAM: "Czy aktywnosc X trwa?"
+  - KAM potwierdza -> status = 'in_progress'
+- Jesli aktywnosc ma `end_date < dzisiaj` i `status = in_progress`:
+  - Status -> 'completed'
+  - Powiadomienie: "Wymagany proof (zdjecie)"
+
+### 7.2 UI potwierdzenia
+
+- Powiadomienie z przyciskiem CTA "Potwierdz start"
+- Po kliknieciu -> zmiana statusu w bazie
+
+---
+
+## FAZA 8: Kalendarz (UI ulepszenie)
+
+### 8.1 Widok roczny z tygodniami
+
+**Zmiana w** `YearView.tsx`:
+- Zamiast siatki 12 miesiecy -> pelny widok roczny z oznaczeniem tygodni (W1, W2, W3...)
+- Date range picker na gorze
+- Estetyczne oznaczenie tygodni
+- Opcjonalny przelacznik: widok miesieczny vs tygodniowy
+
+---
+
+## FAZA 9: Admin -- zarzadzanie dostepem
+
+Pokrywa sie z Faza 2 (punkt 2.3). Dodatkowe akcje:
+- Usuwanie uzytkownikow (z potwierdzeniem)
+- Dezaktywacja (status = 'deactivated', uzytkownik nie moze sie logowac)
+- Odbieranie dostepu do klientow (usuwanie z `client_assignments`)
+
+---
+
+## FAZA 10: Widget powiadomien na Dashboard (PRO)
+
+- Karta "Masz X nieprzeczytanych powiadomien" na Dashboard
+- Ustawienia powiadomien: toggle per typ (w SettingsView)
 
 ---
 
 ## Podsumowanie zmian w plikach
 
-| Plik | Typ zmiany |
-|------|-----------|
-| `src/components/BudgetBar.tsx` | Rozdzielenie budgetu na zaplanowane/zrealizowane |
-| `src/components/ActivityDialog.tsx` | Walidacje, label "Klient", error handling |
-| `src/components/PackagesView.tsx` | Tooltip usun element, formatowanie cen, walidacja ceny |
-| `src/components/ProductsView.tsx` | Rozdzielone komunikaty walidacji |
-| `src/components/ClientsView.tsx` | Tooltip na przyciskach budzetu |
-| `src/components/SettingsView.tsx` | Manager/Viewer role |
-| `src/components/TopBar.tsx` | Ukrycie "Dodaj" dla Viewer |
-| `src/context/AppContext.tsx` | Eksport roli uzytkownika |
-| `src/hooks/useData.ts` | Rozszerzenie typow rol |
-| `src/hooks/useRole.ts` | **NOWY** -- hook useCanEdit |
-| Migracja SQL | ALTER TYPE app_role ADD VALUE |
-| Insert danych | 6 pakietow seedowych |
+| Faza | Nowe pliki | Modyfikowane pliki | Migracje SQL |
+|------|-----------|-------------------|--------------|
+| 1 | `NotificationCenter.tsx`, `useNotifications.ts`, edge fn `check-upcoming-activities` | `TopBar.tsx`, `YearView.tsx`, `ReportsView.tsx`, `AppLayout.tsx` | `notifications` tabela + RLS + realtime |
+| 2 | `OnboardingDialog.tsx`, `UsersView.tsx` | `ProtectedRoute.tsx`, `SettingsView.tsx`, `AppSidebar.tsx`, `App.tsx` | ALTER profiles + kolumny |
+| 3 | -- | `DashboardView.tsx` | -- |
+| 4 | -- | `ProductsView.tsx`, `SettingsView.tsx` | -- (lub tabela categories) |
+| 5 | -- | `SettingsView.tsx`, `ActivityDialog.tsx` | `campaign_types` tabela |
+| 6 | -- | `ReportsView.tsx`, `ActivityDetailDrawer.tsx` | -- |
+| 7 | edge fn `activity-workflow` | `NotificationCenter.tsx` | cron job SQL |
+| 8 | -- | `YearView.tsx` | -- |
+| 9 | -- | `UsersView.tsx` (z Fazy 2) | -- |
+| 10 | -- | `DashboardView.tsx`, `SettingsView.tsx` | -- |
 
+---
+
+## Kolejnosc implementacji
+
+Zalecana kolejnosc: **Faza 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 8 -> 7 -> 9 -> 10**
+
+Faza 7 (workflow) wymaga gotowego Centrum Powiadomien (Faza 1) i panelu uzytkownikow (Faza 2), dlatego jest pozniej.
+
+Ze wzgledu na rozmiar specyfikacji, implementacja bedzie realizowana faza po fazie. Po zatwierdzeniu planu zaczniemy od **Fazy 1** (TopBar + Centrum Powiadomien).
