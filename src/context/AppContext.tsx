@@ -3,6 +3,8 @@ import { Activity, Channel, ActivityStatus } from '@/types/mediaplan';
 import { useClients, DbClient } from '@/hooks/useData';
 import { useActivities, useActivitiesMulti, dbToActivity } from '@/hooks/useActivities';
 import { useIsAdmin } from '@/hooks/useRole';
+import { useMyRole } from '@/hooks/useData';
+import { useMyClientAssignments } from '@/hooks/useClientAssignments';
 
 interface ClientBudget {
   client: DbClient;
@@ -53,7 +55,10 @@ export const useApp = () => {
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { data: dbClients = [], isLoading: clientsLoading } = useClients();
-  const isAdmin = useIsAdmin();
+  const { data: myRole } = useMyRole();
+  const isAdmin = myRole === 'admin';
+  const { data: myAssignments = [] } = useMyClientAssignments();
+
   const [selectedClientId, setSelectedClientId] = useState('');
   const [multiClientMode, setMultiClientModeState] = useState(false);
   const [selectedClientIds, setSelectedClientIds] = useState<string[]>([]);
@@ -62,9 +67,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [statusFilter, setStatusFilter] = useState<ActivityStatus[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
 
+  // Filter clients based on role: admin sees all, manager/user sees assigned (if any assignments exist)
+  const visibleClients = useMemo(() => {
+    if (isAdmin) return dbClients;
+    if (myAssignments.length === 0) return dbClients; // No restrictions if no assignments
+    const assignedIds = new Set(myAssignments.map(a => a.client_id));
+    return dbClients.filter(c => assignedIds.has(c.id));
+  }, [dbClients, isAdmin, myAssignments]);
+
   const effectiveMultiMode = multiClientMode && isAdmin;
-  const effectiveClientId = selectedClientId || dbClients[0]?.id || '';
-  const selectedClient = useMemo(() => dbClients.find(c => c.id === effectiveClientId), [dbClients, effectiveClientId]);
+  const effectiveClientId = selectedClientId || visibleClients[0]?.id || '';
+  const selectedClient = useMemo(() => visibleClients.find(c => c.id === effectiveClientId), [visibleClients, effectiveClientId]);
 
   // Single client activities
   const { data: singleDbActivities = [] } = useActivities(
@@ -99,7 +112,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const multiClientBudgets = useMemo<ClientBudget[]>(() => {
     if (!effectiveMultiMode) return [];
     return selectedClientIds.map(cid => {
-      const client = dbClients.find(c => c.id === cid);
+      const client = visibleClients.find(c => c.id === cid);
       if (!client) return null;
       const clientActs = dbActivities.filter(d => d.client_id === cid);
       return {
@@ -109,7 +122,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         budgetCompleted: clientActs.filter(a => a.status === 'completed').reduce((s, a) => s + Number(a.price), 0),
       };
     }).filter(Boolean) as ClientBudget[];
-  }, [effectiveMultiMode, selectedClientIds, dbActivities, dbClients]);
+  }, [effectiveMultiMode, selectedClientIds, dbActivities, visibleClients]);
 
   const handleClientChange = useCallback((id: string) => {
     setSelectedClientId(id);
@@ -124,7 +137,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   return (
     <AppContext.Provider value={{
-      clients: dbClients, clientsLoading,
+      clients: visibleClients, clientsLoading,
       selectedClientId: effectiveClientId, setSelectedClientId: handleClientChange,
       multiClientMode: effectiveMultiMode, setMultiClientMode: handleMultiModeChange,
       selectedClientIds, setSelectedClientIds,

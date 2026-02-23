@@ -6,6 +6,7 @@ import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/h
 import { Badge } from '@/components/ui/badge';
 import { ChevronDown, ChevronRight, Palette } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { ActivityDetailDrawer } from './ActivityDetailDrawer';
 
 const months = ['Sty', 'Lut', 'Mar', 'Kwi', 'Maj', 'Cze', 'Lip', 'Sie', 'Wrz', 'Paź', 'Lis', 'Gru'];
 const formatPLN = (n: number) => new Intl.NumberFormat('pl-PL', { style: 'currency', currency: 'PLN', maximumFractionDigits: 0 }).format(n);
@@ -46,6 +47,8 @@ interface ClientGroup {
 
 export const YearView = () => {
   const { filteredActivities, selectedClientId, clients, multiClientMode, selectedClientIds } = useApp();
+  const [selectedActivity, setSelectedActivity] = useState<Activity | null>(null);
+  const [drawerOpen, setDrawerOpen] = useState(false);
 
   // In multi mode, fetch ALL products (no client filter); in single mode, fetch for selected client
   const { data: fetchedProducts = [] } = useProducts(multiClientMode ? undefined : (selectedClientId || undefined));
@@ -169,6 +172,7 @@ export const YearView = () => {
                 <div
                   className="absolute rounded-md cursor-pointer hover:brightness-110 transition-all shadow-sm hover:shadow-md z-10"
                   style={{ ...pos, top: 6 + idx * 28, height: 22, backgroundColor: color }}
+                  onClick={() => { setSelectedActivity(activity); setDrawerOpen(true); }}
                 >
                   <span className="text-[10px] leading-[22px] px-2 font-medium truncate block text-white">
                     {activity.name}
@@ -356,6 +360,14 @@ export const YearView = () => {
           </div>
         </div>
       )}
+
+      {/* Activity detail drawer */}
+      <ActivityDetailDrawer
+        activity={selectedActivity}
+        open={drawerOpen}
+        onOpenChange={setDrawerOpen}
+        clientId={selectedClientId}
+      />
     </div>
   );
 };

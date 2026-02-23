@@ -1,12 +1,13 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useClients, useProducts, useCreateProduct, useUpdateProduct, useDeleteProduct, useSeedProducts } from '@/hooks/useData';
 import { useCanEdit } from '@/hooks/useRole';
 import { allSeedProducts } from '@/data/seedProducts';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ShoppingBag, Plus, Pencil, Trash2, Check, X, Download } from 'lucide-react';
+import { ShoppingBag, Plus, Pencil, Trash2, Check, X, Download, Search, Tag } from 'lucide-react';
 import { toast } from 'sonner';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
@@ -15,38 +16,73 @@ import {
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogClose,
 } from '@/components/ui/dialog';
+import {
+  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
+} from '@/components/ui/table';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 
 export const ProductsView = () => {
   const { data: clients = [] } = useClients();
-  const [selectedClientId, setSelectedClientId] = useState<string>('all');
-  const { data: products = [], isLoading } = useProducts(selectedClientId === 'all' ? undefined : selectedClientId);
+  const { data: products = [], isLoading } = useProducts();
   const createProduct = useCreateProduct();
   const updateProduct = useUpdateProduct();
   const deleteProduct = useDeleteProduct();
   const seedProducts = useSeedProducts();
   const canEdit = useCanEdit();
 
+  // Filters
+  const [searchQuery, setSearchQuery] = useState('');
+  const [clientFilter, setClientFilter] = useState<string>('all');
+  const [categoryFilter, setCategoryFilter] = useState<string>('all');
+  const [subcategoryFilter, setSubcategoryFilter] = useState<string>('all');
+
+  // Create form
   const [newName, setNewName] = useState('');
   const [newEan, setNewEan] = useState('');
   const [newClientId, setNewClientId] = useState('');
+  const [newCategory, setNewCategory] = useState('');
+  const [newSubcategory, setNewSubcategory] = useState('');
+
+  // Edit
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState('');
   const [editEan, setEditEan] = useState('');
+  const [editCategory, setEditCategory] = useState('');
+  const [editSubcategory, setEditSubcategory] = useState('');
+
+  // Seed
   const [seedClientId, setSeedClientId] = useState('');
   const [seedGroupIdx, setSeedGroupIdx] = useState(0);
-  const [subcategoryFilter, setSubcategoryFilter] = useState<string>('all');
 
-  const subcategories = [...new Set(products.map(p => p.subcategory).filter(Boolean))] as string[];
-  const filteredProducts = subcategoryFilter === 'all'
-    ? products
-    : products.filter(p => p.subcategory === subcategoryFilter);
+  // Computed
+  const categories = useMemo(() => [...new Set(products.map(p => p.category).filter(Boolean))] as string[], [products]);
+  const subcategories = useMemo(() => [...new Set(products.map(p => p.subcategory).filter(Boolean))] as string[], [products]);
+
+  const filteredProducts = useMemo(() => {
+    return products.filter(p => {
+      if (clientFilter !== 'all' && p.client_id !== clientFilter) return false;
+      if (categoryFilter !== 'all' && p.category !== categoryFilter) return false;
+      if (subcategoryFilter !== 'all' && p.subcategory !== subcategoryFilter) return false;
+      if (searchQuery) {
+        const q = searchQuery.toLowerCase();
+        const clientName = clients.find(c => c.id === p.client_id)?.name?.toLowerCase() || '';
+        if (
+          !p.name.toLowerCase().includes(q) &&
+          !(p.ean || '').toLowerCase().includes(q) &&
+          !(p.category || '').toLowerCase().includes(q) &&
+          !(p.subcategory || '').toLowerCase().includes(q) &&
+          !clientName.includes(q)
+        ) return false;
+      }
+      return true;
+    });
+  }, [products, clientFilter, categoryFilter, subcategoryFilter, searchQuery, clients]);
 
   const handleCreate = async () => {
-    const clientId = newClientId || (selectedClientId !== 'all' ? selectedClientId : '');
     if (!newName.trim()) { toast.error('Podaj nazwę produktu'); return; }
-    if (!clientId) { toast.error('Wybierz klienta'); return; }
+    if (!newClientId) { toast.error('Wybierz klienta'); return; }
     try {
-      await createProduct.mutateAsync({ name: newName.trim(), clientId, ean: newEan.trim() || undefined });
+      await createProduct.mutateAsync({ name: newName.trim(), clientId: newClientId, ean: newEan.trim() || undefined });
       setNewName(''); setNewEan('');
       toast.success('Produkt dodany');
     } catch (e: any) { toast.error('Nie udało się zapisać: ' + (e.message || 'Nieznany błąd')); }
@@ -117,18 +153,36 @@ export const ProductsView = () => {
         )}
       </div>
 
-      {/* Filters */}
+      {/* Search & Filters */}
       <div className="flex gap-2 flex-wrap">
-        <Select value={selectedClientId} onValueChange={v => { setSelectedClientId(v); setSubcategoryFilter('all'); }}>
-          <SelectTrigger className="w-48"><SelectValue placeholder="Filtruj klienta" /></SelectTrigger>
+        <div className="relative flex-1 min-w-64">
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Szukaj po nazwie, EAN, kategorii, kliencie..."
+            value={searchQuery}
+            onChange={e => setSearchQuery(e.target.value)}
+            className="pl-9"
+          />
+        </div>
+        <Select value={clientFilter} onValueChange={v => { setClientFilter(v); }}>
+          <SelectTrigger className="w-44"><SelectValue placeholder="Klient" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">Wszyscy klienci</SelectItem>
             {clients.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
           </SelectContent>
         </Select>
+        {categories.length > 0 && (
+          <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+            <SelectTrigger className="w-40"><SelectValue placeholder="Kategoria" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Wszystkie kategorie</SelectItem>
+              {categories.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        )}
         {subcategories.length > 0 && (
           <Select value={subcategoryFilter} onValueChange={setSubcategoryFilter}>
-            <SelectTrigger className="w-48"><SelectValue placeholder="Subkategoria" /></SelectTrigger>
+            <SelectTrigger className="w-44"><SelectValue placeholder="Subkategoria" /></SelectTrigger>
             <SelectContent>
               <SelectItem value="all">Wszystkie subkategorie</SelectItem>
               {subcategories.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
@@ -137,97 +191,131 @@ export const ProductsView = () => {
         )}
       </div>
 
-      {/* Add */}
+      {/* Add product */}
       {canEdit && (
-        <div className="flex gap-2 flex-wrap">
+        <div className="flex gap-2 flex-wrap items-end">
           <Input placeholder="Nazwa produktu..." value={newName} onChange={e => setNewName(e.target.value)}
             onKeyDown={e => e.key === 'Enter' && handleCreate()} className="max-w-xs" />
           <Input placeholder="EAN (opcjonalnie)" value={newEan} onChange={e => setNewEan(e.target.value)}
-            className="w-40" />
-          {selectedClientId === 'all' && (
-            <Select value={newClientId} onValueChange={setNewClientId}>
-              <SelectTrigger className="w-48"><SelectValue placeholder="Klient" /></SelectTrigger>
-              <SelectContent>{clients.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}</SelectContent>
-            </Select>
-          )}
+            className="w-36" />
+          <Select value={newClientId} onValueChange={setNewClientId}>
+            <SelectTrigger className="w-44"><SelectValue placeholder="Klient" /></SelectTrigger>
+            <SelectContent>{clients.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}</SelectContent>
+          </Select>
           <Button onClick={handleCreate} disabled={createProduct.isPending} className="gap-2">
             <Plus className="h-4 w-4" /> Dodaj
           </Button>
         </div>
       )}
 
-      {/* Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {filteredProducts.map(product => {
-          const clientName = clients.find(c => c.id === product.client_id)?.name ?? '—';
-          const isEditing = editingId === product.id;
-          return (
-            <div key={product.id} className="bg-card rounded-xl border border-border p-5 shadow-sm space-y-3">
-              <div className="flex items-center gap-3">
-                <div className="h-9 w-9 rounded-lg bg-accent/10 flex items-center justify-center">
-                  <ShoppingBag className="h-4 w-4 text-accent" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  {isEditing ? (
-                    <div className="space-y-1">
-                      <div className="flex gap-1">
+      {/* Products table */}
+      <div className="bg-card rounded-xl border border-border shadow-sm overflow-hidden">
+        <div className="overflow-x-auto">
+          <Table>
+            <TableHeader>
+              <TableRow className="bg-secondary/50">
+                <TableHead className="font-semibold">Nazwa</TableHead>
+                <TableHead className="font-semibold">SKU/EAN</TableHead>
+                <TableHead className="font-semibold">Kategoria</TableHead>
+                <TableHead className="font-semibold">Subkategoria</TableHead>
+                <TableHead className="font-semibold">Klient</TableHead>
+                <TableHead className="font-semibold">Marka</TableHead>
+                {canEdit && <TableHead className="font-semibold w-28">Akcje</TableHead>}
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {filteredProducts.map((product, i) => {
+                const clientName = clients.find(c => c.id === product.client_id)?.name ?? '—';
+                const isEditing = editingId === product.id;
+
+                return (
+                  <TableRow key={product.id} className={i % 2 ? 'bg-secondary/10' : ''}>
+                    <TableCell>
+                      {isEditing ? (
                         <Input value={editName} onChange={e => setEditName(e.target.value)}
                           onKeyDown={e => e.key === 'Enter' && handleUpdate(product.id)} className="h-8 text-sm" autoFocus />
-                        <Button size="icon" variant="ghost" className="h-8 w-8 shrink-0" onClick={() => handleUpdate(product.id)}><Check className="h-3 w-3" /></Button>
-                        <Button size="icon" variant="ghost" className="h-8 w-8 shrink-0" onClick={() => setEditingId(null)}><X className="h-3 w-3" /></Button>
-                      </div>
-                      <Input value={editEan} onChange={e => setEditEan(e.target.value)} placeholder="EAN" className="h-7 text-xs" />
-                    </div>
-                  ) : (
-                    <>
-                      <h3 className="font-bold text-sm leading-tight">{product.name}</h3>
-                      {product.ean && <div className="text-xs text-muted-foreground font-mono mt-0.5">EAN: {product.ean}</div>}
-                    </>
-                  )}
-                </div>
-              </div>
-              <div className="flex flex-wrap gap-1">
-                {product.brand && <Badge variant="secondary" className="text-xs">{product.brand}</Badge>}
-                {product.subcategory && <Badge variant="outline" className="text-xs">{product.subcategory}</Badge>}
-              </div>
-              <div className="text-xs text-muted-foreground">
-                Klient: <span className="font-medium text-foreground">{clientName}</span>
-              </div>
-              {canEdit && (
-                <div className="flex gap-1">
-                  <Button size="sm" variant="outline" className="gap-1"
-                    onClick={() => { setEditingId(product.id); setEditName(product.name); setEditEan(product.ean || ''); }}>
-                    <Pencil className="h-3 w-3" /> Edytuj
-                  </Button>
-                  <AlertDialog>
-                    <AlertDialogTrigger asChild>
-                      <Button size="sm" variant="outline" className="gap-1 text-destructive hover:text-destructive">
-                        <Trash2 className="h-3 w-3" /> Usuń
-                      </Button>
-                    </AlertDialogTrigger>
-                    <AlertDialogContent>
-                      <AlertDialogHeader>
-                        <AlertDialogTitle>Usunąć produkt?</AlertDialogTitle>
-                        <AlertDialogDescription>Usunięcie produktu "{product.name}" jest nieodwracalne.</AlertDialogDescription>
-                      </AlertDialogHeader>
-                      <AlertDialogFooter>
-                        <AlertDialogCancel>Anuluj</AlertDialogCancel>
-                        <AlertDialogAction onClick={() => handleDelete(product.id)}>Usuń</AlertDialogAction>
-                      </AlertDialogFooter>
-                    </AlertDialogContent>
-                  </AlertDialog>
-                </div>
-              )}
-            </div>
-          );
-        })}
+                      ) : (
+                        <span className="font-medium">{product.name}</span>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {isEditing ? (
+                        <Input value={editEan} onChange={e => setEditEan(e.target.value)} className="h-8 text-sm w-28" />
+                      ) : (
+                        <span className="text-xs font-mono text-muted-foreground">{product.ean || '—'}</span>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <span className="text-xs">{product.category || '—'}</span>
+                    </TableCell>
+                    <TableCell>
+                      {product.subcategory ? (
+                        <Badge variant="outline" className="text-xs">{product.subcategory}</Badge>
+                      ) : '—'}
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant="secondary" className="text-xs">{clientName}</Badge>
+                    </TableCell>
+                    <TableCell>
+                      <span className="text-xs">{product.brand || '—'}</span>
+                    </TableCell>
+                    {canEdit && (
+                      <TableCell>
+                        {isEditing ? (
+                          <div className="flex gap-1">
+                            <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => handleUpdate(product.id)}>
+                              <Check className="h-3 w-3" />
+                            </Button>
+                            <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => setEditingId(null)}>
+                              <X className="h-3 w-3" />
+                            </Button>
+                          </div>
+                        ) : (
+                          <div className="flex gap-1">
+                            <Button size="icon" variant="ghost" className="h-7 w-7"
+                              onClick={() => { setEditingId(product.id); setEditName(product.name); setEditEan(product.ean || ''); }}>
+                              <Pencil className="h-3 w-3" />
+                            </Button>
+                            <AlertDialog>
+                              <AlertDialogTrigger asChild>
+                                <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive hover:text-destructive">
+                                  <Trash2 className="h-3 w-3" />
+                                </Button>
+                              </AlertDialogTrigger>
+                              <AlertDialogContent>
+                                <AlertDialogHeader>
+                                  <AlertDialogTitle>Usunąć produkt?</AlertDialogTitle>
+                                  <AlertDialogDescription>Usunięcie "{product.name}" jest nieodwracalne.</AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                  <AlertDialogCancel>Anuluj</AlertDialogCancel>
+                                  <AlertDialogAction onClick={() => handleDelete(product.id)}>Usuń</AlertDialogAction>
+                                </AlertDialogFooter>
+                              </AlertDialogContent>
+                            </AlertDialog>
+                          </div>
+                        )}
+                      </TableCell>
+                    )}
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
+        </div>
       </div>
 
       {filteredProducts.length === 0 && (
         <div className="text-center text-muted-foreground py-12">
-          {clients.length === 0 ? 'Najpierw dodaj klienta w sekcji Klienci.' : 'Brak produktów. Dodaj pierwszy produkt powyżej lub użyj importu.'}
+          {products.length === 0
+            ? (clients.length === 0 ? 'Najpierw dodaj klienta w sekcji Klienci.' : 'Brak produktów. Dodaj pierwszy produkt powyżej lub użyj importu.')
+            : 'Brak wyników dla podanych filtrów.'}
         </div>
       )}
+
+      <div className="text-xs text-muted-foreground">
+        Wyświetlono {filteredProducts.length} z {products.length} produktów
+      </div>
     </div>
   );
 };
