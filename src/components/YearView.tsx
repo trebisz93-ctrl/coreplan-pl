@@ -376,7 +376,13 @@ export const YearView = () => {
     });
   };
 
+  // Activities without any product assigned
+  const unassignedActivities = useMemo(() => {
+    return filteredActivities.filter(a => !a.productIds || a.productIds.length === 0);
+  }, [filteredActivities]);
+
   const hasProducts = effectiveProducts.length > 0;
+  const hasContent = hasProducts || unassignedActivities.length > 0;
 
   return (
     <div className="space-y-4">
@@ -500,7 +506,20 @@ export const YearView = () => {
         {/* Single-client mode */}
         {!multiClientMode && renderSubcategoryRows(subcategoryGroups)}
 
-        {!hasProducts && (
+        {/* Unassigned activities (no products) */}
+        {unassignedActivities.length > 0 && (
+          <div>
+            <div className="flex border-b border-border bg-muted/30">
+              <div className="w-52 shrink-0 px-4 flex items-center gap-2">
+                <span className="text-sm font-semibold text-muted-foreground">Bez produktów</span>
+                <span className="text-xs text-muted-foreground">({unassignedActivities.length})</span>
+              </div>
+              {renderActivityBars(unassignedActivities, 'hsl(var(--muted-foreground))')}
+            </div>
+          </div>
+        )}
+
+        {!hasContent && (
           <div className="p-12 text-center text-muted-foreground">
             {multiClientMode
               ? (selectedClientIds.length > 0 ? 'Brak produktów dla wybranych klientów.' : 'Wybierz klientów na górze.')
