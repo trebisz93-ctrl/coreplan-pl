@@ -5,9 +5,8 @@ import { allSeedProducts } from '@/data/seedProducts';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ShoppingBag, Plus, Pencil, Trash2, Check, X, Download, Search, Tag } from 'lucide-react';
+import { ShoppingBag, Plus, Pencil, Trash2, Check, X, Download, Search } from 'lucide-react';
 import { toast } from 'sonner';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
@@ -19,7 +18,6 @@ import {
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 
 export const ProductsView = () => {
   const { data: clients = [] } = useClients();
@@ -32,14 +30,12 @@ export const ProductsView = () => {
 
   // Filters
   const [searchQuery, setSearchQuery] = useState('');
-  const [clientFilter, setClientFilter] = useState<string>('all');
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const [subcategoryFilter, setSubcategoryFilter] = useState<string>('all');
 
   // Create form
   const [newName, setNewName] = useState('');
   const [newEan, setNewEan] = useState('');
-  const [newClientId, setNewClientId] = useState('');
   const [newCategory, setNewCategory] = useState('');
   const [newSubcategory, setNewSubcategory] = useState('');
 
@@ -49,6 +45,7 @@ export const ProductsView = () => {
   const [editEan, setEditEan] = useState('');
   const [editCategory, setEditCategory] = useState('');
   const [editSubcategory, setEditSubcategory] = useState('');
+  const [editBrand, setEditBrand] = useState('');
 
   // Seed
   const [seedClientId, setSeedClientId] = useState('');
@@ -60,30 +57,30 @@ export const ProductsView = () => {
 
   const filteredProducts = useMemo(() => {
     return products.filter(p => {
-      if (clientFilter !== 'all' && p.client_id !== clientFilter) return false;
       if (categoryFilter !== 'all' && p.category !== categoryFilter) return false;
       if (subcategoryFilter !== 'all' && p.subcategory !== subcategoryFilter) return false;
       if (searchQuery) {
         const q = searchQuery.toLowerCase();
-        const clientName = clients.find(c => c.id === p.client_id)?.name?.toLowerCase() || '';
         if (
           !p.name.toLowerCase().includes(q) &&
           !(p.ean || '').toLowerCase().includes(q) &&
           !(p.category || '').toLowerCase().includes(q) &&
           !(p.subcategory || '').toLowerCase().includes(q) &&
-          !clientName.includes(q)
+          !(p.brand || '').toLowerCase().includes(q)
         ) return false;
       }
       return true;
     });
-  }, [products, clientFilter, categoryFilter, subcategoryFilter, searchQuery, clients]);
+  }, [products, categoryFilter, subcategoryFilter, searchQuery]);
 
   const handleCreate = async () => {
     if (!newName.trim()) { toast.error('Podaj nazwę produktu'); return; }
-    if (!newClientId) { toast.error('Wybierz klienta'); return; }
+    if (!newCategory.trim()) { toast.error('Podaj kategorię'); return; }
+    if (!newSubcategory.trim()) { toast.error('Podaj subkategorię'); return; }
+    if (!newEan.trim()) { toast.error('Podaj EAN'); return; }
     try {
-      await createProduct.mutateAsync({ name: newName.trim(), clientId: newClientId, ean: newEan.trim() || undefined });
-      setNewName(''); setNewEan('');
+      await createProduct.mutateAsync({ name: newName.trim(), ean: newEan.trim(), category: newCategory.trim(), subcategory: newSubcategory.trim() });
+      setNewName(''); setNewEan(''); setNewCategory(''); setNewSubcategory('');
       toast.success('Produkt dodany');
     } catch (e: any) { toast.error('Nie udało się zapisać: ' + (e.message || 'Nieznany błąd')); }
   };
@@ -91,7 +88,7 @@ export const ProductsView = () => {
   const handleUpdate = async (id: string) => {
     if (!editName.trim()) { toast.error('Podaj nazwę produktu'); return; }
     try {
-      await updateProduct.mutateAsync({ id, name: editName.trim(), ean: editEan.trim() || undefined });
+      await updateProduct.mutateAsync({ id, name: editName.trim(), ean: editEan.trim() || undefined, category: editCategory.trim() || undefined, subcategory: editSubcategory.trim() || undefined, brand: editBrand.trim() || undefined });
       setEditingId(null);
       toast.success('Produkt zaktualizowany');
     } catch (e: any) { toast.error('Nie udało się zapisać: ' + (e.message || 'Nieznany błąd')); }
@@ -109,6 +106,15 @@ export const ProductsView = () => {
       await seedProducts.mutateAsync({ clientId: seedClientId, products: group.products });
       toast.success(`Zaimportowano ${group.products.length} produktów (${group.group})`);
     } catch (e: any) { toast.error('Nie udało się zaimportować: ' + (e.message || 'Nieznany błąd')); }
+  };
+
+  const startEditing = (product: typeof products[0]) => {
+    setEditingId(product.id);
+    setEditName(product.name);
+    setEditEan(product.ean || '');
+    setEditCategory(product.category || '');
+    setEditSubcategory(product.subcategory || '');
+    setEditBrand(product.brand || '');
   };
 
   if (isLoading) {
@@ -158,19 +164,12 @@ export const ProductsView = () => {
         <div className="relative flex-1 min-w-64">
           <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="Szukaj po nazwie, EAN, kategorii, kliencie..."
+            placeholder="Szukaj po nazwie, EAN, kategorii, marce..."
             value={searchQuery}
             onChange={e => setSearchQuery(e.target.value)}
             className="pl-9"
           />
         </div>
-        <Select value={clientFilter} onValueChange={v => { setClientFilter(v); }}>
-          <SelectTrigger className="w-44"><SelectValue placeholder="Klient" /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Wszyscy klienci</SelectItem>
-            {clients.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
-          </SelectContent>
-        </Select>
         {categories.length > 0 && (
           <Select value={categoryFilter} onValueChange={setCategoryFilter}>
             <SelectTrigger className="w-40"><SelectValue placeholder="Kategoria" /></SelectTrigger>
@@ -194,14 +193,10 @@ export const ProductsView = () => {
       {/* Add product */}
       {canEdit && (
         <div className="flex gap-2 flex-wrap items-end">
-          <Input placeholder="Nazwa produktu..." value={newName} onChange={e => setNewName(e.target.value)}
-            onKeyDown={e => e.key === 'Enter' && handleCreate()} className="max-w-xs" />
-          <Input placeholder="EAN (opcjonalnie)" value={newEan} onChange={e => setNewEan(e.target.value)}
-            className="w-36" />
-          <Select value={newClientId} onValueChange={setNewClientId}>
-            <SelectTrigger className="w-44"><SelectValue placeholder="Klient" /></SelectTrigger>
-            <SelectContent>{clients.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}</SelectContent>
-          </Select>
+          <Input placeholder="Nazwa*" value={newName} onChange={e => setNewName(e.target.value)} className="max-w-40" />
+          <Input placeholder="Kategoria*" value={newCategory} onChange={e => setNewCategory(e.target.value)} className="w-32" />
+          <Input placeholder="Subkategoria*" value={newSubcategory} onChange={e => setNewSubcategory(e.target.value)} className="w-36" />
+          <Input placeholder="EAN*" value={newEan} onChange={e => setNewEan(e.target.value)} className="w-32" />
           <Button onClick={handleCreate} disabled={createProduct.isPending} className="gap-2">
             <Plus className="h-4 w-4" /> Dodaj
           </Button>
@@ -218,22 +213,19 @@ export const ProductsView = () => {
                 <TableHead className="font-semibold">SKU/EAN</TableHead>
                 <TableHead className="font-semibold">Kategoria</TableHead>
                 <TableHead className="font-semibold">Subkategoria</TableHead>
-                <TableHead className="font-semibold">Klient</TableHead>
                 <TableHead className="font-semibold">Marka</TableHead>
                 {canEdit && <TableHead className="font-semibold w-28">Akcje</TableHead>}
               </TableRow>
             </TableHeader>
             <TableBody>
               {filteredProducts.map((product, i) => {
-                const clientName = clients.find(c => c.id === product.client_id)?.name ?? '—';
                 const isEditing = editingId === product.id;
 
                 return (
                   <TableRow key={product.id} className={i % 2 ? 'bg-secondary/10' : ''}>
                     <TableCell>
                       {isEditing ? (
-                        <Input value={editName} onChange={e => setEditName(e.target.value)}
-                          onKeyDown={e => e.key === 'Enter' && handleUpdate(product.id)} className="h-8 text-sm" autoFocus />
+                        <Input value={editName} onChange={e => setEditName(e.target.value)} className="h-8 text-sm" autoFocus />
                       ) : (
                         <span className="font-medium">{product.name}</span>
                       )}
@@ -246,18 +238,27 @@ export const ProductsView = () => {
                       )}
                     </TableCell>
                     <TableCell>
-                      <span className="text-xs">{product.category || '—'}</span>
+                      {isEditing ? (
+                        <Input value={editCategory} onChange={e => setEditCategory(e.target.value)} className="h-8 text-sm w-28" />
+                      ) : (
+                        <span className="text-xs">{product.category || '—'}</span>
+                      )}
                     </TableCell>
                     <TableCell>
-                      {product.subcategory ? (
-                        <Badge variant="outline" className="text-xs">{product.subcategory}</Badge>
-                      ) : '—'}
+                      {isEditing ? (
+                        <Input value={editSubcategory} onChange={e => setEditSubcategory(e.target.value)} className="h-8 text-sm w-28" />
+                      ) : (
+                        product.subcategory ? (
+                          <Badge variant="outline" className="text-xs">{product.subcategory}</Badge>
+                        ) : '—'
+                      )}
                     </TableCell>
                     <TableCell>
-                      <Badge variant="secondary" className="text-xs">{clientName}</Badge>
-                    </TableCell>
-                    <TableCell>
-                      <span className="text-xs">{product.brand || '—'}</span>
+                      {isEditing ? (
+                        <Input value={editBrand} onChange={e => setEditBrand(e.target.value)} className="h-8 text-sm w-28" />
+                      ) : (
+                        <span className="text-xs">{product.brand || '—'}</span>
+                      )}
                     </TableCell>
                     {canEdit && (
                       <TableCell>
@@ -272,8 +273,7 @@ export const ProductsView = () => {
                           </div>
                         ) : (
                           <div className="flex gap-1">
-                            <Button size="icon" variant="ghost" className="h-7 w-7"
-                              onClick={() => { setEditingId(product.id); setEditName(product.name); setEditEan(product.ean || ''); }}>
+                            <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => startEditing(product)}>
                               <Pencil className="h-3 w-3" />
                             </Button>
                             <AlertDialog>
@@ -308,7 +308,7 @@ export const ProductsView = () => {
       {filteredProducts.length === 0 && (
         <div className="text-center text-muted-foreground py-12">
           {products.length === 0
-            ? (clients.length === 0 ? 'Najpierw dodaj klienta w sekcji Klienci.' : 'Brak produktów. Dodaj pierwszy produkt powyżej lub użyj importu.')
+            ? 'Brak produktów. Dodaj pierwszy produkt powyżej lub użyj importu.'
             : 'Brak wyników dla podanych filtrów.'}
         </div>
       )}
