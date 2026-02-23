@@ -1,14 +1,33 @@
-import { useClients, useProducts } from '@/hooks/useData';
-import { useActivities, dbToActivity } from '@/hooks/useActivities';
-import { Building2, Package, DollarSign } from 'lucide-react';
+import { useState } from 'react';
+import { useClients, useProducts, DbProduct } from '@/hooks/useData';
+import { useActivities } from '@/hooks/useActivities';
+import { Building2, Package, DollarSign, ChevronDown, ChevronRight } from 'lucide-react';
 import { Progress } from '@/components/ui/progress';
+import { Badge } from '@/components/ui/badge';
 
 const formatPLN = (n: number) => new Intl.NumberFormat('pl-PL', { style: 'currency', currency: 'PLN', maximumFractionDigits: 0 }).format(n);
+
+interface SubcategoryGroup {
+  subcategory: string;
+  products: DbProduct[];
+}
+
+const groupBySubcategory = (products: DbProduct[]): SubcategoryGroup[] => {
+  const map = new Map<string, DbProduct[]>();
+  for (const p of products) {
+    const key = p.subcategory || 'Inne';
+    if (!map.has(key)) map.set(key, []);
+    map.get(key)!.push(p);
+  }
+  return Array.from(map.entries()).map(([subcategory, products]) => ({ subcategory, products })).sort((a, b) => a.subcategory.localeCompare(b.subcategory));
+};
 
 export const DashboardView = () => {
   const { data: clients = [], isLoading: loadingClients } = useClients();
   const { data: allProducts = [], isLoading: loadingProducts } = useProducts();
   const { data: allDbActivities = [] } = useActivities();
+  const [expandedClient, setExpandedClient] = useState<string | null>(null);
+  const [expandedSub, setExpandedSub] = useState<string | null>(null);
 
   if (loadingClients || loadingProducts) {
     return (
@@ -49,6 +68,8 @@ export const DashboardView = () => {
             .filter(a => a.status !== 'cancelled')
             .reduce((s, a) => s + Number(a.price), 0);
           const pct = budget > 0 ? (budgetUsed / budget) * 100 : 0;
+          const isExpanded = expandedClient === client.id;
+          const subcategoryGroups = groupBySubcategory(clientProducts);
 
           return (
             <div key={client.id} className="bg-card rounded-xl border border-border p-5 shadow-sm space-y-4">
@@ -71,9 +92,46 @@ export const DashboardView = () => {
                 </div>
               </div>
 
-              <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                <Package className="h-3 w-3" />
-                <span>{clientProducts.length} produktów</span>
+              {/* Subcategory breakdown */}
+              <div>
+                <button
+                  onClick={() => setExpandedClient(isExpanded ? null : client.id)}
+                  className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors w-full"
+                >
+                  {isExpanded ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
+                  <Package className="h-3 w-3" />
+                  <span>{clientProducts.length} produktów · {subcategoryGroups.length} subkategorii</span>
+                </button>
+
+                {isExpanded && (
+                  <div className="mt-2 space-y-1 pl-2 border-l-2 border-border">
+                    {subcategoryGroups.map(group => {
+                      const subKey = `${client.id}-${group.subcategory}`;
+                      const isSubExpanded = expandedSub === subKey;
+                      return (
+                        <div key={group.subcategory}>
+                          <button
+                            onClick={() => setExpandedSub(isSubExpanded ? null : subKey)}
+                            className="flex items-center gap-2 text-xs py-1 hover:text-foreground transition-colors w-full text-left"
+                          >
+                            {isSubExpanded ? <ChevronDown className="h-3 w-3 shrink-0" /> : <ChevronRight className="h-3 w-3 shrink-0" />}
+                            <Badge variant="outline" className="text-xs font-normal">{group.subcategory}</Badge>
+                            <span className="text-muted-foreground">({group.products.length})</span>
+                          </button>
+                          {isSubExpanded && (
+                            <div className="pl-5 space-y-0.5 mb-1">
+                              {group.products.map(p => (
+                                <div key={p.id} className="text-xs text-muted-foreground truncate py-0.5">
+                                  {p.name}
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
             </div>
           );

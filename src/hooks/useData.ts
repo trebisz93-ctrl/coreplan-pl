@@ -18,6 +18,9 @@ export interface DbProduct {
   client_id: string;
   name: string;
   ean: string | null;
+  brand: string | null;
+  category: string | null;
+  subcategory: string | null;
   created_at: string;
   updated_at: string;
 }

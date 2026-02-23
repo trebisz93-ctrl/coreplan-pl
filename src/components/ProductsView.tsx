@@ -32,6 +32,12 @@ export const ProductsView = () => {
   const [editEan, setEditEan] = useState('');
   const [seedClientId, setSeedClientId] = useState('');
   const [seedGroupIdx, setSeedGroupIdx] = useState(0);
+  const [subcategoryFilter, setSubcategoryFilter] = useState<string>('all');
+
+  const subcategories = [...new Set(products.map(p => p.subcategory).filter(Boolean))] as string[];
+  const filteredProducts = subcategoryFilter === 'all'
+    ? products
+    : products.filter(p => p.subcategory === subcategoryFilter);
 
   const handleCreate = async () => {
     const clientId = newClientId || (selectedClientId !== 'all' ? selectedClientId : '');
@@ -106,14 +112,25 @@ export const ProductsView = () => {
         </Dialog>
       </div>
 
-      {/* Filter */}
-      <Select value={selectedClientId} onValueChange={setSelectedClientId}>
-        <SelectTrigger className="w-48"><SelectValue placeholder="Filtruj klienta" /></SelectTrigger>
-        <SelectContent>
-          <SelectItem value="all">Wszyscy klienci</SelectItem>
-          {clients.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
-        </SelectContent>
-      </Select>
+      {/* Filters */}
+      <div className="flex gap-2 flex-wrap">
+        <Select value={selectedClientId} onValueChange={v => { setSelectedClientId(v); setSubcategoryFilter('all'); }}>
+          <SelectTrigger className="w-48"><SelectValue placeholder="Filtruj klienta" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Wszyscy klienci</SelectItem>
+            {clients.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+          </SelectContent>
+        </Select>
+        {subcategories.length > 0 && (
+          <Select value={subcategoryFilter} onValueChange={setSubcategoryFilter}>
+            <SelectTrigger className="w-48"><SelectValue placeholder="Subkategoria" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Wszystkie subkategorie</SelectItem>
+              {subcategories.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        )}
+      </div>
 
       {/* Add */}
       <div className="flex gap-2 flex-wrap">
@@ -134,7 +151,7 @@ export const ProductsView = () => {
 
       {/* Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {products.map(product => {
+        {filteredProducts.map(product => {
           const clientName = clients.find(c => c.id === product.client_id)?.name ?? '—';
           const isEditing = editingId === product.id;
           return (
@@ -161,6 +178,10 @@ export const ProductsView = () => {
                     </>
                   )}
                 </div>
+              </div>
+              <div className="flex flex-wrap gap-1">
+                {product.brand && <Badge variant="secondary" className="text-xs">{product.brand}</Badge>}
+                {product.subcategory && <Badge variant="outline" className="text-xs">{product.subcategory}</Badge>}
               </div>
               <div className="text-xs text-muted-foreground">
                 Klient: <span className="font-medium text-foreground">{clientName}</span>
@@ -193,7 +214,7 @@ export const ProductsView = () => {
         })}
       </div>
 
-      {products.length === 0 && (
+      {filteredProducts.length === 0 && (
         <div className="text-center text-muted-foreground py-12">
           {clients.length === 0 ? 'Najpierw dodaj klienta w sekcji Klienci.' : 'Brak produktów. Dodaj pierwszy produkt powyżej lub użyj importu.'}
         </div>
