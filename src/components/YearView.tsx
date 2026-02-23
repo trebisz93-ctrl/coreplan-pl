@@ -1,7 +1,8 @@
 import { useMemo, useState, useCallback, useRef } from 'react';
 import { useApp } from '@/context/AppContext';
 import { useCanEdit } from '@/hooks/useRole';
-import { useProducts, DbProduct } from '@/hooks/useData';
+import { useProducts, DbProduct, usePackages, DbPackage } from '@/hooks/useData';
+import { useSeedDefaultPackages } from '@/hooks/useSeedDefaultPackages';
 import { Activity, statusLabels, campaignTypeLabels } from '@/types/mediaplan';
 import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/hover-card';
 import { Badge } from '@/components/ui/badge';
@@ -40,6 +41,12 @@ const PRESET_COLORS = [
   'hsl(300, 50%, 50%)',
 ];
 
+const PACKAGE_COLORS = [
+  'hsl(221, 70%, 55%)', 'hsl(142, 60%, 45%)', 'hsl(271, 65%, 55%)',
+  'hsl(25, 80%, 50%)', 'hsl(0, 70%, 55%)', 'hsl(38, 80%, 48%)',
+  'hsl(173, 50%, 42%)', 'hsl(330, 65%, 55%)',
+];
+
 const quarterRanges: Record<string, [string, string]> = {
   Q1: ['01-01', '03-31'],
   Q2: ['04-01', '06-30'],
@@ -65,6 +72,11 @@ export const YearView = () => {
   const [dateTo, setDateTo] = useState(`${year}-12-31`);
   const [activePeriod, setActivePeriod] = useState<string>('year');
 
+  // Seed default packages if user has none
+  useSeedDefaultPackages();
+
+  const { data: packages = [] } = usePackages();
+
   const setPeriod = (key: string) => {
     const [from, to] = quarterRanges[key];
     setDateFrom(`${year}-${from}`);
@@ -72,7 +84,6 @@ export const YearView = () => {
     setActivePeriod(key);
   };
 
-  // Filter activities by date range
   const filteredActivities = useMemo(() => {
     return allFilteredActivities.filter(a => {
       if (a.endDate < dateFrom || a.startDate > dateTo) return false;
@@ -80,7 +91,6 @@ export const YearView = () => {
     });
   }, [allFilteredActivities, dateFrom, dateTo]);
 
-  // Visible months / weeks
   const visibleMonths = useMemo(() => {
     const startMonth = parseInt(dateFrom.slice(5, 7)) - 1;
     const endMonth = parseInt(dateTo.slice(5, 7)) - 1;
@@ -111,7 +121,6 @@ export const YearView = () => {
   const gridColumns = viewMode === 'weekly' ? visibleWeeks.length : visibleMonths.length;
   const gridHeaders = viewMode === 'weekly' ? visibleWeeks.map(w => w.label) : visibleMonths;
 
-  // Products
   const { data: fetchedProducts = [] } = useProducts(multiClientMode ? undefined : (selectedClientId || undefined));
 
   const effectiveProducts = useMemo(() => {
@@ -119,19 +128,24 @@ export const YearView = () => {
     return fetchedProducts.filter(p => selectedClientIds.includes(p.client_id));
   }, [multiClientMode, fetchedProducts, selectedClientIds]);
 
-  // Build product map for quick lookup
   const productMap = useMemo(() => {
     const map = new Map<string, DbProduct>();
     effectiveProducts.forEach(p => map.set(p.id, p));
     return map;
   }, [effectiveProducts]);
 
+  const packageMap = useMemo(() => {
+    const map = new Map<string, DbPackage>();
+    packages.forEach(p => map.set(p.id, p));
+    return map;
+  }, [packages]);
+
   // State
+  const [expandedPackages, setExpandedPackages] = useState<Set<string>>(new Set());
   const [expandedActivities, setExpandedActivities] = useState<Set<string>>(new Set());
   const [expandedSubs, setExpandedSubs] = useState<Set<string>>(new Set());
   const [subColors, setSubColors] = useState<Record<string, string>>({});
 
-  // All subcategory names for legend
   const allSubNames = useMemo(() => {
     const subs = new Set<string>();
     effectiveProducts.forEach(p => subs.add(p.subcategory || 'Inne'));
@@ -144,6 +158,9 @@ export const YearView = () => {
     return DEFAULT_SUB_COLORS[(idx >= 0 ? idx : 0) % DEFAULT_SUB_COLORS.length];
   }, [subColors, allSubNames]);
 
+  const togglePackage = (id: string) => {
+    setExpandedPackages(prev => { const n = new Set(prev); if (n.has(id)) n.delete(id); else n.add(id); return n; });
+  };
   const toggleActivity = (id: string) => {
     setExpandedActivities(prev => { const n = new Set(prev); if (n.has(id)) n.delete(id); else n.add(id); return n; });
   };
@@ -151,7 +168,6 @@ export const YearView = () => {
     setExpandedSubs(prev => { const n = new Set(prev); if (n.has(key)) n.delete(key); else n.add(key); return n; });
   };
 
-  // Get brand label for an activity
   const getActivityBrandLabel = useCallback((activity: Activity) => {
     const prods = activity.productIds.map(pid => productMap.get(pid)).filter(Boolean) as DbProduct[];
     const brands = [...new Set(prods.map(p => p.brand).filter(Boolean))] as string[];
@@ -160,7 +176,6 @@ export const YearView = () => {
     return `${brands[0]} +${brands.length - 1}`;
   }, [productMap]);
 
-  // Get subcategory groups for an activity's products
   const getActivitySubcategoryGroups = useCallback((activity: Activity) => {
     const prods = activity.productIds.map(pid => productMap.get(pid)).filter(Boolean) as DbProduct[];
     const map = new Map<string, DbProduct[]>();
@@ -187,7 +202,6 @@ export const YearView = () => {
     return { left: `${left}%`, width: `${Math.max(width, 0.8)}%` };
   };
 
-  // PDF Export
   const handleExportPDF = async () => {
     if (!chartRef.current) return;
     setExporting(true);
@@ -208,6 +222,13 @@ export const YearView = () => {
     } catch (e) { console.error('PDF export error:', e); }
     finally { setExporting(false); }
   };
+
+  const getActivityColor = useCallback((activity: Activity) => {
+    const prods = activity.productIds.map(pid => productMap.get(pid)).filter(Boolean) as DbProduct[];
+    if (prods.length === 0) return 'hsl(var(--muted-foreground))';
+    const sub = prods[0].subcategory || 'Inne';
+    return getSubColor(sub);
+  }, [productMap, getSubColor]);
 
   const renderActivityBar = (activity: Activity, color: string, label: string) => {
     const pos = getBarStyle(activity);
@@ -257,13 +278,30 @@ export const YearView = () => {
     </div>
   );
 
-  // Get color for activity based on its first product's subcategory
-  const getActivityColor = useCallback((activity: Activity) => {
-    const prods = activity.productIds.map(pid => productMap.get(pid)).filter(Boolean) as DbProduct[];
-    if (prods.length === 0) return 'hsl(var(--muted-foreground))';
-    const sub = prods[0].subcategory || 'Inne';
-    return getSubColor(sub);
-  }, [productMap, getSubColor]);
+  // Group activities by package
+  const packageGroups = useMemo(() => {
+    const groups = new Map<string, Activity[]>();
+    const NO_PACKAGE = '__no_package__';
+    filteredActivities.forEach(a => {
+      const key = a.packageId || NO_PACKAGE;
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key)!.push(a);
+    });
+    // Sort: named packages first, then "no package"
+    const sorted: { packageId: string; packageName: string; activities: Activity[]; pkg?: DbPackage }[] = [];
+    groups.forEach((activities, key) => {
+      if (key !== NO_PACKAGE) {
+        const pkg = packageMap.get(key);
+        sorted.push({ packageId: key, packageName: pkg?.name || 'Nieznany pakiet', activities, pkg });
+      }
+    });
+    sorted.sort((a, b) => a.packageName.localeCompare(b.packageName));
+    const noPackage = groups.get(NO_PACKAGE);
+    if (noPackage && noPackage.length > 0) {
+      sorted.push({ packageId: NO_PACKAGE, packageName: 'Bez pakietu', activities: noPackage });
+    }
+    return sorted;
+  }, [filteredActivities, packageMap]);
 
   const hasContent = filteredActivities.length > 0;
 
@@ -271,7 +309,6 @@ export const YearView = () => {
     <div className="space-y-4">
       {/* Controls */}
       <div className="flex items-center gap-3 flex-wrap">
-        {/* Period presets */}
         <div className="flex gap-1">
           {['Q1', 'Q2', 'Q3', 'Q4'].map(q => (
             <Button key={q} size="sm" variant={activePeriod === q ? 'default' : 'outline'} onClick={() => setPeriod(q)} className="text-xs px-2 h-8">{q}</Button>
@@ -294,7 +331,6 @@ export const YearView = () => {
           </Button>
         </div>
 
-        {/* Date range */}
         <div className="flex items-center gap-1">
           <Calendar className="h-4 w-4 text-muted-foreground" />
           <Input type="date" value={dateFrom} onChange={e => { setDateFrom(e.target.value); setActivePeriod(''); }} className="w-36 h-8 text-xs" />
@@ -302,7 +338,6 @@ export const YearView = () => {
           <Input type="date" value={dateTo} onChange={e => { setDateTo(e.target.value); setActivePeriod(''); }} className="w-36 h-8 text-xs" />
         </div>
 
-        {/* Channel filter */}
         <div className="flex rounded-lg border border-border overflow-hidden text-sm">
           {(['all', 'online', 'offline'] as const).map(ch => (
             <button
@@ -344,8 +379,8 @@ export const YearView = () => {
       <div ref={chartRef} className="bg-card rounded-xl border border-border shadow-sm overflow-hidden">
         {/* Header */}
         <div className="flex border-b border-border">
-          <div className="w-52 shrink-0 px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-            Aktywność / Subkat. / Produkt
+          <div className="w-56 shrink-0 px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+            Pakiet / Aktywność / Produkt
           </div>
           <div className="flex-1 grid overflow-x-auto" style={{ gridTemplateColumns: `repeat(${gridColumns}, 1fr)` }}>
             {gridHeaders.map((label, i) => (
@@ -356,67 +391,94 @@ export const YearView = () => {
           </div>
         </div>
 
-        {/* Activity rows — new hierarchy: Activity > Subcategory > Product */}
-        {filteredActivities.map((activity, idx) => {
-          const isExpanded = expandedActivities.has(activity.id);
-          const color = getActivityColor(activity);
-          const brandLabel = getActivityBrandLabel(activity);
-          const subGroups = getActivitySubcategoryGroups(activity);
-          const hasProducts = activity.productIds.length > 0;
+        {/* Package > Activity > Subcategory > Product hierarchy */}
+        {packageGroups.map((group, gIdx) => {
+          const isPackageExpanded = expandedPackages.has(group.packageId);
+          const pkgColor = PACKAGE_COLORS[gIdx % PACKAGE_COLORS.length];
+          const totalPrice = group.activities.reduce((s, a) => s + a.price, 0);
 
           return (
-            <div key={activity.id}>
-              {/* Activity row */}
-              <div className={`flex border-b border-border ${idx % 2 === 0 ? '' : 'bg-secondary/30'}`}>
-                <div className="w-52 shrink-0 px-4 flex items-center gap-2">
+            <div key={group.packageId}>
+              {/* Package row */}
+              <div className="flex border-b border-border bg-secondary/20">
+                <div className="w-56 shrink-0 px-4 flex items-center gap-2">
                   <button
-                    onClick={() => hasProducts && toggleActivity(activity.id)}
-                    className="flex items-center gap-1 text-sm font-semibold hover:text-primary transition-colors"
+                    onClick={() => togglePackage(group.packageId)}
+                    className="flex items-center gap-1.5 text-sm font-bold hover:text-primary transition-colors"
                   >
-                    {hasProducts ? (
-                      isExpanded ? <ChevronDown className="h-4 w-4 shrink-0" /> : <ChevronRight className="h-4 w-4 shrink-0" />
-                    ) : (
-                      <span className="w-4" />
-                    )}
-                    <span className="truncate max-w-[140px]">{activity.name}</span>
+                    {isPackageExpanded ? <ChevronDown className="h-4 w-4 shrink-0" /> : <ChevronRight className="h-4 w-4 shrink-0" />}
+                    <div className="h-3 w-3 rounded-sm shrink-0" style={{ backgroundColor: pkgColor }} />
+                    <span className="truncate max-w-[150px]">{group.packageName}</span>
                   </button>
+                  <span className="text-[10px] text-muted-foreground ml-auto whitespace-nowrap">
+                    {group.activities.length} akt. · {formatPLN(totalPrice)}
+                  </span>
                 </div>
-                {renderTimeline(renderActivityBar(activity, color, brandLabel))}
+                {renderTimeline()}
               </div>
 
-              {/* Expanded: Subcategory > Product */}
-              {isExpanded && subGroups.map(sg => {
-                const subKey = `${activity.id}::${sg.subcategory}`;
-                const isSubExpanded = expandedSubs.has(subKey);
-                const subColor = getSubColor(sg.subcategory);
+              {/* Expanded: Activities under package */}
+              {isPackageExpanded && group.activities.map((activity, idx) => {
+                const isActExpanded = expandedActivities.has(activity.id);
+                const color = getActivityColor(activity);
+                const brandLabel = getActivityBrandLabel(activity);
+                const subGroups = getActivitySubcategoryGroups(activity);
+                const hasProducts = activity.productIds.length > 0;
 
                 return (
-                  <div key={subKey}>
-                    {/* Subcategory row */}
-                    <div className="flex border-b border-border bg-secondary/10">
-                      <div className="w-52 shrink-0 px-4 pl-10 flex items-center gap-2">
+                  <div key={activity.id}>
+                    {/* Activity row */}
+                    <div className={`flex border-b border-border ${idx % 2 === 0 ? '' : 'bg-secondary/10'}`}>
+                      <div className="w-56 shrink-0 px-4 pl-8 flex items-center gap-2">
                         <button
-                          onClick={() => toggleSub(subKey)}
-                          className="flex items-center gap-1 text-xs font-semibold hover:text-primary transition-colors"
+                          onClick={() => hasProducts && toggleActivity(activity.id)}
+                          className="flex items-center gap-1 text-sm font-semibold hover:text-primary transition-colors"
                         >
-                          {isSubExpanded ? <ChevronDown className="h-3.5 w-3.5 shrink-0" /> : <ChevronRight className="h-3.5 w-3.5 shrink-0" />}
-                          <div className="h-2.5 w-2.5 rounded-sm shrink-0" style={{ backgroundColor: subColor }} />
-                          <span className="truncate">{sg.subcategory}</span>
+                          {hasProducts ? (
+                            isActExpanded ? <ChevronDown className="h-3.5 w-3.5 shrink-0" /> : <ChevronRight className="h-3.5 w-3.5 shrink-0" />
+                          ) : (
+                            <span className="w-3.5" />
+                          )}
+                          <span className="truncate max-w-[130px]">{activity.name}</span>
                         </button>
-                        <span className="text-[10px] text-muted-foreground">({sg.products.length})</span>
                       </div>
-                      {renderTimeline()}
+                      {renderTimeline(renderActivityBar(activity, color, brandLabel))}
                     </div>
 
-                    {/* Products under subcategory */}
-                    {isSubExpanded && sg.products.map(product => (
-                      <div key={product.id} className="flex border-b border-border bg-secondary/5">
-                        <div className="w-52 shrink-0 px-4 pl-16 flex items-center">
-                          <span className="text-xs text-muted-foreground truncate">{product.name}</span>
+                    {/* Expanded: Subcategory > Product */}
+                    {isActExpanded && subGroups.map(sg => {
+                      const subKey = `${activity.id}::${sg.subcategory}`;
+                      const isSubExpanded = expandedSubs.has(subKey);
+                      const subColor = getSubColor(sg.subcategory);
+
+                      return (
+                        <div key={subKey}>
+                          <div className="flex border-b border-border bg-secondary/5">
+                            <div className="w-56 shrink-0 px-4 pl-14 flex items-center gap-2">
+                              <button
+                                onClick={() => toggleSub(subKey)}
+                                className="flex items-center gap-1 text-xs font-semibold hover:text-primary transition-colors"
+                              >
+                                {isSubExpanded ? <ChevronDown className="h-3 w-3 shrink-0" /> : <ChevronRight className="h-3 w-3 shrink-0" />}
+                                <div className="h-2.5 w-2.5 rounded-sm shrink-0" style={{ backgroundColor: subColor }} />
+                                <span className="truncate">{sg.subcategory}</span>
+                              </button>
+                              <span className="text-[10px] text-muted-foreground">({sg.products.length})</span>
+                            </div>
+                            {renderTimeline()}
+                          </div>
+
+                          {isSubExpanded && sg.products.map(product => (
+                            <div key={product.id} className="flex border-b border-border">
+                              <div className="w-56 shrink-0 px-4 pl-20 flex items-center">
+                                <span className="text-xs text-muted-foreground truncate">{product.name}</span>
+                              </div>
+                              {renderTimeline()}
+                            </div>
+                          ))}
                         </div>
-                        {renderTimeline()}
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 );
               })}
@@ -476,7 +538,6 @@ export const YearView = () => {
         </div>
       )}
 
-      {/* Activity detail drawer */}
       <ActivityDetailDrawer
         activity={selectedActivity}
         open={drawerOpen}
