@@ -1,105 +1,109 @@
 
 
-# Plan: Logowanie z Supabase
+# Plan: Budżet per klient, produkty z EAN w bazie, widok centralny
 
 ## Podsumowanie
 
-Dodanie systemu uwierzytelniania (logowanie / rejestracja / reset hasla) opartego na Supabase Auth. Niezalogowani uzytkownicy widza strone logowania, zalogowani -- pelna aplikacje.
+Aplikacja zostanie przebudowana tak, aby:
+- Produkty miały pole EAN i były w 100% zarządzane z bazy danych
+- Każdy klient miał przypisany budżet roczny z możliwością śledzenia
+- Widok centralny pokazywał wszystkich klientów z ich budżetami w jednym oknie
+- Dane mockowe zostały usunięte i zastąpione danymi z bazy
 
 ---
 
-## Krok 1: Podlaczenie Supabase
+## Etap 1: Zmiany w bazie danych
 
-Podlaczenie projektu do Supabase za pomoca wbudowanego connectora. To udostepni klucze `SUPABASE_URL` i `SUPABASE_ANON_KEY` w projekcie.
+### 1a. Dodanie kolumny `ean` do tabeli `products`
+- Nowa kolumna `ean TEXT` (opcjonalna, bo nie każdy produkt musi mieć EAN)
 
-## Krok 2: Klient Supabase
-
-Utworzenie pliku `src/integrations/supabase/client.ts` z inicjalizacja klienta Supabase.
-
-## Krok 3: Kontekst uwierzytelniania
-
-Utworzenie `src/context/AuthContext.tsx`:
-- Stan sesji uzytkownika (`user`, `session`, `loading`)
-- Listener `onAuthStateChange` + poczatkowe `getSession()`
-- Funkcje: `signIn`, `signUp`, `signOut`, `resetPassword`
-- Provider opakowujacy cala aplikacje
-
-## Krok 4: Strona logowania
-
-Utworzenie `src/pages/Auth.tsx`:
-- Formularz logowania (email + haslo)
-- Zakladka rejestracji
-- Link "Zapomnialem hasla" z formularzem reset
-- Stylizacja zgodna z obecnym designem (Plus Jakarta Sans, kolory primary)
-
-## Krok 5: Strona resetu hasla
-
-Utworzenie `src/pages/ResetPassword.tsx`:
-- Formularz nowego hasla
-- Obsluga tokenu recovery z URL hash
-- Wywolanie `supabase.auth.updateUser({ password })`
-
-## Krok 6: Komponent ochrony tras
-
-Utworzenie `src/components/ProtectedRoute.tsx`:
-- Sprawdzanie czy uzytkownik jest zalogowany
-- Jesli nie -- przekierowanie na `/auth`
-- Jesli tak -- renderowanie `children`
-
-## Krok 7: Aktualizacja routingu
-
-Modyfikacja `src/App.tsx`:
-- Dodanie `AuthProvider` opakowujacego aplikacje
-- Trasa `/auth` -- strona logowania
-- Trasa `/reset-password` -- strona resetu hasla
-- Ochrona istniejacych tras przez `ProtectedRoute`
-
-## Krok 8: Przycisk wylogowania
-
-Dodanie przycisku "Wyloguj" w dolnej czesci sidebara (`AppSidebar.tsx`) z ikona `LogOut`.
+### 1b. Dodanie kolumny `annual_budget` do tabeli `clients`
+- Nowa kolumna `annual_budget NUMERIC DEFAULT 0` -- budżet roczny klienta
 
 ---
 
-## Szczegoly techniczne
+## Etap 2: Aktualizacja hooków danych (`useData.ts`)
 
-### Struktura plikow
+- Rozszerzenie interfejsu `DbProduct` o pole `ean`
+- Rozszerzenie interfejsu `DbClient` o pole `annual_budget`
+- Aktualizacja `useCreateProduct` -- przyjmuje `ean` obok `name` i `clientId`
+- Aktualizacja `useUpdateProduct` -- umożliwia edycję `ean`
+- Dodanie `useUpdateClientBudget` -- ustawia budżet roczny klienta
+- Dodanie hooka `useSeedProducts` -- jednorazowy import listy produktów do bazy
 
-```text
-src/
-  integrations/supabase/
-    client.ts              -- klient Supabase
-  context/
-    AuthContext.tsx         -- kontekst auth
-    AppContext.tsx           -- bez zmian
-  pages/
-    Auth.tsx                -- logowanie / rejestracja
-    ResetPassword.tsx       -- reset hasla
-  components/
-    ProtectedRoute.tsx      -- ochrona tras
-    AppSidebar.tsx          -- + przycisk wylogowania
-  App.tsx                   -- + AuthProvider + nowe trasy
+---
+
+## Etap 3: Widok Produkty (`ProductsView.tsx`)
+
+- Wyświetlanie EAN obok nazwy produktu na karcie
+- Formularz dodawania: pole EAN obok nazwy
+- Edycja inline: możliwość zmiany EAN
+- Przycisk "Importuj produkty startowe" -- wczytuje podaną listę produktów do bazy (jednorazowo)
+
+### Lista produktów do importu (dwie grupy):
+
+**Grupa 1 (Nutridrink/Danacol) -- 22 produkty** z EAN, np.:
+- Danacol Plus żel 21 saszetek po 15 ml (EAN: 5900852059902)
+- Nutridrink PROTEIN OMEGA 3 Mango-Brzoskwinia 4x125ml (EAN: 8716900582707)
+- ... (pełna lista z wiadomości)
+
+**Grupa 2 (Bebiko/Bebilon) -- 27 produktów** z EAN, np.:
+- Bebiko JUNIOR 5 (600G) (EAN: 5900852054985)
+- Bebilon PF CESAR BIOTIK 2 (800G) (EAN: 8718117612529)
+- ... (pełna lista z wiadomości)
+
+Import przypisze produkty do wybranego klienta (użytkownik wybierze przy imporcie).
+
+---
+
+## Etap 4: Widok Klienci (`ClientsView.tsx`)
+
+- Na karcie klienta: wyświetlanie budżetu rocznego
+- Pole do ustawienia/edycji budżetu (inline lub dialog)
+- Pasek wykorzystania budżetu (podobny do obecnego `BudgetBar`)
+- Liczba produktów i aktywności per klient
+
+---
+
+## Etap 5: Widok centralny (nowy lub przebudowany Dashboard)
+
+- Lista wszystkich klientów jako "kafelki/karty"
+- Każda karta pokazuje:
+  - Nazwa klienta
+  - Budżet roczny / wykorzystany / pozostały
+  - Pasek procentowy wykorzystania
+  - Liczba produktów
+- Kliknięcie w klienta przechodzi do szczegółowego widoku tego klienta
+
+---
+
+## Etap 6: Czyszczenie danych mockowych
+
+- Usunięcie `mockData.ts` (klienci i produkty) -- plany i aktywności na razie pozostają jako mock do czasu migracji
+- Aktualizacja `AppContext` -- produkty pobierane z bazy przez `useProducts` zamiast z mocków
+- Aktualizacja komponentów korzystających z mocków (YearView, DashboardView, ActivityDialog)
+
+---
+
+## Szczegóły techniczne
+
+### Migracja SQL:
+```sql
+ALTER TABLE public.products ADD COLUMN ean TEXT;
+ALTER TABLE public.clients ADD COLUMN annual_budget NUMERIC NOT NULL DEFAULT 0;
 ```
 
-### Routing
+### Nowe/zmienione pliki:
+| Plik | Zmiana |
+|------|--------|
+| `supabase/migrations/...` | Migracja: ean + annual_budget |
+| `src/hooks/useData.ts` | Nowe interfejsy, hooki seed/budget |
+| `src/components/ProductsView.tsx` | EAN w formularzu i na kartach, import |
+| `src/components/ClientsView.tsx` | Budżet na karcie, edycja budżetu |
+| `src/components/DashboardView.tsx` | Widok centralny z kafelkami klientów |
+| `src/data/mockData.ts` | Usunięcie klientów/produktów (zachowanie planów/aktywności tymczasowo) |
+| `src/context/AppContext.tsx` | Produkty z bazy zamiast z mocków |
 
-```text
-/auth            -- publiczna (logowanie/rejestracja)
-/reset-password  -- publiczna (reset hasla)
-/                -- chroniona (Year View)
-/dashboard       -- chroniona
-/packages        -- chroniona
-/reports         -- chroniona
-/settings        -- chroniona
-```
-
-### Tabela profili
-
-Na tym etapie NIE tworzymy tabeli profili -- korzystamy tylko z wbudowanej tabeli `auth.users`. Profile mozna dodac w nastepnym kroku, jesli bedzie potrzeba przechowywania dodatkowych danych (avatar, nazwa, rola).
-
-### Bezpieczenstwo
-
-- Hasla obslugiwane wylacznie przez Supabase Auth (bcrypt)
-- Brak hardcoded credentials -- zadnego konta admin/admin123
-- Sesja zarzadzana przez `onAuthStateChange` (nie localStorage)
-- Redirect URL ustawiony na `window.location.origin`
+### Dane do seedowania:
+Produkty zostaną zapisane jako stała w kodzie importu i wstawione do bazy po kliknięciu przycisku. Wymagają przypisania do istniejącego klienta.
 
