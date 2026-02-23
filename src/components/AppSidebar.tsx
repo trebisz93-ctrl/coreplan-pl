@@ -1,6 +1,7 @@
 import { Link, useLocation } from 'react-router-dom';
-import { CalendarDays, BarChart3, Package, FileText, Settings } from 'lucide-react';
+import { CalendarDays, BarChart3, Package, FileText, Settings, LogOut } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useAuth } from '@/context/AuthContext';
 
 const navItems = [
   { label: 'Widok roczny', icon: CalendarDays, path: '/' },
@@ -11,6 +12,7 @@ const navItems = [
 ];
 
 export const AppSidebar = () => {
+  const { signOut } = useAuth();
   const { pathname } = useLocation();
 
   return (
@@ -42,7 +44,14 @@ export const AppSidebar = () => {
           );
         })}
       </nav>
-      <div className="p-4 border-t border-sidebar-border">
+      <div className="p-4 border-t border-sidebar-border space-y-2">
+        <button
+          onClick={() => signOut()}
+          className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium w-full text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground transition-colors"
+        >
+          <LogOut className="h-4 w-4" />
+          Wyloguj
+        </button>
         <div className="text-xs text-sidebar-foreground/40">MediaPlan CRM v1.0</div>
       </div>
     </aside>
