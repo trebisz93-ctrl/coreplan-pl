@@ -1,13 +1,14 @@
 import { useApp } from '@/context/AppContext';
 import { useProducts } from '@/hooks/useData';
 import { Button } from '@/components/ui/button';
-import { FileText, Download } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { FileText, Download, Search } from 'lucide-react';
 import { statusLabels, campaignTypeLabels } from '@/types/mediaplan';
 
 const formatPLN = (n: number) => new Intl.NumberFormat('pl-PL', { style: 'currency', currency: 'PLN', maximumFractionDigits: 0 }).format(n);
 
 export const ReportsView = () => {
-  const { allActivities, selectedClientId, selectedClient } = useApp();
+  const { allActivities, selectedClientId, selectedClient, channelFilter, setChannelFilter, searchQuery, setSearchQuery } = useApp();
   const { data: clientProducts = [] } = useProducts(selectedClientId || undefined);
 
   const exportCSV = () => {
@@ -31,12 +32,40 @@ export const ReportsView = () => {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-3">
         <h2 className="text-xl font-bold">Raporty</h2>
-        <Button onClick={exportCSV} className="gap-2">
-          <Download className="h-4 w-4" />
-          Eksportuj CSV
-        </Button>
+        <div className="flex items-center gap-3 flex-wrap">
+          <div className="flex rounded-lg border border-border overflow-hidden text-sm">
+            {(['all', 'online', 'offline'] as const).map(ch => (
+              <button
+                key={ch}
+                onClick={() => setChannelFilter(ch)}
+                className={`px-3 py-1.5 transition-colors ${
+                  channelFilter === ch
+                    ? ch === 'online' ? 'bg-online text-primary-foreground'
+                    : ch === 'offline' ? 'bg-offline text-primary-foreground'
+                    : 'bg-primary text-primary-foreground'
+                    : 'bg-card text-muted-foreground hover:bg-secondary'
+                }`}
+              >
+                {ch === 'all' ? 'Wszystkie' : ch === 'online' ? 'Online' : 'Offline'}
+              </button>
+            ))}
+          </div>
+          <div className="relative">
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Szukaj aktywności..."
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+              className="pl-9 w-64"
+            />
+          </div>
+          <Button onClick={exportCSV} className="gap-2">
+            <Download className="h-4 w-4" />
+            Eksportuj CSV
+          </Button>
+        </div>
       </div>
 
       <div className="bg-card rounded-xl border border-border shadow-sm overflow-hidden">
