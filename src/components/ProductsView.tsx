@@ -1,54 +1,201 @@
-import { useApp } from '@/context/AppContext';
+import { useState } from 'react';
+import { useClients, useProducts, useCreateProduct, useUpdateProduct, useDeleteProduct } from '@/hooks/useData';
 import { Badge } from '@/components/ui/badge';
-import { ShoppingBag } from 'lucide-react';
-
-const formatPLN = (n: number) => new Intl.NumberFormat('pl-PL', { style: 'currency', currency: 'PLN', maximumFractionDigits: 0 }).format(n);
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { ShoppingBag, Plus, Pencil, Trash2, Check, X } from 'lucide-react';
+import { toast } from 'sonner';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
 
 export const ProductsView = () => {
-  const { clientProducts, allActivities, clients, selectedClientId } = useApp();
-  const clientName = clients.find(c => c.id === selectedClientId)?.name ?? '';
+  const { data: clients = [] } = useClients();
+  const [selectedClientId, setSelectedClientId] = useState<string>('all');
+  const { data: products = [], isLoading } = useProducts(selectedClientId === 'all' ? undefined : selectedClientId);
+  const createProduct = useCreateProduct();
+  const updateProduct = useUpdateProduct();
+  const deleteProduct = useDeleteProduct();
+
+  const [newName, setNewName] = useState('');
+  const [newClientId, setNewClientId] = useState('');
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editName, setEditName] = useState('');
+
+  const handleCreate = async () => {
+    const clientId = newClientId || (selectedClientId !== 'all' ? selectedClientId : '');
+    if (!newName.trim() || !clientId) {
+      toast.error('Podaj nazwę produktu i wybierz klienta');
+      return;
+    }
+    try {
+      await createProduct.mutateAsync({ name: newName.trim(), clientId });
+      setNewName('');
+      toast.success('Produkt dodany');
+    } catch (e: any) {
+      toast.error(e.message);
+    }
+  };
+
+  const handleUpdate = async (id: string) => {
+    if (!editName.trim()) return;
+    try {
+      await updateProduct.mutateAsync({ id, name: editName.trim() });
+      setEditingId(null);
+      toast.success('Produkt zaktualizowany');
+    } catch (e: any) {
+      toast.error(e.message);
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    try {
+      await deleteProduct.mutateAsync(id);
+      toast.success('Produkt usunięty');
+    } catch (e: any) {
+      toast.error(e.message);
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
-      <div>
+      <div className="flex items-center justify-between">
         <h2 className="text-xl font-bold">Produkty</h2>
-        <p className="text-sm text-muted-foreground mt-1">Klient: {clientName}</p>
       </div>
+
+      {/* Filter by client */}
+      <div className="flex gap-2 flex-wrap">
+        <Select value={selectedClientId} onValueChange={setSelectedClientId}>
+          <SelectTrigger className="w-48">
+            <SelectValue placeholder="Filtruj klienta" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Wszyscy klienci</SelectItem>
+            {clients.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+          </SelectContent>
+        </Select>
+      </div>
+
+      {/* Add new product */}
+      <div className="flex gap-2 flex-wrap">
+        <Input
+          placeholder="Nazwa nowego produktu..."
+          value={newName}
+          onChange={e => setNewName(e.target.value)}
+          onKeyDown={e => e.key === 'Enter' && handleCreate()}
+          className="max-w-sm"
+        />
+        {selectedClientId === 'all' && (
+          <Select value={newClientId} onValueChange={setNewClientId}>
+            <SelectTrigger className="w-48">
+              <SelectValue placeholder="Klient" />
+            </SelectTrigger>
+            <SelectContent>
+              {clients.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        )}
+        <Button onClick={handleCreate} disabled={createProduct.isPending} className="gap-2">
+          <Plus className="h-4 w-4" />
+          Dodaj
+        </Button>
+      </div>
+
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {clientProducts.map(product => {
-          const acts = allActivities.filter(a => a.productIds.includes(product.id) && a.status !== 'cancelled');
-          const totalSpend = acts.reduce((s, a) => s + a.price, 0);
+        {products.map(product => {
+          const clientName = clients.find(c => c.id === product.client_id)?.name ?? '—';
+          const isEditing = editingId === product.id;
           return (
             <div key={product.id} className="bg-card rounded-xl border border-border p-5 shadow-sm space-y-3">
               <div className="flex items-center gap-3">
                 <div className="h-9 w-9 rounded-lg bg-accent/10 flex items-center justify-center">
                   <ShoppingBag className="h-4 w-4 text-accent" />
                 </div>
-                <h3 className="font-bold text-base">{product.name}</h3>
-              </div>
-              <div className="border-t border-border pt-3 space-y-1 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Aktywności:</span>
-                  <span className="font-semibold">{acts.length}</span>
+                <div className="flex-1 min-w-0">
+                  {isEditing ? (
+                    <div className="flex gap-1">
+                      <Input
+                        value={editName}
+                        onChange={e => setEditName(e.target.value)}
+                        onKeyDown={e => e.key === 'Enter' && handleUpdate(product.id)}
+                        className="h-8 text-sm"
+                        autoFocus
+                      />
+                      <Button size="icon" variant="ghost" className="h-8 w-8 shrink-0" onClick={() => handleUpdate(product.id)}>
+                        <Check className="h-3 w-3" />
+                      </Button>
+                      <Button size="icon" variant="ghost" className="h-8 w-8 shrink-0" onClick={() => setEditingId(null)}>
+                        <X className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  ) : (
+                    <h3 className="font-bold text-base">{product.name}</h3>
+                  )}
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Łączny budżet:</span>
-                  <span className="font-semibold">{formatPLN(totalSpend)}</span>
-                </div>
               </div>
-              <div className="flex flex-wrap gap-1">
-                {acts.slice(0, 3).map(a => (
-                  <Badge key={a.id} variant="outline" className="text-xs">{a.name}</Badge>
-                ))}
-                {acts.length > 3 && <Badge variant="secondary" className="text-xs">+{acts.length - 3}</Badge>}
+              <div className="text-xs text-muted-foreground">
+                Klient: <span className="font-medium text-foreground">{clientName}</span>
+              </div>
+              <div className="flex gap-1">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="gap-1"
+                  onClick={() => { setEditingId(product.id); setEditName(product.name); }}
+                >
+                  <Pencil className="h-3 w-3" />
+                  Edytuj
+                </Button>
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button size="sm" variant="outline" className="gap-1 text-destructive hover:text-destructive">
+                      <Trash2 className="h-3 w-3" />
+                      Usuń
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Usunąć produkt?</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        Usunięcie produktu "{product.name}" jest nieodwracalne.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Anuluj</AlertDialogCancel>
+                      <AlertDialogAction onClick={() => handleDelete(product.id)}>Usuń</AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
               </div>
             </div>
           );
         })}
-        {clientProducts.length === 0 && (
-          <div className="col-span-full text-center text-muted-foreground py-12">Brak produktów dla wybranego klienta</div>
-        )}
       </div>
+
+      {products.length === 0 && (
+        <div className="text-center text-muted-foreground py-12">
+          {clients.length === 0
+            ? 'Najpierw dodaj klienta w sekcji Klienci.'
+            : 'Brak produktów. Dodaj pierwszy produkt powyżej.'}
+        </div>
+      )}
     </div>
   );
 };
