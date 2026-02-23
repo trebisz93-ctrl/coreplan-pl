@@ -1,12 +1,11 @@
 import { useState, useMemo } from 'react';
-import { useClients, useProducts, useCreateProduct, useUpdateProduct, useDeleteProduct, useSeedProducts } from '@/hooks/useData';
+import { useProducts, useCreateProduct, useUpdateProduct, useDeleteProduct } from '@/hooks/useData';
 import { useCanEdit } from '@/hooks/useRole';
-import { allSeedProducts } from '@/data/seedProducts';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ShoppingBag, Plus, Pencil, Trash2, Check, X, Download, Search } from 'lucide-react';
+import { ShoppingBag, Plus, Pencil, Trash2, Check, X, Search } from 'lucide-react';
 import { toast } from 'sonner';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
@@ -20,12 +19,10 @@ import {
 } from '@/components/ui/table';
 
 export const ProductsView = () => {
-  const { data: clients = [] } = useClients();
   const { data: products = [], isLoading } = useProducts();
   const createProduct = useCreateProduct();
   const updateProduct = useUpdateProduct();
   const deleteProduct = useDeleteProduct();
-  const seedProducts = useSeedProducts();
   const canEdit = useCanEdit();
 
   // Filters
@@ -46,10 +43,6 @@ export const ProductsView = () => {
   const [editCategory, setEditCategory] = useState('');
   const [editSubcategory, setEditSubcategory] = useState('');
   const [editBrand, setEditBrand] = useState('');
-
-  // Seed
-  const [seedClientId, setSeedClientId] = useState('');
-  const [seedGroupIdx, setSeedGroupIdx] = useState(0);
 
   // Computed
   const categories = useMemo(() => [...new Set(products.map(p => p.category).filter(Boolean))] as string[], [products]);
@@ -99,14 +92,8 @@ export const ProductsView = () => {
     catch (e: any) { toast.error('Nie udało się usunąć: ' + (e.message || 'Nieznany błąd')); }
   };
 
-  const handleSeed = async () => {
-    if (!seedClientId) { toast.error('Wybierz klienta'); return; }
-    const group = allSeedProducts[seedGroupIdx];
-    try {
-      await seedProducts.mutateAsync({ clientId: seedClientId, products: group.products });
-      toast.success(`Zaimportowano ${group.products.length} produktów (${group.group})`);
-    } catch (e: any) { toast.error('Nie udało się zaimportować: ' + (e.message || 'Nieznany błąd')); }
-  };
+
+
 
   const startEditing = (product: typeof products[0]) => {
     setEditingId(product.id);
@@ -129,34 +116,6 @@ export const ProductsView = () => {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h2 className="text-xl font-bold">Produkty</h2>
-        {canEdit && (
-          <Dialog>
-            <DialogTrigger asChild>
-              <Button variant="outline" className="gap-2"><Download className="h-4 w-4" /> Importuj produkty</Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader><DialogTitle>Importuj produkty startowe</DialogTitle></DialogHeader>
-              <div className="space-y-4">
-                <Select value={seedClientId} onValueChange={setSeedClientId}>
-                  <SelectTrigger><SelectValue placeholder="Wybierz klienta" /></SelectTrigger>
-                  <SelectContent>{clients.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}</SelectContent>
-                </Select>
-                <Select value={String(seedGroupIdx)} onValueChange={v => setSeedGroupIdx(Number(v))}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {allSeedProducts.map((g, i) => <SelectItem key={i} value={String(i)}>{g.group} ({g.products.length} szt.)</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              </div>
-              <DialogFooter>
-                <DialogClose asChild><Button variant="outline">Anuluj</Button></DialogClose>
-                <Button onClick={handleSeed} disabled={seedProducts.isPending}>
-                  {seedProducts.isPending ? 'Importuję...' : 'Importuj'}
-                </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
-        )}
       </div>
 
       {/* Search & Filters */}
