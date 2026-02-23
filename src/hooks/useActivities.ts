@@ -52,7 +52,7 @@ export const dbToActivity = (row: DbActivity) => ({
 
 // ── Activities ──
 
-export const useActivities = (clientId?: string) => {
+export const useActivities = (clientId?: string, queryEnabled = true) => {
   const { user } = useAuth();
   return useQuery({
     queryKey: ['activities', user?.id, clientId],
@@ -63,7 +63,23 @@ export const useActivities = (clientId?: string) => {
       if (error) throw error;
       return (data as any[]) as DbActivity[];
     },
-    enabled: !!user,
+    enabled: !!user && queryEnabled,
+  });
+};
+
+export const useActivitiesMulti = (clientIds: string[]) => {
+  const { user } = useAuth();
+  const key = JSON.stringify([...clientIds].sort());
+  return useQuery({
+    queryKey: ['activities', user?.id, 'multi', key],
+    queryFn: async () => {
+      if (clientIds.length === 0) return [];
+      const { data, error } = await supabase
+        .from('activities').select('*').in('client_id', clientIds).order('start_date');
+      if (error) throw error;
+      return (data as any[]) as DbActivity[];
+    },
+    enabled: !!user && clientIds.length > 0,
   });
 };
 

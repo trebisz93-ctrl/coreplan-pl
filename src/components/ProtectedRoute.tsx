@@ -2,7 +2,7 @@ import { Navigate } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
 
 export const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
-  const { user, loading } = useAuth();
+  const { user, loading, currentAal, nextAal } = useAuth();
 
   if (loading) {
     return (
@@ -13,6 +13,11 @@ export const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   }
 
   if (!user) {
+    return <Navigate to="/auth" replace />;
+  }
+
+  // User has MFA enrolled but hasn't completed verification
+  if (currentAal === 'aal1' && nextAal === 'aal2') {
     return <Navigate to="/auth" replace />;
   }
 

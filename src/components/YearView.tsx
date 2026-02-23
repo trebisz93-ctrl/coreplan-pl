@@ -1,12 +1,11 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useCallback } from 'react';
 import { useApp } from '@/context/AppContext';
 import { useProducts, DbProduct } from '@/hooks/useData';
-import { Activity, campaignColors, statusLabels, campaignTypeLabels, CampaignType } from '@/types/mediaplan';
+import { Activity, statusLabels, campaignTypeLabels } from '@/types/mediaplan';
 import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/hover-card';
 import { Badge } from '@/components/ui/badge';
 import { ChevronDown, ChevronRight, Palette } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Button } from '@/components/ui/button';
 
 const months = ['Sty', 'Lut', 'Mar', 'Kwi', 'Maj', 'Cze', 'Lip', 'Sie', 'Wrz', 'Paź', 'Lis', 'Gru'];
 const formatPLN = (n: number) => new Intl.NumberFormat('pl-PL', { style: 'currency', currency: 'PLN', maximumFractionDigits: 0 }).format(n);
@@ -39,15 +38,31 @@ interface SubcategoryNode {
   products: DbProduct[];
 }
 
+interface ClientGroup {
+  clientId: string;
+  clientName: string;
+  subcategoryGroups: SubcategoryNode[];
+}
+
 export const YearView = () => {
-  const { filteredActivities, selectedClientId } = useApp();
-  const { data: clientProducts = [] } = useProducts(selectedClientId || undefined);
+  const { filteredActivities, selectedClientId, clients, multiClientMode, selectedClientIds } = useApp();
+
+  // In multi mode, fetch ALL products (no client filter); in single mode, fetch for selected client
+  const { data: fetchedProducts = [] } = useProducts(multiClientMode ? undefined : (selectedClientId || undefined));
+
+  // Filter products to selected clients in multi mode
+  const effectiveProducts = useMemo(() => {
+    if (!multiClientMode) return fetchedProducts;
+    return fetchedProducts.filter(p => selectedClientIds.includes(p.client_id));
+  }, [multiClientMode, fetchedProducts, selectedClientIds]);
+
   const year = 2026;
 
-  // Build subcategory groups
+  // Subcategory groups (single mode)
   const subcategoryGroups = useMemo(() => {
+    if (multiClientMode) return [];
     const map = new Map<string, DbProduct[]>();
-    clientProducts.forEach(p => {
+    effectiveProducts.forEach(p => {
       const key = p.subcategory || 'Inne';
       if (!map.has(key)) map.set(key, []);
       map.get(key)!.push(p);
@@ -55,61 +70,76 @@ export const YearView = () => {
     return Array.from(map.entries())
       .map(([subcategory, products]) => ({ subcategory, products }))
       .sort((a, b) => a.subcategory.localeCompare(b.subcategory));
-  }, [clientProducts]);
+  }, [effectiveProducts, multiClientMode]);
 
-  // Expanded state: subcategory level and product level
+  // Client groups (multi mode)
+  const clientGroupsList = useMemo<ClientGroup[]>(() => {
+    if (!multiClientMode) return [];
+    return selectedClientIds.map(cid => {
+      const client = clients.find(c => c.id === cid);
+      if (!client) return null;
+      const products = effectiveProducts.filter(p => p.client_id === cid);
+      const map = new Map<string, DbProduct[]>();
+      products.forEach(p => {
+        const key = p.subcategory || 'Inne';
+        if (!map.has(key)) map.set(key, []);
+        map.get(key)!.push(p);
+      });
+      return {
+        clientId: cid,
+        clientName: client.name,
+        subcategoryGroups: Array.from(map.entries())
+          .map(([subcategory, products]) => ({ subcategory, products }))
+          .sort((a, b) => a.subcategory.localeCompare(b.subcategory)),
+      };
+    }).filter(Boolean) as ClientGroup[];
+  }, [multiClientMode, selectedClientIds, effectiveProducts, clients]);
+
+  // State
+  const [expandedClients, setExpandedClients] = useState<Set<string>>(new Set());
   const [expandedSubs, setExpandedSubs] = useState<Set<string>>(new Set());
   const [expandedProducts, setExpandedProducts] = useState<Set<string>>(new Set());
-
-  // Color map for subcategories
   const [subColors, setSubColors] = useState<Record<string, string>>({});
 
-  const getSubColor = (sub: string) => {
+  const allSubGroups = multiClientMode
+    ? clientGroupsList.flatMap(cg => cg.subcategoryGroups)
+    : subcategoryGroups;
+  const allSubNames = useMemo(() => [...new Set(allSubGroups.map(g => g.subcategory))], [allSubGroups]);
+
+  const getSubColor = useCallback((sub: string) => {
     if (subColors[sub]) return subColors[sub];
-    const idx = subcategoryGroups.findIndex(g => g.subcategory === sub);
-    return DEFAULT_SUB_COLORS[idx % DEFAULT_SUB_COLORS.length];
-  };
+    const idx = allSubNames.indexOf(sub);
+    return DEFAULT_SUB_COLORS[(idx >= 0 ? idx : 0) % DEFAULT_SUB_COLORS.length];
+  }, [subColors, allSubNames]);
 
-  const toggleSub = (sub: string) => {
-    setExpandedSubs(prev => {
-      const next = new Set(prev);
-      if (next.has(sub)) next.delete(sub); else next.add(sub);
-      return next;
-    });
+  const toggleClient = (id: string) => {
+    setExpandedClients(prev => { const n = new Set(prev); if (n.has(id)) n.delete(id); else n.add(id); return n; });
   };
-
-  const toggleProduct = (productId: string) => {
-    setExpandedProducts(prev => {
-      const next = new Set(prev);
-      if (next.has(productId)) next.delete(productId); else next.add(productId);
-      return next;
-    });
+  const toggleSub = (key: string) => {
+    setExpandedSubs(prev => { const n = new Set(prev); if (n.has(key)) n.delete(key); else n.add(key); return n; });
+  };
+  const toggleProduct = (id: string) => {
+    setExpandedProducts(prev => { const n = new Set(prev); if (n.has(id)) n.delete(id); else n.add(id); return n; });
   };
 
   // Activities indexed by product
   const activitiesByProduct = useMemo(() => {
     const map: Record<string, Activity[]> = {};
-    clientProducts.forEach(p => { map[p.id] = []; });
+    effectiveProducts.forEach(p => { map[p.id] = []; });
     filteredActivities.forEach(a => {
       a.productIds.forEach(pid => {
         if (map[pid]) map[pid].push(a);
       });
     });
     return map;
-  }, [filteredActivities, clientProducts]);
+  }, [filteredActivities, effectiveProducts]);
 
-  // Activities aggregated at subcategory level
-  const activitiesBySubcategory = useMemo(() => {
-    const map: Record<string, Activity[]> = {};
-    subcategoryGroups.forEach(g => {
-      const productIds = new Set(g.products.map(p => p.id));
-      const acts = filteredActivities.filter(a => a.productIds.some(pid => productIds.has(pid)));
-      // Deduplicate
-      const seen = new Set<string>();
-      map[g.subcategory] = acts.filter(a => { if (seen.has(a.id)) return false; seen.add(a.id); return true; });
-    });
-    return map;
-  }, [filteredActivities, subcategoryGroups]);
+  const getSubcategoryActivities = useCallback((products: DbProduct[]) => {
+    const productIds = new Set(products.map(p => p.id));
+    const acts = filteredActivities.filter(a => a.productIds.some(pid => productIds.has(pid)));
+    const seen = new Set<string>();
+    return acts.filter(a => { if (seen.has(a.id)) return false; seen.add(a.id); return true; });
+  }, [filteredActivities]);
 
   const getBarStyle = (activity: Activity) => {
     const start = new Date(activity.startDate);
@@ -138,12 +168,7 @@ export const YearView = () => {
               <HoverCardTrigger asChild>
                 <div
                   className="absolute rounded-md cursor-pointer hover:brightness-110 transition-all shadow-sm hover:shadow-md z-10"
-                  style={{
-                    ...pos,
-                    top: 6 + idx * 28,
-                    height: 22,
-                    backgroundColor: color,
-                  }}
+                  style={{ ...pos, top: 6 + idx * 28, height: 22, backgroundColor: color }}
                 >
                   <span className="text-[10px] leading-[22px] px-2 font-medium truncate block text-white">
                     {activity.name}
@@ -164,7 +189,7 @@ export const YearView = () => {
                 <div className="text-xs text-muted-foreground space-y-1">
                   <div>📅 {activity.startDate} → {activity.endDate}</div>
                   <div>💰 {formatPLN(activity.price)}</div>
-                  <div>📦 Produkty: {activity.productIds.map(pid => clientProducts.find(p => p.id === pid)?.name).filter(Boolean).join(', ')}</div>
+                  <div>📦 Produkty: {activity.productIds.map(pid => effectiveProducts.find(p => p.id === pid)?.name).filter(Boolean).join(', ')}</div>
                   {activity.note && <div>📝 {activity.note}</div>}
                 </div>
               </HoverCardContent>
@@ -175,13 +200,75 @@ export const YearView = () => {
     );
   };
 
+  const renderEmptyTimeline = () => (
+    <div className="flex-1 relative" style={{ minHeight: 36 }}>
+      <div className="absolute inset-0 grid grid-cols-12 pointer-events-none">
+        {months.map((_, i) => (
+          <div key={i} className={i > 0 ? 'border-l border-border' : ''} />
+        ))}
+      </div>
+    </div>
+  );
+
+  const renderSubcategoryRows = (groups: SubcategoryNode[], subKeyPrefix = '', indentLevel = 0) => {
+    return groups.map((group, groupIdx) => {
+      const subKey = subKeyPrefix + group.subcategory;
+      const isExpanded = expandedSubs.has(subKey);
+      const subActs = getSubcategoryActivities(group.products);
+      const color = getSubColor(group.subcategory);
+      const paddingLeft = indentLevel > 0 ? 'pl-10' : '';
+
+      return (
+        <div key={subKey}>
+          <div className={`flex border-b border-border ${groupIdx % 2 === 0 ? '' : 'bg-secondary/30'}`}>
+            <div className={`w-52 shrink-0 px-4 flex items-center gap-2 ${paddingLeft}`}>
+              <button onClick={() => toggleSub(subKey)} className="flex items-center gap-1 text-sm font-semibold hover:text-primary transition-colors">
+                {isExpanded ? <ChevronDown className="h-4 w-4 shrink-0" /> : <ChevronRight className="h-4 w-4 shrink-0" />}
+                <div className="h-3 w-3 rounded-sm shrink-0" style={{ backgroundColor: color }} />
+                <span className="truncate">{group.subcategory}</span>
+              </button>
+              <span className="text-xs text-muted-foreground">({group.products.length})</span>
+            </div>
+            {renderActivityBars(subActs, color)}
+          </div>
+
+          {isExpanded && group.products.map(product => {
+            const productActs = activitiesByProduct[product.id] || [];
+            const isProductExpanded = expandedProducts.has(product.id);
+            const productPl = indentLevel > 0 ? 'pl-16' : 'pl-10';
+            return (
+              <div key={product.id} className="flex border-b border-border bg-secondary/10">
+                <div className={`w-52 shrink-0 px-4 flex items-center ${productPl}`}>
+                  <button
+                    onClick={() => toggleProduct(product.id)}
+                    className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+                  >
+                    {productActs.length > 0 ? (
+                      isProductExpanded ? <ChevronDown className="h-3 w-3 shrink-0" /> : <ChevronRight className="h-3 w-3 shrink-0" />
+                    ) : (
+                      <span className="w-3" />
+                    )}
+                    <span className="truncate">{product.name}</span>
+                  </button>
+                </div>
+                {isProductExpanded ? renderActivityBars(productActs, color) : renderEmptyTimeline()}
+              </div>
+            );
+          })}
+        </div>
+      );
+    });
+  };
+
+  const hasProducts = effectiveProducts.length > 0;
+
   return (
     <div className="space-y-4">
       <div className="bg-card rounded-xl border border-border shadow-sm overflow-hidden">
         {/* Month header */}
         <div className="flex border-b border-border">
           <div className="w-52 shrink-0 px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-            Subkategoria / Produkt
+            {multiClientMode ? 'Klient / Subkat. / Produkt' : 'Subkategoria / Produkt'}
           </div>
           <div className="flex-1 grid grid-cols-12">
             {months.map((m, i) => (
@@ -192,97 +279,68 @@ export const YearView = () => {
           </div>
         </div>
 
-        {/* Subcategory rows */}
-        {subcategoryGroups.map((group, groupIdx) => {
-          const isExpanded = expandedSubs.has(group.subcategory);
-          const subActs = activitiesBySubcategory[group.subcategory] || [];
-          const color = getSubColor(group.subcategory);
+        {/* Multi-client mode */}
+        {multiClientMode && clientGroupsList.map(cg => {
+          const isClientExpanded = expandedClients.has(cg.clientId);
+          const clientProds = effectiveProducts.filter(p => p.client_id === cg.clientId);
+          const clientActs = getSubcategoryActivities(clientProds);
 
           return (
-            <div key={group.subcategory}>
-              {/* Subcategory row */}
-              <div className={`flex border-b border-border ${groupIdx % 2 === 0 ? '' : 'bg-secondary/30'}`}>
+            <div key={cg.clientId}>
+              <div className="flex border-b border-border bg-primary/5">
                 <div className="w-52 shrink-0 px-4 flex items-center gap-2">
-                  <button onClick={() => toggleSub(group.subcategory)} className="flex items-center gap-1 text-sm font-semibold hover:text-primary transition-colors">
-                    {isExpanded ? <ChevronDown className="h-4 w-4 shrink-0" /> : <ChevronRight className="h-4 w-4 shrink-0" />}
-                    <div className="h-3 w-3 rounded-sm shrink-0" style={{ backgroundColor: color }} />
-                    <span className="truncate">{group.subcategory}</span>
+                  <button onClick={() => toggleClient(cg.clientId)} className="flex items-center gap-1 text-sm font-bold hover:text-primary transition-colors">
+                    {isClientExpanded ? <ChevronDown className="h-4 w-4 shrink-0" /> : <ChevronRight className="h-4 w-4 shrink-0" />}
+                    <span className="truncate">{cg.clientName}</span>
                   </button>
-                  <span className="text-xs text-muted-foreground">({group.products.length})</span>
+                  <Badge variant="outline" className="text-[10px]">{clientProds.length} prod.</Badge>
                 </div>
-                {renderActivityBars(subActs, color)}
+                {renderActivityBars(clientActs, 'hsl(var(--primary))')}
               </div>
-
-              {/* Expanded product rows */}
-              {isExpanded && group.products.map(product => {
-                const productActs = activitiesByProduct[product.id] || [];
-                const isProductExpanded = expandedProducts.has(product.id);
-                return (
-                  <div key={product.id} className="flex border-b border-border bg-secondary/10">
-                    <div className="w-52 shrink-0 px-4 pl-10 flex items-center">
-                      <button
-                        onClick={() => toggleProduct(product.id)}
-                        className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
-                      >
-                        {productActs.length > 0 ? (
-                          isProductExpanded ? <ChevronDown className="h-3 w-3 shrink-0" /> : <ChevronRight className="h-3 w-3 shrink-0" />
-                        ) : (
-                          <span className="w-3" />
-                        )}
-                        <span className="truncate">{product.name}</span>
-                      </button>
-                    </div>
-                    {isProductExpanded
-                      ? renderActivityBars(productActs, color)
-                      : (
-                        <div className="flex-1 relative" style={{ minHeight: 36 }}>
-                          <div className="absolute inset-0 grid grid-cols-12 pointer-events-none">
-                            {months.map((_, i) => (
-                              <div key={i} className={i > 0 ? 'border-l border-border' : ''} />
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                  </div>
-                );
-              })}
+              {isClientExpanded && renderSubcategoryRows(cg.subcategoryGroups, `${cg.clientId}::`, 1)}
             </div>
           );
         })}
 
-        {clientProducts.length === 0 && (
+        {/* Single-client mode */}
+        {!multiClientMode && renderSubcategoryRows(subcategoryGroups)}
+
+        {!hasProducts && (
           <div className="p-12 text-center text-muted-foreground">
-            {selectedClientId ? 'Brak produktów dla wybranego klienta. Dodaj produkty w zakładce Produkty.' : 'Wybierz klienta na górze.'}
+            {multiClientMode
+              ? (selectedClientIds.length > 0 ? 'Brak produktów dla wybranych klientów.' : 'Wybierz klientów na górze.')
+              : (selectedClientId ? 'Brak produktów dla wybranego klienta. Dodaj produkty w zakładce Produkty.' : 'Wybierz klienta na górze.')}
           </div>
         )}
       </div>
 
-      {/* Legend at bottom */}
-      {subcategoryGroups.length > 0 && (
+      {/* Legend */}
+      {allSubNames.length > 0 && (
         <div className="bg-card rounded-xl border border-border shadow-sm p-4">
           <div className="flex items-center justify-between mb-3">
             <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Legenda subkategorii</h4>
           </div>
           <div className="flex flex-wrap gap-3">
-            {subcategoryGroups.map(group => {
-              const color = getSubColor(group.subcategory);
+            {allSubNames.map(sub => {
+              const color = getSubColor(sub);
+              const count = effectiveProducts.filter(p => (p.subcategory || 'Inne') === sub).length;
               return (
-                <Popover key={group.subcategory}>
+                <Popover key={sub}>
                   <PopoverTrigger asChild>
                     <button className="flex items-center gap-2 text-xs px-2 py-1 rounded-md hover:bg-secondary/50 transition-colors border border-transparent hover:border-border">
                       <div className="h-3 w-3 rounded-sm shrink-0" style={{ backgroundColor: color }} />
-                      <span>{group.subcategory}</span>
-                      <span className="text-muted-foreground">({group.products.length})</span>
+                      <span>{sub}</span>
+                      <span className="text-muted-foreground">({count})</span>
                       <Palette className="h-3 w-3 text-muted-foreground" />
                     </button>
                   </PopoverTrigger>
                   <PopoverContent className="w-auto p-3" side="top">
-                    <div className="text-xs font-medium mb-2">Kolor dla: {group.subcategory}</div>
+                    <div className="text-xs font-medium mb-2">Kolor dla: {sub}</div>
                     <div className="grid grid-cols-4 gap-1.5">
                       {PRESET_COLORS.map(c => (
                         <button
                           key={c}
-                          onClick={() => setSubColors(prev => ({ ...prev, [group.subcategory]: c }))}
+                          onClick={() => setSubColors(prev => ({ ...prev, [sub]: c }))}
                           className="h-6 w-6 rounded-md border-2 transition-all hover:scale-110"
                           style={{
                             backgroundColor: c,

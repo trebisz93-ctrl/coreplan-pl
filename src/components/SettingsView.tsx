@@ -4,6 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { User, Mail, Shield, Users } from 'lucide-react';
+import { MfaSetup } from './MfaSetup';
 import { toast } from 'sonner';
 
 const roleLabels: Record<string, string> = {
@@ -59,6 +60,8 @@ export const SettingsView = () => {
           </div>
         </CardContent>
       </Card>
+
+      <MfaSetup />
 
       {isAdmin && (
         <Card>

@@ -1,13 +1,27 @@
 import React, { createContext, useContext, useState, useMemo, useCallback } from 'react';
 import { Activity, Channel, ActivityStatus } from '@/types/mediaplan';
 import { useClients, DbClient } from '@/hooks/useData';
-import { useActivities, dbToActivity } from '@/hooks/useActivities';
+import { useActivities, useActivitiesMulti, dbToActivity } from '@/hooks/useActivities';
+import { useIsAdmin } from '@/hooks/useRole';
+
+interface ClientBudget {
+  client: DbClient;
+  budgetUsed: number;
+  budgetPlanned: number;
+  budgetCompleted: number;
+}
 
 interface AppContextType {
   clients: DbClient[];
   clientsLoading: boolean;
   selectedClientId: string;
   setSelectedClientId: (id: string) => void;
+
+  multiClientMode: boolean;
+  setMultiClientMode: (m: boolean) => void;
+  selectedClientIds: string[];
+  setSelectedClientIds: (ids: string[]) => void;
+  multiClientBudgets: ClientBudget[];
 
   allActivities: Activity[];
   filteredActivities: Activity[];
@@ -39,18 +53,30 @@ export const useApp = () => {
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { data: dbClients = [], isLoading: clientsLoading } = useClients();
+  const isAdmin = useIsAdmin();
   const [selectedClientId, setSelectedClientId] = useState('');
+  const [multiClientMode, setMultiClientModeState] = useState(false);
+  const [selectedClientIds, setSelectedClientIds] = useState<string[]>([]);
   const [channelFilter, setChannelFilter] = useState<'all' | Channel>('all');
   const [productFilter, setProductFilter] = useState<string[]>([]);
   const [statusFilter, setStatusFilter] = useState<ActivityStatus[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
 
+  const effectiveMultiMode = multiClientMode && isAdmin;
   const effectiveClientId = selectedClientId || dbClients[0]?.id || '';
   const selectedClient = useMemo(() => dbClients.find(c => c.id === effectiveClientId), [dbClients, effectiveClientId]);
 
-  // Activities from DB
-  const { data: dbActivities = [] } = useActivities(effectiveClientId || undefined);
+  // Single client activities
+  const { data: singleDbActivities = [] } = useActivities(
+    !effectiveMultiMode ? (effectiveClientId || undefined) : undefined,
+    !effectiveMultiMode,
+  );
+  // Multi client activities
+  const { data: multiDbActivities = [] } = useActivitiesMulti(
+    effectiveMultiMode ? selectedClientIds : [],
+  );
 
+  const dbActivities = effectiveMultiMode ? multiDbActivities : singleDbActivities;
   const allActivities: Activity[] = useMemo(() => dbActivities.map(dbToActivity), [dbActivities]);
 
   const filteredActivities = useMemo(() => {
@@ -69,14 +95,40 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const onlineSpend = useMemo(() => allActivities.filter(a => a.channel === 'online' && a.status !== 'cancelled').reduce((s, a) => s + a.price, 0), [allActivities]);
   const offlineSpend = useMemo(() => allActivities.filter(a => a.channel === 'offline' && a.status !== 'cancelled').reduce((s, a) => s + a.price, 0), [allActivities]);
 
+  // Per-client budgets for multi mode
+  const multiClientBudgets = useMemo<ClientBudget[]>(() => {
+    if (!effectiveMultiMode) return [];
+    return selectedClientIds.map(cid => {
+      const client = dbClients.find(c => c.id === cid);
+      if (!client) return null;
+      const clientActs = dbActivities.filter(d => d.client_id === cid);
+      return {
+        client,
+        budgetUsed: clientActs.filter(a => a.status !== 'cancelled').reduce((s, a) => s + Number(a.price), 0),
+        budgetPlanned: clientActs.filter(a => a.status === 'planned' || a.status === 'in_progress').reduce((s, a) => s + Number(a.price), 0),
+        budgetCompleted: clientActs.filter(a => a.status === 'completed').reduce((s, a) => s + Number(a.price), 0),
+      };
+    }).filter(Boolean) as ClientBudget[];
+  }, [effectiveMultiMode, selectedClientIds, dbActivities, dbClients]);
+
   const handleClientChange = useCallback((id: string) => {
     setSelectedClientId(id);
   }, []);
+
+  const handleMultiModeChange = useCallback((m: boolean) => {
+    setMultiClientModeState(m);
+    if (m && effectiveClientId) {
+      setSelectedClientIds(prev => prev.length === 0 ? [effectiveClientId] : prev);
+    }
+  }, [effectiveClientId]);
 
   return (
     <AppContext.Provider value={{
       clients: dbClients, clientsLoading,
       selectedClientId: effectiveClientId, setSelectedClientId: handleClientChange,
+      multiClientMode: effectiveMultiMode, setMultiClientMode: handleMultiModeChange,
+      selectedClientIds, setSelectedClientIds,
+      multiClientBudgets,
       selectedClient,
       allActivities, filteredActivities, channelFilter, setChannelFilter,
       productFilter, setProductFilter, statusFilter, setStatusFilter,
