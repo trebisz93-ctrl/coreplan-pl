@@ -4,7 +4,7 @@ import { cn } from '@/lib/utils';
 import { useAuth } from '@/context/AuthContext';
 
 const navItems = [
-  { label: 'Widok roczny', icon: CalendarDays, path: '/' },
+  { label: 'Media plan', icon: CalendarDays, path: '/' },
   { label: 'Dashboard', icon: BarChart3, path: '/dashboard' },
   { label: 'Klienci', icon: Building2, path: '/clients' },
   { label: 'Produkty', icon: ShoppingBag, path: '/products' },

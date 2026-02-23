@@ -93,10 +93,40 @@ export type Database = {
           },
         ]
       }
+      client_assignments: {
+        Row: {
+          client_id: string
+          created_at: string
+          id: string
+          user_id: string
+        }
+        Insert: {
+          client_id: string
+          created_at?: string
+          id?: string
+          user_id: string
+        }
+        Update: {
+          client_id?: string
+          created_at?: string
+          id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "client_assignments_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       clients: {
         Row: {
           annual_budget: number
           created_at: string
+          currency: string
           id: string
           name: string
           updated_at: string
@@ -105,6 +135,7 @@ export type Database = {
         Insert: {
           annual_budget?: number
           created_at?: string
+          currency?: string
           id?: string
           name: string
           updated_at?: string
@@ -113,12 +144,51 @@ export type Database = {
         Update: {
           annual_budget?: number
           created_at?: string
+          currency?: string
           id?: string
           name?: string
           updated_at?: string
           user_id?: string
         }
         Relationships: []
+      }
+      confirmations: {
+        Row: {
+          activity_id: string
+          created_at: string
+          id: string
+          image_url: string
+          is_cover: boolean
+          link: string | null
+          user_id: string
+        }
+        Insert: {
+          activity_id: string
+          created_at?: string
+          id?: string
+          image_url: string
+          is_cover?: boolean
+          link?: string | null
+          user_id: string
+        }
+        Update: {
+          activity_id?: string
+          created_at?: string
+          id?: string
+          image_url?: string
+          is_cover?: boolean
+          link?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "confirmations_activity_id_fkey"
+            columns: ["activity_id"]
+            isOneToOne: false
+            referencedRelation: "activities"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       media_plans: {
         Row: {
@@ -194,11 +264,47 @@ export type Database = {
         }
         Relationships: []
       }
+      product_clients: {
+        Row: {
+          client_id: string
+          created_at: string
+          id: string
+          product_id: string
+        }
+        Insert: {
+          client_id: string
+          created_at?: string
+          id?: string
+          product_id: string
+        }
+        Update: {
+          client_id?: string
+          created_at?: string
+          id?: string
+          product_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_clients_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_clients_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       products: {
         Row: {
           brand: string | null
           category: string | null
-          client_id: string
+          client_id: string | null
           created_at: string
           ean: string | null
           id: string
@@ -210,7 +316,7 @@ export type Database = {
         Insert: {
           brand?: string | null
           category?: string | null
-          client_id: string
+          client_id?: string | null
           created_at?: string
           ean?: string | null
           id?: string
@@ -222,7 +328,7 @@ export type Database = {
         Update: {
           brand?: string | null
           category?: string | null
-          client_id?: string
+          client_id?: string | null
           created_at?: string
           ean?: string | null
           id?: string
@@ -246,6 +352,7 @@ export type Database = {
           created_at: string
           display_name: string | null
           id: string
+          status: string
           updated_at: string
           user_id: string
         }
@@ -253,6 +360,7 @@ export type Database = {
           created_at?: string
           display_name?: string | null
           id?: string
+          status?: string
           updated_at?: string
           user_id: string
         }
@@ -260,6 +368,7 @@ export type Database = {
           created_at?: string
           display_name?: string | null
           id?: string
+          status?: string
           updated_at?: string
           user_id?: string
         }

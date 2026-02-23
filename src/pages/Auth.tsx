@@ -144,7 +144,7 @@ const Auth = () => {
     if (error) {
       toast.error(error.message);
     } else {
-      toast.success('Sprawdź swoją skrzynkę e-mail, aby potwierdzić rejestrację.');
+      toast.success('Rejestracja udana! Administrator musi zatwierdzić Twoje konto. Sprawdź e-mail.');
     }
   };
 
