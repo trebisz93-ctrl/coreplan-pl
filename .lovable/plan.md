@@ -1,66 +1,58 @@
 
 
-# Plan: Logika Produktow i Nowy Widok Media Planu
+# Plan: Dodanie pakietow i zmiana hierarchii Media Planu
 
-## Podsumowanie zmian
+## 1. Dodanie 6 predefiniowanych pakietow do bazy danych
 
-Trzy glowne obszary do zmiany:
+Wstawienie danych za pomoca narzedzia INSERT do tabeli `packages` -- 6 pakietow z ich elementami (items) w formacie JSON:
 
-1. **Zakladka Produkty** -- usuniecie przycisku "Importuj produkty" i powiazanego kodu (seed). Produkty to wspolna baza dla wszystkich klientow.
+| Pakiet | Kwota | Elementy (items) |
+|--------|-------|------------------|
+| PAKIET MINI | 12 000 | Rich Content: SI, Kategoria Listing: Pozycjonowanie produktu 1.2 |
+| STANDARD | 30 000 | Kategoria Listing: Banner, Kategoria Listing: Pozycjonowanie produktu 1.2, Rich Content: SI |
+| CORE SOCIAL MEDIA | 40 000 | Social Media: Instastory, Social Media: Konkurs, APP: Stories |
+| KORZYSTNY | 80 000 | Listing: Pozycjonowanie produktu 1.2, Rich Content: SI, Strona Glowna: Banner, Strona Glowna: Logotyp, Wyszukiwarka: Pozycjonowanie produktu |
+| TYDZIEN Z MARKA | 100 000 | Artykul: Pozycjonowanie produktu w karuzeli, Kategoria Listing: Banner, Kategoria Listing: Logotyp, Rich Content: SI, Strona Glowna: Logotyp, Strona Glowna: Teaser standard, Wyszukiwarka: Pozycjonowanie produktu |
+| WIDOCZNOSC | 130 000 | Strona Glowna: Teaser Standard, Wyszukiwarka: Pozycjonowanie produktu, Artykul: Pozycjonowanie produktu w karuzeli, Kategoria Listing: Logotyp, Kategoria Listing: Pozycjonowanie produktu 1.2, Rich Content: SI, Strona Glowna: Logotyp |
 
-2. **Media Plan -- nowa hierarchia na osi Y (prawa strona)** -- zmiana z `Subkategoria > Produkt` na `Aktywnosc > Subkategoria > Produkt`. Glowny poziom to nazwy aktywnosci, ktore mozna rozwinac do subkategorii, a potem do produktow.
+Kazdy element (item) bedzie mial `quantity: 1` i `unitPrice: 0` (cena calosciowa pakietu jest w `default_price`).
 
-3. **Media Plan -- belki aktywnosci wyswietlaja marke** -- na paskach Gantta zamiast nazwy aktywnosci wyswietlana jest **marka** produktu (lub marki produktow przypisanych do aktywnosci).
+## 2. Zmiana hierarchii Media Planu -- Pakiet jako glowny poziom
 
----
+**Plik: `src/components/YearView.tsx`**
 
-## Szczegoly techniczne
+Obecna hierarchia: `Aktywnosc > Subkategoria > Produkt`
 
-### 1. ProductsView.tsx -- uproszczenie
-
-- Usuniecie przycisku **"Importuj produkty"** i calego dialogu importu (seed).
-- Usuniecie stanu `seedClientId`, `seedGroupIdx` oraz `handleSeed`.
-- Usuniecie importu `useSeedProducts`, `allSeedProducts`, `Download`.
-- Reszta funkcjonalnosci (dodawanie, edycja, usuwanie, filtry, wyszukiwarka) bez zmian.
-
-### 2. YearView.tsx -- nowa hierarchia osi Y
-
-Aktualna logika:
+Nowa hierarchia:
 ```text
-Subkategoria (rozwijana)
-  > Produkt (rozwijalny)
-    > paski aktywnosci
-```
-
-Nowa logika:
-```text
-Aktywnosc (nazwa) -- z belka na timeline
-  > Subkategoria (rozwijalna)
-    > Produkt (rozwijalny)
+Pakiet (nazwa pakietu) -- glowny poziom z belka na timeline
+  > Aktywnosc (nazwa aktywnosci)
+    > Subkategoria (jesli sa produkty)
+      > Produkt
 ```
 
 Zmiany:
-- Glowna lista na osi Y to **aktywnosci** (z `filteredActivities`), nie subkategorie.
-- Kazda aktywnosc wyswietla swoja nazwe w lewej kolumnie i belke na osi czasu.
-- Po kliknieciu chevron przy aktywnosci -- rozwija sie lista subkategorii produktow przypisanych do tej aktywnosci.
-- Po rozwinieciu subkategorii -- lista produktow nalezacych do tej subkategorii i przypisanych do danej aktywnosci.
-- Zachowanie kolorow subkategorii, legendy, filtrow kanalow, wyszukiwarki, eksportu PDF.
+- Grupowanie `filteredActivities` po `packageId` -- aktywnosci z tym samym pakietem trafiaja do jednej grupy
+- Aktywnosci bez pakietu trafiaja do grupy "Bez pakietu"
+- Pakiet jest rozwijanym wierszem glownym, pod nim aktywnosci z belkami
+- Dalsze drilldown (subkategoria/produkt) bez zmian
 
-### 3. YearView.tsx -- marka na belkach
+## 3. Edycja aktywnosci -- dodanie wyboru produktow i marki
 
-- W `renderActivityBars` (lub nowej funkcji renderujacej belke aktywnosci) -- tekst na pasku to **marka** zamiast nazwy aktywnosci.
-- Marka pobierana z produktow przypisanych do aktywnosci (`product.brand`). Jesli wiele marek -- wyswietlenie pierwszej lub skrot. Jesli brak marki -- fallback na nazwe aktywnosci.
+**Plik: `src/components/ActivityDetailDrawer.tsx`**
 
-### 4. Widok miesieczny/tygodniowy
-
-- Logika bez zmian: domyslnie miesiace, po wybraniu krotszego okresu mozna przelaczac na tygodnie.
-
----
+Obecny tryb edycji nie pozwala na zmiane produktow. Zmiany:
+- Dodanie stanu `editProductIds` i `editProductSearch` do formularza edycji
+- Pobranie pelnej listy produktow z `useProducts()` (bez filtrowania po kliencie)
+- Dodanie sekcji z wyszukiwarka produktow i checkboxami (identycznie jak w `ActivityDialog.tsx`)
+- Dodanie pola wyboru pakietu (`editPackageId`) w formularzu edycji
+- Przekazanie `product_ids` i `package_id` do `updateActivity.mutateAsync`
 
 ## Pliki do zmiany
 
 | Plik | Zmiana |
 |------|--------|
-| `src/components/ProductsView.tsx` | Usuniecie importu produktow (seed dialog) |
-| `src/components/YearView.tsx` | Nowa hierarchia: Aktywnosc > Subkategoria > Produkt; belki z marka |
+| Baza danych (INSERT) | Wstawienie 6 pakietow z elementami |
+| `src/components/YearView.tsx` | Hierarchia: Pakiet > Aktywnosc > Subkategoria > Produkt |
+| `src/components/ActivityDetailDrawer.tsx` | Edycja produktow i pakietu w trybie edycji aktywnosci |
 
