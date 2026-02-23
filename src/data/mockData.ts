@@ -1,19 +1,4 @@
-import { Client, Product, MediaPackage, Activity, MediaPlan } from '@/types/mediaplan';
-
-export const clients: Client[] = [
-  { id: 'c1', name: 'Pharma Group Polska' },
-  { id: 'c2', name: 'TechNova Solutions' },
-];
-
-export const products: Product[] = [
-  { id: 'p1', name: 'Cardio Plus', clientId: 'c1' },
-  { id: 'p2', name: 'Vita Energy', clientId: 'c1' },
-  { id: 'p3', name: 'Dermo Protect', clientId: 'c1' },
-  { id: 'p4', name: 'Gastro Balance', clientId: 'c1' },
-  { id: 'p5', name: 'Neuro Forte', clientId: 'c1' },
-  { id: 'p6', name: 'CloudSync Pro', clientId: 'c2' },
-  { id: 'p7', name: 'DataShield', clientId: 'c2' },
-];
+import { MediaPackage, Activity, MediaPlan } from '@/types/mediaplan';
 
 export const mediaPackages: MediaPackage[] = [
   {
