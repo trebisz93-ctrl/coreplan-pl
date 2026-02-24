@@ -121,24 +121,45 @@ export const YearView = () => {
     return months.slice(s, e + 1);
   }, [dateFrom, dateTo]);
 
+  /** Get ISO week number */
+  const getISOWeek = useCallback((date: Date) => {
+    const d = new Date(date);
+    d.setHours(0, 0, 0, 0);
+    d.setDate(d.getDate() + 3 - ((d.getDay() + 6) % 7));
+    const week1 = new Date(d.getFullYear(), 0, 4);
+    return 1 + Math.round(((d.getTime() - week1.getTime()) / 86400000 - 3 + ((week1.getDay() + 6) % 7)) / 7);
+  }, []);
+
   const visibleWeeks = useMemo(() => {
     const start = new Date(dateFrom);
     const end = new Date(dateTo);
-    const weeks: { label: string; start: Date; end: Date }[] = [];
+    const weeks: { label: string; start: Date; end: Date; monthIdx: number }[] = [];
     const d = new Date(start);
     const day = d.getDay();
     d.setDate(d.getDate() - day + (day === 0 ? -6 : 1));
     while (d <= end) {
       const ws = new Date(d);
       const we = new Date(d); we.setDate(we.getDate() + 6);
-      const jan4 = new Date(ws.getFullYear(), 0, 4);
-      const dayOfYear = Math.floor((ws.getTime() - jan4.getTime()) / 86400000) + jan4.getDay();
-      const weekNum = Math.ceil((dayOfYear + 1) / 7);
-      weeks.push({ label: `W${weekNum}`, start: ws, end: we });
+      const weekNum = getISOWeek(ws);
+      // monthIdx relative to visible range start month
+      const midWeek = new Date(ws.getTime() + 3 * 86400000);
+      weeks.push({ label: `W${weekNum}`, start: ws, end: we, monthIdx: midWeek.getMonth() });
       d.setDate(d.getDate() + 7);
     }
     return weeks;
-  }, [dateFrom, dateTo]);
+  }, [dateFrom, dateTo, getISOWeek]);
+
+  /** Weeks grouped by visible month for the sub-header */
+  const weeksPerMonth = useMemo(() => {
+    const startMonth = parseInt(dateFrom.slice(5, 7)) - 1;
+    const endMonth = parseInt(dateTo.slice(5, 7)) - 1;
+    const result: { month: string; weeks: typeof visibleWeeks }[] = [];
+    for (let m = startMonth; m <= endMonth; m++) {
+      const mWeeks = visibleWeeks.filter(w => w.monthIdx === m);
+      result.push({ month: months[m], weeks: mWeeks });
+    }
+    return result;
+  }, [dateFrom, dateTo, visibleWeeks]);
 
   const gridColumns = viewMode === 'weekly' ? visibleWeeks.length : visibleMonths.length;
   const gridHeaders = viewMode === 'weekly' ? visibleWeeks.map(w => w.label) : visibleMonths;
@@ -431,18 +452,39 @@ export const YearView = () => {
 
       {/* ── Gantt Chart ── */}
       <div ref={chartRef} className="bg-card rounded-xl border border-border shadow-sm overflow-hidden">
-        {/* Header row */}
-        <div className="flex border-b border-border sticky top-0 z-20 bg-card">
-          <div className="w-64 shrink-0 px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-            Pakiet / Aktywność
+        {/* Header row – months + week sub-row */}
+        <div className="border-b border-border sticky top-0 z-20 bg-card">
+          {/* Month row */}
+          <div className="flex">
+            <div className="w-64 shrink-0 px-4 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+              Pakiet / Aktywność
+            </div>
+            <div className="flex-1 grid" style={{ gridTemplateColumns: `repeat(${gridColumns}, 1fr)` }}>
+              {gridHeaders.map((label, i) => (
+                <div key={i} className={`text-center text-xs font-semibold py-2 text-muted-foreground whitespace-nowrap ${i > 0 ? 'border-l border-border/50' : ''}`}>
+                  {label}
+                </div>
+              ))}
+            </div>
           </div>
-          <div className="flex-1 grid" style={{ gridTemplateColumns: `repeat(${gridColumns}, 1fr)` }}>
-            {gridHeaders.map((label, i) => (
-              <div key={i} className={`text-center text-xs font-semibold py-3 text-muted-foreground whitespace-nowrap ${i > 0 ? 'border-l border-border/50' : ''}`}>
-                {label}
+          {/* Week sub-row (always visible) */}
+          {viewMode === 'monthly' && (
+            <div className="flex border-t border-border/40">
+              <div className="w-64 shrink-0" />
+              <div className="flex-1 flex">
+                {weeksPerMonth.map((mp, mIdx) => (
+                  <div key={mIdx} className="flex-1 flex" style={{ borderLeft: mIdx > 0 ? '1px solid hsl(var(--border) / 0.5)' : 'none' }}>
+                    {mp.weeks.map((w, wIdx) => (
+                      <div key={wIdx} className="flex-1 text-center text-[10px] py-1 text-muted-foreground/70 border-l border-border/20 first:border-l-0">
+                        {w.label}
+                      </div>
+                    ))}
+                    {mp.weeks.length === 0 && <div className="flex-1" />}
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
+            </div>
+          )}
         </div>
 
         {/* ── Rows ── */}
@@ -461,7 +503,7 @@ export const YearView = () => {
 
           return (
             <div key={group.packageId}>
-              {/* ── PACKAGE GROUP HEADER (no bar, neutral bg, colored left border) ── */}
+              {/* ── PACKAGE GROUP HEADER (with aggregate bar on timeline) ── */}
               <TooltipProvider delayDuration={200}>
                 <Tooltip>
                   <TooltipTrigger asChild>
@@ -484,9 +526,30 @@ export const YearView = () => {
                           </span>
                         </button>
                       </div>
-                      {/* No bar on timeline for package */}
-                      <div className="flex-1 relative" style={{ minHeight: 36 }}>
+                      {/* Package aggregate bar on timeline */}
+                      <div className="flex-1 relative" style={{ minHeight: 40 }}>
                         {renderGridLines()}
+                        {allStarts.length > 0 && (() => {
+                          const pos = getBarStyle(allStarts[0], allEnds[allEnds.length - 1]);
+                          return (
+                            <div
+                              className="absolute z-[8] transition-all duration-150"
+                              style={{
+                                ...pos,
+                                top: 10,
+                                height: 20,
+                                borderRadius: 8,
+                                background: `linear-gradient(135deg, ${accentColor}, ${lightenHsl(accentColor, 12)})`,
+                                boxShadow: `0 2px 6px ${accentColor}30`,
+                                border: `1px solid ${accentColor}`,
+                              }}
+                            >
+                              <span className="text-[10px] leading-[20px] px-2 font-bold truncate block text-white drop-shadow-sm">
+                                {group.packageName} • {formatPLN(totalPrice)}
+                              </span>
+                            </div>
+                          );
+                        })()}
                       </div>
                     </div>
                   </TooltipTrigger>
