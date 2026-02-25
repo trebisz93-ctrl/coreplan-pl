@@ -1,56 +1,58 @@
 
 
-# Plan: Naprawa widocznosci przypisanych klientow + rozroznienie klientow w Media Planie
+# Plan: Naprawa i ulepszenia aplikacji MediaPlan CRM
 
-## Problem 1: Uzytkownik z przypisanym klientem nie widzi jego danych
+## 1. Brak polityki RLS dla DELETE na activities (assigned users)
 
-### Przyczyna
-Polityki RLS (Row Level Security) na tabelach `clients` i `activities` pozwalaja tylko na dostep wlascicielowi (`user_id = auth.uid()`). Gdy admin przypisuje klienta do uzytkownika przez `client_assignments`, ten uzytkownik nadal NIE moze zobaczyc tego klienta ani jego aktywnosci, bo RLS tego nie uwzglednia.
+Przypisani uzytkownicy moga widziec i edytowac aktywnosci klienta, ale NIE moga ich usuwac. Brakuje polityki DELETE dla `client_assignments`.
 
-### Rozwiazanie
-Dodanie nowych polityk RLS:
+Analogicznie brakuje polityk INSERT/UPDATE/DELETE dla assigned users na tabelach: `confirmations`, `products`, `media_plans`.
 
-**Tabela `clients`** -- nowa polityka SELECT:
-- Uzytkownik moze widziec klienta, jesli istnieje rekord w `client_assignments` laczacy jego `user_id` z `client_id` tego klienta.
-
-**Tabela `activities`** -- nowe polityki SELECT/UPDATE/DELETE:
-- Uzytkownik moze widziec/edytowac aktywnosci nalezace do klienta, do ktorego jest przypisany przez `client_assignments`.
-
-**Tabela `products`** -- nowa polityka SELECT:
-- Uzytkownik moze widziec produkty klienta, do ktorego jest przypisany.
-
-Migracja SQL doda polityki w formacie:
-```text
-CREATE POLICY "Assigned users can view client"
-ON public.clients FOR SELECT
-USING (
-  EXISTS (
-    SELECT 1 FROM public.client_assignments ca
-    WHERE ca.client_id = clients.id
-    AND ca.user_id = auth.uid()
-  )
-);
-```
-
-Analogiczne polityki dla `activities` (po `client_id`) i `products` (po `client_id`).
+**Zmiana:** Migracja SQL dodajaca brakujace polityki RLS:
+- `activities` -- DELETE dla assigned users
+- `confirmations` -- INSERT, UPDATE, DELETE dla assigned users
+- `products` -- UPDATE, DELETE dla assigned users  
+- `media_plans` -- UPDATE, DELETE dla assigned users
 
 ---
 
-## Problem 2: Brak rozroznienia klientow w widoku Media Planu
+## 2. Brak polityki INSERT na activities dla assigned users
 
-### Rozwiazanie
-W pliku `src/components/YearView.tsx`:
+Przypisany uzytkownik widzi klienta, ale nie moze dodac nowej aktywnosci dla tego klienta, bo INSERT wymaga `auth.uid() = user_id` -- a `user_id` w tabeli activities to tworca, nie przypisany uzytkownik.
 
-- Dodanie mapy klientow (`clientMap`) z `clients` dostepnych w `useApp()`.
-- W naglowku grupy pakietowej -- wyswietlenie nazwy klienta/klientow jako badge obok nazwy pakietu.
-- W wierszu aktywnosci -- dodanie malego badge z nazwa klienta po nazwie aktywnosci (widoczne szczegolnie w trybie multi-client).
-- W tooltipie pakietu -- dodanie listy klientow nalezacych do danej grupy.
+**Zmiana:** Nowa polityka INSERT na `activities` pozwalajaca assigned users tworzyc aktywnosci dla przypisanego klienta.
 
-Efekt wizualny:
-```text
-PAKIET MINI [Klient A]          |====== pasek ======|
-  Tydzien z marka               |=== primary bar ===|
-```
+---
+
+## 3. Ostrzezenie w konsoli: SettingsView nie uzywa forwardRef
+
+Konsola pokazuje: "Function components cannot be given refs. Check the render method of App" dla `SettingsView`.
+
+**Zmiana:** Dodanie `React.forwardRef` do `SettingsView` lub naprawienie sposobu renderowania w `App.tsx` (prawdopodobnie React Router przekazuje ref do komponentu strony).
+
+---
+
+## 4. Brak usuwania aktywnosci z poziomu UI
+
+`ActivityDetailDrawer` pozwala edytowac aktywnosc, ale nie ma przycisku "Usun". Hook `useDeleteActivity` istnieje, ale nie jest uzyty w UI.
+
+**Zmiana:** Dodanie przycisku "Usun aktywnosc" z potwierdzeniem (AlertDialog) w `ActivityDetailDrawer`.
+
+---
+
+## 5. Rok hardcoded na 2026
+
+W `YearView.tsx` rok jest ustawiony na stale `const year = 2026`. Uzytkownik nie moze przelaczac miedzy latami.
+
+**Zmiana:** Dodanie selektora roku (np. przyciski -/+ lub dropdown) w panelu kontrolnym YearView.
+
+---
+
+## 6. Brak walidacji dat w ActivityDialog
+
+Formularz nie sprawdza, czy daty sa w zakresie wybranego roku. Mozna dodac aktywnosc z datami spoza widocznego zakresu.
+
+**Zmiana:** Dodanie domyslnych dat (dzisiejszy dzien) i walidacji zakresu w `ActivityDialog`.
 
 ---
 
@@ -58,6 +60,9 @@ PAKIET MINI [Klient A]          |====== pasek ======|
 
 | Element | Zmiana |
 |---------|--------|
-| Migracja SQL | 3 nowe polityki RLS (clients, activities, products) |
-| `src/components/YearView.tsx` | Badge klienta w naglowku pakietu i wierszach aktywnosci |
+| Migracja SQL | ~8 nowych polityk RLS (DELETE/INSERT dla assigned users) |
+| `src/components/ActivityDetailDrawer.tsx` | Przycisk usuwania aktywnosci |
+| `src/components/YearView.tsx` | Selektor roku |
+| `src/components/SettingsView.tsx` | Fix ostrzezenia forwardRef |
+| `src/components/ActivityDialog.tsx` | Domyslne daty |
 
