@@ -170,6 +170,13 @@ export const YearView = () => {
     return fetchedProducts.filter(p => selectedClientIds.includes(p.client_id));
   }, [multiClientMode, fetchedProducts, selectedClientIds]);
 
+  // Client map for displaying client names
+  const clientMap = useMemo(() => {
+    const m = new Map<string, string>();
+    clients.forEach(c => m.set(c.id, c.name));
+    return m;
+  }, [clients]);
+
   const productMap = useMemo(() => {
     const m = new Map<string, DbProduct>();
     effectiveProducts.forEach(p => m.set(p.id, p));
@@ -494,6 +501,10 @@ export const YearView = () => {
           const totalPrice = group.activities.reduce((s, a) => s + a.price, 0);
           const totalActivities = group.activities.length;
 
+          // Unique client names in this package group
+          const groupClientIds = [...new Set(group.activities.map(a => a.clientId).filter(Boolean))] as string[];
+          const groupClientNames = groupClientIds.map(id => clientMap.get(id)).filter(Boolean) as string[];
+
           // Package date range
           const allStarts = group.activities.map(a => a.startDate).sort();
           const allEnds = group.activities.map(a => a.endDate).sort();
@@ -521,6 +532,11 @@ export const YearView = () => {
                           }
                           <Package className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
                           <span className="text-sm font-bold truncate">{group.packageName}</span>
+                          {groupClientNames.length > 0 && groupClientNames.map((cn, ci) => (
+                            <Badge key={ci} variant="outline" className="text-[9px] px-1.5 py-0 h-4 shrink-0 border-muted-foreground/30">
+                              {cn}
+                            </Badge>
+                          ))}
                           <span className="text-[10px] text-muted-foreground ml-auto whitespace-nowrap shrink-0">
                             {totalActivities} akt.
                           </span>
@@ -556,6 +572,7 @@ export const YearView = () => {
                   <TooltipContent side="right" className="max-w-xs p-3 space-y-1.5">
                     <div className="font-semibold text-sm">{group.packageName}</div>
                     <div className="text-xs text-muted-foreground space-y-0.5">
+                      {groupClientNames.length > 0 && <div>👤 Klienci: {groupClientNames.join(', ')}</div>}
                       <div>💰 Budżet: {formatPLN(totalPrice)}</div>
                       <div>📋 Aktywności: {totalActivities}</div>
                       {pkgDateRange && <div>📅 Zakres: {pkgDateRange}</div>}
@@ -604,6 +621,11 @@ export const YearView = () => {
                           )}
                           <div className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: baseColor }} />
                           <span className="text-xs font-semibold truncate">{activity.name}</span>
+                          {activity.clientId && clientMap.get(activity.clientId) && (
+                            <Badge variant="outline" className="text-[8px] px-1 py-0 h-3.5 shrink-0 border-muted-foreground/20 text-muted-foreground">
+                              {clientMap.get(activity.clientId)}
+                            </Badge>
+                          )}
                           {hasSubs && !isActExpanded && (
                             <span className="text-[9px] text-muted-foreground ml-auto shrink-0 bg-secondary/60 px-1.5 py-0.5 rounded-full">
                               {subActivities.length}

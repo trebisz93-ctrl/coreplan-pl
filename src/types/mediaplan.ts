@@ -38,6 +38,7 @@ export interface Confirmation {
 export interface Activity {
   id: string;
   planId: string;
+  clientId?: string;
   name: string;
   channel: Channel;
   campaignType: CampaignType;
