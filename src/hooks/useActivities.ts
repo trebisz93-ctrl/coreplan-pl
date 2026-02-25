@@ -37,6 +37,7 @@ export interface DbMediaPlan {
 export const dbToActivity = (row: DbActivity) => ({
   id: row.id,
   planId: row.plan_id || row.client_id,
+  clientId: row.client_id,
   name: row.name,
   channel: row.channel,
   campaignType: row.campaign_type,
