@@ -1,58 +1,63 @@
 
 
-# Plan: Dodanie pakietow i zmiana hierarchii Media Planu
+# Plan: Naprawa widocznosci przypisanych klientow + rozroznienie klientow w Media Planie
 
-## 1. Dodanie 6 predefiniowanych pakietow do bazy danych
+## Problem 1: Uzytkownik z przypisanym klientem nie widzi jego danych
 
-Wstawienie danych za pomoca narzedzia INSERT do tabeli `packages` -- 6 pakietow z ich elementami (items) w formacie JSON:
+### Przyczyna
+Polityki RLS (Row Level Security) na tabelach `clients` i `activities` pozwalaja tylko na dostep wlascicielowi (`user_id = auth.uid()`). Gdy admin przypisuje klienta do uzytkownika przez `client_assignments`, ten uzytkownik nadal NIE moze zobaczyc tego klienta ani jego aktywnosci, bo RLS tego nie uwzglednia.
 
-| Pakiet | Kwota | Elementy (items) |
-|--------|-------|------------------|
-| PAKIET MINI | 12 000 | Rich Content: SI, Kategoria Listing: Pozycjonowanie produktu 1.2 |
-| STANDARD | 30 000 | Kategoria Listing: Banner, Kategoria Listing: Pozycjonowanie produktu 1.2, Rich Content: SI |
-| CORE SOCIAL MEDIA | 40 000 | Social Media: Instastory, Social Media: Konkurs, APP: Stories |
-| KORZYSTNY | 80 000 | Listing: Pozycjonowanie produktu 1.2, Rich Content: SI, Strona Glowna: Banner, Strona Glowna: Logotyp, Wyszukiwarka: Pozycjonowanie produktu |
-| TYDZIEN Z MARKA | 100 000 | Artykul: Pozycjonowanie produktu w karuzeli, Kategoria Listing: Banner, Kategoria Listing: Logotyp, Rich Content: SI, Strona Glowna: Logotyp, Strona Glowna: Teaser standard, Wyszukiwarka: Pozycjonowanie produktu |
-| WIDOCZNOSC | 130 000 | Strona Glowna: Teaser Standard, Wyszukiwarka: Pozycjonowanie produktu, Artykul: Pozycjonowanie produktu w karuzeli, Kategoria Listing: Logotyp, Kategoria Listing: Pozycjonowanie produktu 1.2, Rich Content: SI, Strona Glowna: Logotyp |
+### Rozwiazanie
+Dodanie nowych polityk RLS:
 
-Kazdy element (item) bedzie mial `quantity: 1` i `unitPrice: 0` (cena calosciowa pakietu jest w `default_price`).
+**Tabela `clients`** -- nowa polityka SELECT:
+- Uzytkownik moze widziec klienta, jesli istnieje rekord w `client_assignments` laczacy jego `user_id` z `client_id` tego klienta.
 
-## 2. Zmiana hierarchii Media Planu -- Pakiet jako glowny poziom
+**Tabela `activities`** -- nowe polityki SELECT/UPDATE/DELETE:
+- Uzytkownik moze widziec/edytowac aktywnosci nalezace do klienta, do ktorego jest przypisany przez `client_assignments`.
 
-**Plik: `src/components/YearView.tsx`**
+**Tabela `products`** -- nowa polityka SELECT:
+- Uzytkownik moze widziec produkty klienta, do ktorego jest przypisany.
 
-Obecna hierarchia: `Aktywnosc > Subkategoria > Produkt`
-
-Nowa hierarchia:
+Migracja SQL doda polityki w formacie:
 ```text
-Pakiet (nazwa pakietu) -- glowny poziom z belka na timeline
-  > Aktywnosc (nazwa aktywnosci)
-    > Subkategoria (jesli sa produkty)
-      > Produkt
+CREATE POLICY "Assigned users can view client"
+ON public.clients FOR SELECT
+USING (
+  EXISTS (
+    SELECT 1 FROM public.client_assignments ca
+    WHERE ca.client_id = clients.id
+    AND ca.user_id = auth.uid()
+  )
+);
 ```
 
-Zmiany:
-- Grupowanie `filteredActivities` po `packageId` -- aktywnosci z tym samym pakietem trafiaja do jednej grupy
-- Aktywnosci bez pakietu trafiaja do grupy "Bez pakietu"
-- Pakiet jest rozwijanym wierszem glownym, pod nim aktywnosci z belkami
-- Dalsze drilldown (subkategoria/produkt) bez zmian
+Analogiczne polityki dla `activities` (po `client_id`) i `products` (po `client_id`).
 
-## 3. Edycja aktywnosci -- dodanie wyboru produktow i marki
+---
 
-**Plik: `src/components/ActivityDetailDrawer.tsx`**
+## Problem 2: Brak rozroznienia klientow w widoku Media Planu
 
-Obecny tryb edycji nie pozwala na zmiane produktow. Zmiany:
-- Dodanie stanu `editProductIds` i `editProductSearch` do formularza edycji
-- Pobranie pelnej listy produktow z `useProducts()` (bez filtrowania po kliencie)
-- Dodanie sekcji z wyszukiwarka produktow i checkboxami (identycznie jak w `ActivityDialog.tsx`)
-- Dodanie pola wyboru pakietu (`editPackageId`) w formularzu edycji
-- Przekazanie `product_ids` i `package_id` do `updateActivity.mutateAsync`
+### Rozwiazanie
+W pliku `src/components/YearView.tsx`:
+
+- Dodanie mapy klientow (`clientMap`) z `clients` dostepnych w `useApp()`.
+- W naglowku grupy pakietowej -- wyswietlenie nazwy klienta/klientow jako badge obok nazwy pakietu.
+- W wierszu aktywnosci -- dodanie malego badge z nazwa klienta po nazwie aktywnosci (widoczne szczegolnie w trybie multi-client).
+- W tooltipie pakietu -- dodanie listy klientow nalezacych do danej grupy.
+
+Efekt wizualny:
+```text
+PAKIET MINI [Klient A]          |====== pasek ======|
+  Tydzien z marka               |=== primary bar ===|
+```
+
+---
 
 ## Pliki do zmiany
 
-| Plik | Zmiana |
-|------|--------|
-| Baza danych (INSERT) | Wstawienie 6 pakietow z elementami |
-| `src/components/YearView.tsx` | Hierarchia: Pakiet > Aktywnosc > Subkategoria > Produkt |
-| `src/components/ActivityDetailDrawer.tsx` | Edycja produktow i pakietu w trybie edycji aktywnosci |
+| Element | Zmiana |
+|---------|--------|
+| Migracja SQL | 3 nowe polityki RLS (clients, activities, products) |
+| `src/components/YearView.tsx` | Badge klienta w naglowku pakietu i wierszach aktywnosci |
 
