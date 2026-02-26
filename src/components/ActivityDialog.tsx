@@ -41,8 +41,9 @@ export const ActivityDialog = ({ open, onOpenChange }: Props) => {
   const [name, setName] = useState('');
   const [channel, setChannel] = useState<Channel>('online');
   const [campaignType, setCampaignType] = useState<CampaignType>('display');
-  const [startDate, setStartDate] = useState('');
-  const [endDate, setEndDate] = useState('');
+  const today = new Date().toISOString().slice(0, 10);
+  const [startDate, setStartDate] = useState(today);
+  const [endDate, setEndDate] = useState(today);
   const [selectedProducts, setSelectedProducts] = useState<string[]>([]);
   const [productSearch, setProductSearch] = useState('');
   const [packageId, setPackageId] = useState<string>('');
@@ -102,8 +103,9 @@ export const ActivityDialog = ({ open, onOpenChange }: Props) => {
   };
 
   const resetForm = () => {
+    const t = new Date().toISOString().slice(0, 10);
     setName(''); setChannel('online'); setCampaignType('display');
-    setStartDate(''); setEndDate(''); setSelectedProducts([]); setProductSearch('');
+    setStartDate(t); setEndDate(t); setSelectedProducts([]); setProductSearch('');
     setPackageId(''); setPrice(''); setStatus('planned'); setNote('');
     setConfirmed(false); setDialogClientId('');
   };

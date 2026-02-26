@@ -9,7 +9,11 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Activity, statusLabels, campaignTypeLabels, ActivityStatus, Channel, CampaignType } from '@/types/mediaplan';
 import { useConfirmations, useUploadConfirmation, useSetCover, useDeleteConfirmation } from '@/hooks/useConfirmations';
-import { useUpdateActivity } from '@/hooks/useActivities';
+import { useUpdateActivity, useDeleteActivity } from '@/hooks/useActivities';
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
 import { useCampaignTypes } from '@/hooks/useCampaignTypes';
 import { useProducts, usePackages } from '@/hooks/useData';
 import { useCanEdit } from '@/hooks/useRole';
@@ -32,6 +36,7 @@ export const ActivityDetailDrawer = ({ activity, open, onOpenChange, clientId }:
   const setCover = useSetCover();
   const deleteConfirmation = useDeleteConfirmation();
   const updateActivity = useUpdateActivity();
+  const deleteActivity = useDeleteActivity();
   const { data: allProducts = [] } = useProducts();
   const { data: packages = [] } = usePackages();
   const { data: campaignTypes = [] } = useCampaignTypes();
@@ -176,9 +181,42 @@ export const ActivityDetailDrawer = ({ activity, open, onOpenChange, clientId }:
           <div className="flex items-center justify-between pr-6">
             <SheetTitle className="text-lg">{activity.name}</SheetTitle>
             {canEdit && !editing && (
-              <Button size="sm" variant="outline" className="gap-1" onClick={() => setEditing(true)}>
-                <Pencil className="h-3 w-3" /> Edytuj
-              </Button>
+              <div className="flex gap-1">
+                <Button size="sm" variant="outline" className="gap-1" onClick={() => setEditing(true)}>
+                  <Pencil className="h-3 w-3" /> Edytuj
+                </Button>
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button size="sm" variant="outline" className="gap-1 text-destructive hover:text-destructive">
+                      <Trash2 className="h-3 w-3" /> Usuń
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Usunąć aktywność?</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        Usunięcie „{activity.name}" jest nieodwracalne. Wszystkie powiązane potwierdzenia również zostaną utracone.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Anuluj</AlertDialogCancel>
+                      <AlertDialogAction
+                        onClick={async () => {
+                          try {
+                            await deleteActivity.mutateAsync(activity.id);
+                            toast.success('Aktywność usunięta');
+                            onOpenChange(false);
+                          } catch (e: any) {
+                            toast.error('Błąd: ' + (e.message || 'Nie udało się usunąć'));
+                          }
+                        }}
+                      >
+                        Usuń
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              </div>
             )}
           </div>
         </SheetHeader>
