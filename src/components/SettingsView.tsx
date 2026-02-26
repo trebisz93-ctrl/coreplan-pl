@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, forwardRef } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { useMyRole } from '@/hooks/useData';
 import { useCampaignTypes, useCreateCampaignType, useUpdateCampaignType, useDeleteCampaignType } from '@/hooks/useCampaignTypes';
@@ -21,7 +21,7 @@ const roleLabels: Record<string, string> = {
   viewer: 'Viewer (tylko podgląd)',
 };
 
-export const SettingsView = () => {
+export const SettingsView = forwardRef<HTMLDivElement>((_, ref) => {
   const { user } = useAuth();
   const { data: myRole } = useMyRole();
   const isAdmin = myRole === 'admin';
@@ -64,7 +64,7 @@ export const SettingsView = () => {
   };
 
   return (
-    <div className="space-y-6 max-w-3xl">
+    <div ref={ref} className="space-y-6 max-w-3xl">
       <h2 className="text-xl font-bold">Ustawienia</h2>
 
       <Card>
@@ -185,4 +185,5 @@ export const SettingsView = () => {
       </Card>
     </div>
   );
-};
+});
+SettingsView.displayName = 'SettingsView';

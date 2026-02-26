@@ -95,7 +95,7 @@ export const YearView = () => {
   const chartRef = useRef<HTMLDivElement>(null);
   const [exporting, setExporting] = useState(false);
   const [viewMode, setViewMode] = useState<'monthly' | 'weekly'>('monthly');
-  const year = 2026;
+  const [year, setYear] = useState(new Date().getFullYear());
   const [dateFrom, setDateFrom] = useState(`${year}-01-01`);
   const [dateTo, setDateTo] = useState(`${year}-12-31`);
   const [activePeriod, setActivePeriod] = useState<string>('year');
@@ -405,6 +405,10 @@ export const YearView = () => {
           ))}
           <div className="w-px bg-border mx-0.5" />
           <Button size="sm" variant={activePeriod === 'year' ? 'default' : 'outline'} onClick={() => setPeriod('year')} className="text-xs px-2 h-8">Rok</Button>
+          <div className="w-px bg-border mx-0.5" />
+          <Button size="sm" variant="outline" onClick={() => { const y = year - 1; setYear(y); setDateFrom(`${y}-01-01`); setDateTo(`${y}-12-31`); setActivePeriod('year'); }} className="text-xs px-1.5 h-8">←</Button>
+          <span className="text-xs font-semibold min-w-[3rem] text-center">{year}</span>
+          <Button size="sm" variant="outline" onClick={() => { const y = year + 1; setYear(y); setDateFrom(`${y}-01-01`); setDateTo(`${y}-12-31`); setActivePeriod('year'); }} className="text-xs px-1.5 h-8">→</Button>
           <div className="w-px bg-border mx-0.5" />
           <Button size="sm" variant="outline"
             onClick={() => setViewMode(v => v === 'monthly' ? 'weekly' : 'monthly')}
