@@ -103,7 +103,7 @@ serve(async (req) => {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        from: 'MediaPlan CRM <onboarding@resend.dev>',
+        from: 'MediaPlan CRM <noreply@neovir.pl>',
         to: [email],
         subject: `${(typeConfig[type] || typeConfig.info).emoji} ${title}`,
         html,
