@@ -14,8 +14,7 @@ import {
 } from 'lucide-react';
 import { ActivityDetailDrawer } from './ActivityDetailDrawer';
 import { ActivityDialog } from './ActivityDialog';
-import html2canvas from 'html2canvas';
-import jsPDF from 'jspdf';
+import { exportMediaPlanPDF } from '@/lib/exportPdfVector';
 
 // ── Constants ──
 
@@ -255,23 +254,30 @@ export const YearView = () => {
     return sorted;
   }, [filteredActivities, packageMap]);
 
-  // ── PDF Export ──
+  // ── PDF Export (vector) ──
   const handleExportPDF = async () => {
-    if (!chartRef.current) return;
     setExporting(true);
     try {
-      const canvas = await html2canvas(chartRef.current, { scale: 2, useCORS: true, backgroundColor: '#ffffff' });
-      const imgData = canvas.toDataURL('image/png');
-      const pdf = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
-      const pW = pdf.internal.pageSize.getWidth();
-      const pH = pdf.internal.pageSize.getHeight();
-      const r = canvas.width / canvas.height;
-      let dW = pW - 10, dH = dW / r;
-      if (dH > pH - 20) { dH = pH - 20; dW = dH * r; }
-      pdf.setFontSize(10);
-      pdf.text(`Media Plan — ${dateFrom} → ${dateTo}`, 5, 7);
-      pdf.addImage(imgData, 'PNG', 5, 12, dW, dH);
-      pdf.save(`mediaplan-${dateFrom}-${dateTo}.pdf`);
+      const activeClientName = selectedClientId
+        ? clients.find(c => c.id === selectedClientId)?.name
+        : undefined;
+      const activeClientNames = multiClientMode
+        ? selectedClientIds.map(id => clients.find(c => c.id === id)?.name).filter(Boolean) as string[]
+        : undefined;
+
+      const prodInfo = new Map<string, { id: string; name: string; brand: string | null }>();
+      effectiveProducts.forEach(p => prodInfo.set(p.id, { id: p.id, name: p.name, brand: p.brand }));
+
+      exportMediaPlanPDF({
+        dateFrom,
+        dateTo,
+        year,
+        packageGroups,
+        productMap: prodInfo,
+        clientName: activeClientName,
+        clientNames: activeClientNames,
+        multiClient: multiClientMode,
+      });
     } catch (e) { console.error('PDF export error:', e); }
     finally { setExporting(false); }
   };
