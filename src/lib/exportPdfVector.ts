@@ -29,12 +29,6 @@ interface ExportOptions {
 
 // ── Color helpers ──
 
-function parseHsl(hsl: string): [number, number, number] | null {
-  const m = hsl.match(/hsl\((\d+),\s*(\d+)%,\s*(\d+)%\)/);
-  if (!m) return null;
-  return [parseInt(m[1]), parseInt(m[2]), parseInt(m[3])];
-}
-
 function hslToRgb(h: number, s: number, l: number): [number, number, number] {
   s /= 100; l /= 100;
   const k = (n: number) => (n + h / 30) % 12;
@@ -44,17 +38,13 @@ function hslToRgb(h: number, s: number, l: number): [number, number, number] {
 }
 
 function colorFromHsl(hsl: string): [number, number, number] {
-  const parsed = parseHsl(hsl);
-  if (!parsed) return [100, 100, 100];
-  return hslToRgb(...parsed);
+  const m = hsl.match(/hsl\((\d+),\s*(\d+)%,\s*(\d+)%\)/);
+  if (!m) return [100, 100, 100];
+  return hslToRgb(parseInt(m[1]), parseInt(m[2]), parseInt(m[3]));
 }
 
 function lighten(rgb: [number, number, number], amt: number): [number, number, number] {
-  return [
-    Math.min(255, rgb[0] + amt),
-    Math.min(255, rgb[1] + amt),
-    Math.min(255, rgb[2] + amt),
-  ];
+  return [Math.min(255, rgb[0] + amt), Math.min(255, rgb[1] + amt), Math.min(255, rgb[2] + amt)];
 }
 
 // ── Constants ──
@@ -84,29 +74,59 @@ const STATUS_COLORS: Record<string, string> = {
 const formatPLN = (n: number) =>
   new Intl.NumberFormat('pl-PL', { style: 'currency', currency: 'PLN', maximumFractionDigits: 0 }).format(n);
 
+// ── Font loading ──
+
+async function loadFont(url: string): Promise<string> {
+  const resp = await fetch(url);
+  const buf = await resp.arrayBuffer();
+  const bytes = new Uint8Array(buf);
+  let binary = '';
+  for (let i = 0; i < bytes.length; i++) {
+    binary += String.fromCharCode(bytes[i]);
+  }
+  return btoa(binary);
+}
+
+async function setupFonts(pdf: jsPDF) {
+  try {
+    const [regularB64, boldB64] = await Promise.all([
+      loadFont('/fonts/Roboto-Regular.ttf'),
+      loadFont('/fonts/Roboto-Bold.ttf'),
+    ]);
+
+    pdf.addFileToVFS('Roboto-Regular.ttf', regularB64);
+    pdf.addFont('Roboto-Regular.ttf', 'Roboto', 'normal');
+
+    pdf.addFileToVFS('Roboto-Bold.ttf', boldB64);
+    pdf.addFont('Roboto-Bold.ttf', 'RobotoBold', 'normal');
+
+    return { regular: 'Roboto', bold: 'RobotoBold' };
+  } catch (e) {
+    console.warn('Could not load Roboto font, falling back to helvetica', e);
+    return { regular: 'helvetica', bold: 'helvetica' };
+  }
+}
+
 // ── Main export function ──
 
-export function exportMediaPlanPDF(options: ExportOptions) {
+export async function exportMediaPlanPDF(options: ExportOptions) {
   const { dateFrom, dateTo, year, packageGroups, productMap, clientName, clientNames, multiClient } = options;
 
-  // A3 landscape: 420 x 297 mm
   const pdf = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a3' });
-  const pageW = pdf.internal.pageSize.getWidth();  // 420
-  const pageH = pdf.internal.pageSize.getHeight(); // 297
+  const pageW = pdf.internal.pageSize.getWidth();
+  const pageH = pdf.internal.pageSize.getHeight();
+
+  const fonts = await setupFonts(pdf);
 
   const margin = 10;
-  const labelColW = 75;   // left column for names
+  const labelColW = 75;
   const chartX = margin + labelColW;
   const chartW = pageW - chartX - margin;
-
-  // ── Font setup ──
-  pdf.setFont('helvetica');
 
   // ── Date range ──
   const rangeStart = new Date(dateFrom).getTime();
   const rangeEnd = new Date(dateTo).getTime() + 86400000;
   const rangeDur = rangeEnd - rangeStart;
-
   const startMonth = parseInt(dateFrom.slice(5, 7)) - 1;
   const endMonth = parseInt(dateTo.slice(5, 7)) - 1;
 
@@ -116,23 +136,33 @@ export function exportMediaPlanPDF(options: ExportOptions) {
     return chartX + ((clamped - rangeStart) / rangeDur) * chartW;
   }
 
+  // Track the bottom of chart content for grid line clamping
+  let chartContentBottom = 0;
+
+  // Helper to set font
+  const setFont = (style: 'regular' | 'bold', size: number) => {
+    pdf.setFont(style === 'bold' ? fonts.bold : fonts.regular, 'normal');
+    pdf.setFontSize(size);
+  };
+
+  // ── Calculate total content height to know where grid ends ──
+  const headerH = 8;
+  const pkgRowH = 9;
+  const actRowH = 7;
+  const barH = 4.5;
+
   // ── 1. HEADER ──
   let y = margin;
 
-  // Title
-  pdf.setFontSize(16);
-  pdf.setFont('helvetica', 'bold');
+  setFont('bold', 16);
   pdf.setTextColor(30, 30, 30);
   pdf.text('Media Plan', margin, y + 5);
 
-  // Subtitle with metadata
-  pdf.setFontSize(9);
-  pdf.setFont('helvetica', 'normal');
+  setFont('regular', 9);
   pdf.setTextColor(100, 100, 100);
-
   const metaParts: string[] = [];
   metaParts.push(`Rok: ${year}`);
-  metaParts.push(`Okres: ${dateFrom} — ${dateTo}`);
+  metaParts.push(`Okres: ${dateFrom} \u2014 ${dateTo}`);
   if (multiClient && clientNames?.length) {
     metaParts.push(`Klienci: ${clientNames.join(', ')}`);
   } else if (clientName) {
@@ -142,153 +172,147 @@ export function exportMediaPlanPDF(options: ExportOptions) {
   metaParts.push(`Budżet: ${formatPLN(totalBudget)}`);
   const totalActs = packageGroups.reduce((s, g) => s + g.activities.length, 0);
   metaParts.push(`Aktywności: ${totalActs}`);
-
   pdf.text(metaParts.join('   |   '), margin, y + 10);
 
-  // Generated date
-  pdf.setFontSize(7);
-  pdf.text(`Wygenerowano: ${new Date().toLocaleDateString('pl-PL')} ${new Date().toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' })}`, pageW - margin, y + 5, { align: 'right' });
+  setFont('regular', 7);
+  const now = new Date();
+  pdf.text(
+    `Wygenerowano: ${now.toLocaleDateString('pl-PL')} ${now.toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' })}`,
+    pageW - margin, y + 5, { align: 'right' }
+  );
 
-  // Separator line
   y += 15;
   pdf.setDrawColor(180, 180, 180);
   pdf.setLineWidth(0.5);
   pdf.line(margin, y, pageW - margin, y);
   y += 3;
 
-  // ── 2. MONTH HEADER ──
-  const headerH = 8;
-  // Month header background
-  pdf.setFillColor(245, 245, 248);
-  pdf.rect(chartX, y, chartW, headerH, 'F');
+  const gridTopY = y; // remember where grid starts
 
-  // Month labels & grid lines
-  pdf.setFontSize(8);
-  pdf.setFont('helvetica', 'bold');
+  // ── 2. MONTH HEADER ──
+  pdf.setFillColor(245, 245, 248);
+  pdf.rect(margin, y, pageW - 2 * margin, headerH, 'F');
+
+  setFont('bold', 8);
   pdf.setTextColor(80, 80, 80);
 
+  // Calculate month X positions for later grid drawing
+  const monthXPositions: number[] = [];
   for (let m = startMonth; m <= endMonth; m++) {
     const mStart = new Date(year, m, 1);
     const mEnd = new Date(year, m + 1, 0);
     const x1 = dateToX(mStart.toISOString().slice(0, 10));
     const x2 = dateToX(mEnd.toISOString().slice(0, 10), true);
-    const cx = (x1 + x2) / 2;
-
-    pdf.text(MONTHS_PL[m], cx, y + 5.5, { align: 'center' });
-
-    // Vertical month grid line (thick)
-    if (m > startMonth) {
-      pdf.setDrawColor(160, 160, 170);
-      pdf.setLineWidth(0.4);
-      pdf.line(x1, y, x1, pageH - margin);
-    }
+    pdf.text(MONTHS_PL[m], (x1 + x2) / 2, y + 5.5, { align: 'center' });
+    if (m > startMonth) monthXPositions.push(x1);
   }
 
   // Label column header
-  pdf.setFillColor(245, 245, 248);
-  pdf.rect(margin, y, labelColW, headerH, 'F');
-  pdf.setFontSize(7);
-  pdf.setFont('helvetica', 'bold');
+  setFont('bold', 7);
   pdf.setTextColor(120, 120, 130);
   pdf.text('PAKIET / AKTYWNOŚĆ', margin + 3, y + 5.5);
 
   y += headerH;
-
-  // Border under header
   pdf.setDrawColor(160, 160, 170);
   pdf.setLineWidth(0.5);
   pdf.line(margin, y, pageW - margin, y);
 
   // ── 3. ROWS ──
-  const pkgRowH = 9;
-  const actRowH = 7;
-  const barH = 4.5;
-  const subBarH = 3;
+  const drawMonthGridLines = (fromY: number, toY: number) => {
+    pdf.setDrawColor(185, 185, 195);
+    pdf.setLineWidth(0.35);
+    monthXPositions.forEach(x => {
+      pdf.line(x, fromY, x, toY);
+    });
+  };
+
+  // First pass: draw all rows, track y positions for grid
+  const pageRows: { pageIdx: number; startY: number; endY: number }[] = [];
+  let currentPageStart = y;
+  let pageIdx = 0;
+
+  const drawHeaderOnNewPage = () => {
+    pdf.addPage('a3', 'landscape');
+    pageIdx++;
+    y = margin;
+
+    pdf.setFillColor(245, 245, 248);
+    pdf.rect(margin, y, pageW - 2 * margin, headerH, 'F');
+    setFont('bold', 8);
+    pdf.setTextColor(80, 80, 80);
+    for (let m = startMonth; m <= endMonth; m++) {
+      const mStart = new Date(year, m, 1);
+      const mEnd = new Date(year, m + 1, 0);
+      const x1 = dateToX(mStart.toISOString().slice(0, 10));
+      const x2 = dateToX(mEnd.toISOString().slice(0, 10), true);
+      pdf.text(MONTHS_PL[m], (x1 + x2) / 2, y + 5.5, { align: 'center' });
+    }
+    setFont('bold', 7);
+    pdf.setTextColor(120, 120, 130);
+    pdf.text('PAKIET / AKTYWNOŚĆ', margin + 3, y + 5.5);
+    y += headerH;
+    pdf.setDrawColor(160, 160, 170);
+    pdf.setLineWidth(0.5);
+    pdf.line(margin, y, pageW - margin, y);
+
+    currentPageStart = y;
+  };
+
+  const checkPageBreak = (neededH: number) => {
+    if (y + neededH > pageH - margin - 5) {
+      // Save page row range
+      pageRows.push({ pageIdx, startY: currentPageStart, endY: y });
+      drawHeaderOnNewPage();
+    }
+  };
 
   packageGroups.forEach((group, gIdx) => {
     const accentHsl = PACKAGE_COLORS[gIdx % PACKAGE_COLORS.length];
     const accentRgb = colorFromHsl(accentHsl);
     const totalPrice = group.activities.reduce((s, a) => s + a.price, 0);
 
-    // Check page overflow
     const estimatedH = pkgRowH + group.activities.length * actRowH;
-    if (y + estimatedH > pageH - margin) {
-      pdf.addPage('a3', 'landscape');
-      y = margin;
-      // Re-draw header on new page
-      pdf.setFillColor(245, 245, 248);
-      pdf.rect(chartX, y, chartW, headerH, 'F');
-      pdf.rect(margin, y, labelColW, headerH, 'F');
-      pdf.setFontSize(8);
-      pdf.setFont('helvetica', 'bold');
-      pdf.setTextColor(80, 80, 80);
-      for (let m = startMonth; m <= endMonth; m++) {
-        const mStart = new Date(year, m, 1);
-        const mEnd = new Date(year, m + 1, 0);
-        const x1 = dateToX(mStart.toISOString().slice(0, 10));
-        const x2 = dateToX(mEnd.toISOString().slice(0, 10), true);
-        pdf.text(MONTHS_PL[m], (x1 + x2) / 2, y + 5.5, { align: 'center' });
-        if (m > startMonth) {
-          pdf.setDrawColor(160, 160, 170);
-          pdf.setLineWidth(0.4);
-          pdf.line(x1, y, x1, pageH - margin);
-        }
-      }
-      pdf.setFontSize(7);
-      pdf.setTextColor(120, 120, 130);
-      pdf.text('PAKIET / AKTYWNOŚĆ', margin + 3, y + 5.5);
-      y += headerH;
-      pdf.setDrawColor(160, 160, 170);
-      pdf.setLineWidth(0.5);
-      pdf.line(margin, y, pageW - margin, y);
-    }
+    checkPageBreak(Math.min(estimatedH, pkgRowH + actRowH * 2));
 
     // ── Package group row ──
-    pdf.setFillColor(240, 240, 245);
+    pdf.setFillColor(237, 237, 242);
     pdf.rect(margin, y, pageW - 2 * margin, pkgRowH, 'F');
 
-    // Accent bar (left)
+    // Accent bar
     pdf.setFillColor(...accentRgb);
     pdf.rect(margin, y, 2, pkgRowH, 'F');
 
     // Package name
-    pdf.setFontSize(8);
-    pdf.setFont('helvetica', 'bold');
-    pdf.setTextColor(40, 40, 50);
-    const pkgLabel = `${group.packageName}  (${group.activities.length} akt. • ${formatPLN(totalPrice)})`;
-    pdf.text(pkgLabel, margin + 5, y + 6);
+    setFont('bold', 8.5);
+    pdf.setTextColor(35, 35, 45);
+    const pkgLabel = `${group.packageName}  (${group.activities.length} akt. \u2022 ${formatPLN(totalPrice)})`;
+    pdf.text(truncate(pkgLabel, 55), margin + 5, y + 6);
 
-    // Package aggregate bar on timeline
+    // Package aggregate bar
     if (group.activities.length > 0) {
       const allStarts = group.activities.map(a => a.startDate).sort();
       const allEnds = group.activities.map(a => a.endDate).sort();
       const barX1 = dateToX(allStarts[0]);
       const barX2 = dateToX(allEnds[allEnds.length - 1], true);
       const barY = y + (pkgRowH - barH) / 2;
+      const bw = Math.max(barX2 - barX1, 2);
 
-      // Solid bar (no gradient)
-      const lightAccent = lighten(accentRgb, 80);
+      const lightAccent = lighten(accentRgb, 100);
       pdf.setFillColor(...lightAccent);
-      pdf.roundedRect(barX1, barY, Math.max(barX2 - barX1, 2), barH, 1.2, 1.2, 'F');
+      pdf.roundedRect(barX1, barY, bw, barH, 1.2, 1.2, 'F');
       pdf.setDrawColor(...accentRgb);
-      pdf.setLineWidth(0.35);
-      pdf.roundedRect(barX1, barY, Math.max(barX2 - barX1, 2), barH, 1.2, 1.2, 'S');
+      pdf.setLineWidth(0.4);
+      pdf.roundedRect(barX1, barY, bw, barH, 1.2, 1.2, 'S');
     }
 
     y += pkgRowH;
-
-    // Row separator
     pdf.setDrawColor(200, 200, 210);
-    pdf.setLineWidth(0.2);
+    pdf.setLineWidth(0.25);
     pdf.line(margin, y, pageW - margin, y);
 
     // ── Activity rows ──
     group.activities.forEach((act, aIdx) => {
-      // Page overflow check
-      if (y + actRowH > pageH - margin) {
-        pdf.addPage('a3', 'landscape');
-        y = margin;
-      }
+      checkPageBreak(actRowH);
 
       const actColorHsl = ACT_COLORS[aIdx % ACT_COLORS.length];
       const actRgb = colorFromHsl(actColorHsl);
@@ -296,59 +320,71 @@ export function exportMediaPlanPDF(options: ExportOptions) {
 
       // Alternating bg
       if (aIdx % 2 === 1) {
-        pdf.setFillColor(250, 250, 253);
+        pdf.setFillColor(248, 248, 252);
         pdf.rect(margin, y, pageW - 2 * margin, actRowH, 'F');
       }
 
-      // Status indicator (left strip)
+      // Status strip
       pdf.setFillColor(...statusRgb);
       pdf.rect(margin, y + 0.5, 1.2, actRowH - 1, 'F');
 
       // Activity name
-      pdf.setFontSize(7);
-      pdf.setFont('helvetica', 'normal');
-      pdf.setTextColor(50, 50, 60);
+      setFont('regular', 7);
+      pdf.setTextColor(45, 45, 55);
       const brandLabel = getBrandLabel(act, productMap);
       const nameText = `${act.name}${brandLabel ? ` [${brandLabel}]` : ''}`;
-      pdf.text(truncate(nameText, 42), margin + 6, y + 4.8);
+      pdf.text(truncate(nameText, 45), margin + 6, y + 4.2);
 
-      // Status + type + channel label (small)
-      pdf.setFontSize(5);
+      // Info line
+      setFont('regular', 5.5);
       pdf.setTextColor(130, 130, 140);
-      const infoLine = `${statusLabels[act.status]} • ${campaignTypeLabels[act.campaignType]} • ${act.channel === 'online' ? 'ON' : 'OFF'}`;
-      pdf.text(infoLine, margin + 6, y + 6.5);
+      const infoLine = `${statusLabels[act.status]} \u2022 ${campaignTypeLabels[act.campaignType]} \u2022 ${act.channel === 'online' ? 'ON' : 'OFF'}`;
+      pdf.text(infoLine, margin + 6, y + 6.3);
 
-      // Activity bar on timeline
+      // Activity bar
       const barX1 = dateToX(act.startDate);
       const barX2 = dateToX(act.endDate, true);
       const barY = y + (actRowH - barH) / 2;
       const barWidth = Math.max(barX2 - barX1, 2);
 
-      // Solid fill (no gradient)
       pdf.setFillColor(...actRgb);
       pdf.roundedRect(barX1, barY, barWidth, barH, 1, 1, 'F');
 
-      // Bar label
-      if (barWidth > 15) {
-        pdf.setFontSize(5.5);
-        pdf.setFont('helvetica', 'bold');
+      // Bar label (white text on bar)
+      if (barWidth > 18) {
+        setFont('bold', 5.5);
         pdf.setTextColor(255, 255, 255);
-        const barLabel = `${brandLabel || act.name} • ${formatPLN(act.price)}`;
+        const barLabel = `${brandLabel || act.name} \u2022 ${formatPLN(act.price)}`;
         pdf.text(truncate(barLabel, 50), barX1 + 1.5, barY + 3.2);
       }
 
       y += actRowH;
-
-      // Row line
       pdf.setDrawColor(220, 220, 228);
       pdf.setLineWidth(0.15);
       pdf.line(margin, y, pageW - margin, y);
     });
   });
 
+  // Save last page row range
+  chartContentBottom = y;
+  pageRows.push({ pageIdx, startY: currentPageStart, endY: chartContentBottom });
+
+  // ── Draw month grid lines (only within content area, per page) ──
+  const totalPages = pageIdx + 1;
+  for (let p = 0; p < totalPages; p++) {
+    pdf.setPage(p + 1);
+    const row = pageRows.find(r => r.pageIdx === p);
+    if (row) {
+      drawMonthGridLines(row.startY, row.endY);
+    }
+  }
+
+  // Go back to last page for legend
+  pdf.setPage(totalPages);
+
   // ── 4. LEGEND ──
-  y += 5;
-  if (y + 15 > pageH - margin) {
+  y = chartContentBottom + 5;
+  if (y + 12 > pageH - margin) {
     pdf.addPage('a3', 'landscape');
     y = margin;
   }
@@ -358,21 +394,19 @@ export function exportMediaPlanPDF(options: ExportOptions) {
   pdf.line(margin, y, pageW - margin, y);
   y += 4;
 
-  pdf.setFontSize(7);
-  pdf.setFont('helvetica', 'bold');
+  setFont('bold', 7);
   pdf.setTextColor(80, 80, 80);
   pdf.text('LEGENDA STATUSÓW:', margin, y + 3);
 
-  let lx = margin + 35;
+  let lx = margin + 38;
   Object.entries(STATUS_COLORS).forEach(([status, hsl]) => {
     const rgb = colorFromHsl(hsl);
     pdf.setFillColor(...rgb);
-    pdf.rect(lx, y, 3, 3, 'F');
-    pdf.setFontSize(6);
-    pdf.setFont('helvetica', 'normal');
-    pdf.setTextColor(70, 70, 70);
-    pdf.text(statusLabels[status as keyof typeof statusLabels] || status, lx + 4.5, y + 2.5);
-    lx += 28;
+    pdf.rect(lx, y + 0.5, 3, 3, 'F');
+    setFont('regular', 6.5);
+    pdf.setTextColor(60, 60, 70);
+    pdf.text(statusLabels[status as keyof typeof statusLabels] || status, lx + 5, y + 3);
+    lx += 32;
   });
 
   // ── Save ──
@@ -390,5 +424,5 @@ function getBrandLabel(act: Activity, productMap: Map<string, ProductInfo>): str
 }
 
 function truncate(s: string, max: number): string {
-  return s.length > max ? s.slice(0, max - 1) + '…' : s;
+  return s.length > max ? s.slice(0, max - 1) + '\u2026' : s;
 }

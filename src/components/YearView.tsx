@@ -268,7 +268,7 @@ export const YearView = () => {
       const prodInfo = new Map<string, { id: string; name: string; brand: string | null }>();
       effectiveProducts.forEach(p => prodInfo.set(p.id, { id: p.id, name: p.name, brand: p.brand }));
 
-      exportMediaPlanPDF({
+      await exportMediaPlanPDF({
         dateFrom,
         dateTo,
         year,
