@@ -8,9 +8,12 @@ import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '@/comp
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Checkbox } from '@/components/ui/checkbox';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import {
   ChevronDown, ChevronRight, Plus, Search, FileDown,
-  Calendar, LayoutGrid, List, Package, Layers, EyeOff, Eye
+  Calendar, LayoutGrid, List, Package, Layers, EyeOff, Eye, Filter, X
 } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
@@ -101,9 +104,26 @@ export const YearView = () => {
   const [dateFrom, setDateFrom] = useState(`${year}-01-01`);
   const [dateTo, setDateTo] = useState(`${year}-12-31`);
   const [activePeriod, setActivePeriod] = useState<string>('year');
+  const [selectedProductIds, setSelectedProductIds] = useState<Set<string>>(new Set());
+  const [selectedCategories, setSelectedCategories] = useState<Set<string>>(new Set());
 
   useSeedDefaultPackages();
   const { data: packages = [] } = usePackages();
+  const { data: fetchedProducts = [] } = useProducts(multiClientMode ? undefined : (selectedClientId || undefined));
+  const effectiveProducts = useMemo(() => {
+    if (!multiClientMode) return fetchedProducts;
+    return fetchedProducts.filter(p => selectedClientIds.includes(p.client_id));
+  }, [multiClientMode, fetchedProducts, selectedClientIds]);
+  const productMap = useMemo(() => {
+    const m = new Map<string, DbProduct>();
+    effectiveProducts.forEach(p => m.set(p.id, p));
+    return m;
+  }, [effectiveProducts]);
+  const clientMap = useMemo(() => {
+    const m = new Map<string, string>();
+    clients.forEach(c => m.set(c.id, c.name));
+    return m;
+  }, [clients]);
 
   const setPeriod = (key: string) => {
     const [from, to] = quarterRanges[key];
@@ -112,10 +132,19 @@ export const YearView = () => {
     setActivePeriod(key);
   };
 
-  const filteredActivities = useMemo(() =>
-    allFilteredActivities.filter(a => !(a.endDate < dateFrom || a.startDate > dateTo)),
-    [allFilteredActivities, dateFrom, dateTo]
-  );
+  const filteredActivities = useMemo(() => {
+    let acts = allFilteredActivities.filter(a => !(a.endDate < dateFrom || a.startDate > dateTo));
+    if (selectedProductIds.size > 0) {
+      acts = acts.filter(a => a.productIds.some(pid => selectedProductIds.has(pid)));
+    }
+    if (selectedCategories.size > 0) {
+      acts = acts.filter(a => a.productIds.some(pid => {
+        const p = productMap.get(pid);
+        return p && p.category && selectedCategories.has(p.category);
+      }));
+    }
+    return acts;
+  }, [allFilteredActivities, dateFrom, dateTo, selectedProductIds, selectedCategories, productMap]);
 
   const visibleMonths = useMemo(() => {
     const s = parseInt(dateFrom.slice(5, 7)) - 1;
@@ -166,30 +195,33 @@ export const YearView = () => {
   const gridColumns = viewMode === 'weekly' ? visibleWeeks.length : visibleMonths.length;
   const gridHeaders = viewMode === 'weekly' ? visibleWeeks.map(w => w.label) : visibleMonths;
 
-  const { data: fetchedProducts = [] } = useProducts(multiClientMode ? undefined : (selectedClientId || undefined));
-  const effectiveProducts = useMemo(() => {
-    if (!multiClientMode) return fetchedProducts;
-    return fetchedProducts.filter(p => selectedClientIds.includes(p.client_id));
-  }, [multiClientMode, fetchedProducts, selectedClientIds]);
-
-  // Client map for displaying client names
-  const clientMap = useMemo(() => {
-    const m = new Map<string, string>();
-    clients.forEach(c => m.set(c.id, c.name));
-    return m;
-  }, [clients]);
-
-  const productMap = useMemo(() => {
-    const m = new Map<string, DbProduct>();
-    effectiveProducts.forEach(p => m.set(p.id, p));
-    return m;
-  }, [effectiveProducts]);
 
   const packageMap = useMemo(() => {
     const m = new Map<string, DbPackage>();
     packages.forEach(p => m.set(p.id, p));
     return m;
   }, [packages]);
+
+  // ── Available products & categories for filters ──
+  const availableProducts = useMemo(() => {
+    const productIdsInActivities = new Set(allFilteredActivities.flatMap(a => a.productIds));
+    return effectiveProducts
+      .filter(p => productIdsInActivities.has(p.id))
+      .sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+  }, [effectiveProducts, allFilteredActivities]);
+
+  const availableCategories = useMemo(() => {
+    const cats = new Set<string>();
+    availableProducts.forEach(p => { if (p.category) cats.add(p.category); });
+    return [...cats].sort();
+  }, [availableProducts]);
+
+  const toggleProductFilter = (id: string) =>
+    setSelectedProductIds(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
+  const toggleCategoryFilter = (cat: string) =>
+    setSelectedCategories(prev => { const n = new Set(prev); n.has(cat) ? n.delete(cat) : n.add(cat); return n; });
+  const clearFilters = () => { setSelectedProductIds(new Set()); setSelectedCategories(new Set()); };
+  const hasActiveFilters = selectedProductIds.size > 0 || selectedCategories.size > 0;
 
   // ── Expand/collapse state ──
   const [expandedPackages, setExpandedPackages] = useState<Set<string>>(new Set());
@@ -456,6 +488,73 @@ export const YearView = () => {
           <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input placeholder="Szukaj aktywności..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} className="pl-9 w-52 h-8 text-xs" />
         </div>
+
+        {/* Product & Category filters */}
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button variant={hasActiveFilters ? 'default' : 'outline'} size="sm" className="h-8 text-xs gap-1.5">
+              <Filter className="h-3.5 w-3.5" />
+              Filtruj
+              {hasActiveFilters && (
+                <Badge variant="secondary" className="h-4 px-1 text-[10px] ml-0.5">
+                  {selectedProductIds.size + selectedCategories.size}
+                </Badge>
+              )}
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-80 p-0" align="start">
+            <div className="p-3 border-b border-border flex items-center justify-between">
+              <span className="text-sm font-semibold">Filtruj aktywności</span>
+              {hasActiveFilters && (
+                <Button variant="ghost" size="sm" onClick={clearFilters} className="h-6 text-xs gap-1 px-2">
+                  <X className="h-3 w-3" /> Wyczyść
+                </Button>
+              )}
+            </div>
+            {availableCategories.length > 0 && (
+              <div className="p-3 border-b border-border">
+                <div className="text-xs font-semibold text-muted-foreground mb-2">Kategorie</div>
+                <ScrollArea className="max-h-32">
+                  <div className="space-y-1.5">
+                    {availableCategories.map(cat => (
+                      <label key={cat} className="flex items-center gap-2 text-xs cursor-pointer hover:bg-secondary/50 px-1.5 py-1 rounded">
+                        <Checkbox
+                          checked={selectedCategories.has(cat)}
+                          onCheckedChange={() => toggleCategoryFilter(cat)}
+                          className="h-3.5 w-3.5"
+                        />
+                        {cat}
+                      </label>
+                    ))}
+                  </div>
+                </ScrollArea>
+              </div>
+            )}
+            {availableProducts.length > 0 && (
+              <div className="p-3">
+                <div className="text-xs font-semibold text-muted-foreground mb-2">Produkty</div>
+                <ScrollArea className="max-h-48">
+                  <div className="space-y-1.5">
+                    {availableProducts.map(p => (
+                      <label key={p.id} className="flex items-center gap-2 text-xs cursor-pointer hover:bg-secondary/50 px-1.5 py-1 rounded">
+                        <Checkbox
+                          checked={selectedProductIds.has(p.id)}
+                          onCheckedChange={() => toggleProductFilter(p.id)}
+                          className="h-3.5 w-3.5"
+                        />
+                        <span className="truncate">{p.name}</span>
+                        {p.brand && <span className="text-muted-foreground text-[10px] shrink-0">({p.brand})</span>}
+                      </label>
+                    ))}
+                  </div>
+                </ScrollArea>
+              </div>
+            )}
+            {availableProducts.length === 0 && availableCategories.length === 0 && (
+              <div className="p-4 text-xs text-muted-foreground text-center">Brak produktów do filtrowania</div>
+            )}
+          </PopoverContent>
+        </Popover>
 
         <div className="flex-1" />
 
