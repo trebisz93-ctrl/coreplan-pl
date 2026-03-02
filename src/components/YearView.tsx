@@ -10,8 +10,10 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
   ChevronDown, ChevronRight, Plus, Search, FileDown,
-  Calendar, LayoutGrid, List, Package, Layers
+  Calendar, LayoutGrid, List, Package, Layers, EyeOff, Eye
 } from 'lucide-react';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
 import { ActivityDetailDrawer } from './ActivityDetailDrawer';
 import { ActivityDialog } from './ActivityDialog';
 import { exportMediaPlanPDF } from '@/lib/exportPdfVector';
@@ -94,6 +96,7 @@ export const YearView = () => {
   const chartRef = useRef<HTMLDivElement>(null);
   const [exporting, setExporting] = useState(false);
   const [viewMode, setViewMode] = useState<'monthly' | 'weekly'>('monthly');
+  const [showPrices, setShowPrices] = useState(true);
   const [year, setYear] = useState(new Date().getFullYear());
   const [dateFrom, setDateFrom] = useState(`${year}-01-01`);
   const [dateTo, setDateTo] = useState(`${year}-12-31`);
@@ -277,6 +280,7 @@ export const YearView = () => {
         clientName: activeClientName,
         clientNames: activeClientNames,
         multiClient: multiClientMode,
+        showPrices,
       });
     } catch (e) { console.error('PDF export error:', e); }
     finally { setExporting(false); }
@@ -344,7 +348,7 @@ export const YearView = () => {
             </div>
             <div className="text-xs text-muted-foreground space-y-0.5">
               <div>📅 {activity.startDate} → {activity.endDate}</div>
-              <div>💰 {formatPLN(activity.price)}</div>
+              {showPrices && <div>💰 {formatPLN(activity.price)}</div>}
               {subCount > 0 && <div>📋 Pod-aktywności: {subCount}</div>}
               <div>📦 Typ: {activity.channel === 'online' ? 'Online' : activity.channel === 'offline' ? 'Offline' : 'Mix'}</div>
               {activity.note && <div>📝 {activity.note}</div>}
@@ -455,6 +459,14 @@ export const YearView = () => {
 
         <div className="flex-1" />
 
+        <div className="flex items-center gap-2">
+          <Switch id="show-prices" checked={showPrices} onCheckedChange={setShowPrices} />
+          <Label htmlFor="show-prices" className="text-xs cursor-pointer flex items-center gap-1">
+            {showPrices ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5" />}
+            Ceny
+          </Label>
+        </div>
+
         <Button variant="outline" size="sm" onClick={handleExportPDF} disabled={exporting} className="gap-1.5 h-8">
           <FileDown className="h-4 w-4" />
           {exporting ? 'Eksport...' : 'PDF'}
@@ -548,7 +560,7 @@ export const YearView = () => {
                             </Badge>
                           ))}
                           <span className="text-[10px] text-muted-foreground ml-auto whitespace-nowrap shrink-0">
-                            {totalActivities} akt.
+                            {totalActivities} akt.{showPrices ? ` • ${formatPLN(totalPrice)}` : ''}
                           </span>
                         </button>
                       </div>
@@ -571,7 +583,7 @@ export const YearView = () => {
                               }}
                             >
                               <span className="text-[10px] leading-[20px] px-2 font-bold truncate block text-white drop-shadow-sm">
-                                {group.packageName} • {formatPLN(totalPrice)}
+                                {group.packageName}{showPrices ? ` • ${formatPLN(totalPrice)}` : ''}
                               </span>
                             </div>
                           );
@@ -583,7 +595,7 @@ export const YearView = () => {
                     <div className="font-semibold text-sm">{group.packageName}</div>
                     <div className="text-xs text-muted-foreground space-y-0.5">
                       {groupClientNames.length > 0 && <div>👤 Klienci: {groupClientNames.join(', ')}</div>}
-                      <div>💰 Budżet: {formatPLN(totalPrice)}</div>
+                      {showPrices && <div>💰 Budżet: {formatPLN(totalPrice)}</div>}
                       <div>📋 Aktywności: {totalActivities}</div>
                       {pkgDateRange && <div>📅 Zakres: {pkgDateRange}</div>}
                       <div>🌐 Online: {onlineCount} / Offline: {offlineCount}</div>
