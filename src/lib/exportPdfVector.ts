@@ -227,8 +227,7 @@ export async function exportMediaPlanPDF(options: ExportOptions) {
     });
   };
 
-  // Draw grid lines for full page height BEFORE rows (so rows paint on top)
-  drawMonthGridLines(y, pageH - margin);
+  // Grid lines will be drawn AFTER all rows, clipped to content bottom
 
   // First pass: draw all rows, track y positions for grid
   const pageRows: { pageIdx: number; startY: number; endY: number }[] = [];
@@ -260,9 +259,6 @@ export async function exportMediaPlanPDF(options: ExportOptions) {
     pdf.line(margin, y, pageW - margin, y);
 
     currentPageStart = y;
-
-    // Draw grid lines for full page height BEFORE rows
-    drawMonthGridLines(y, pageH - margin);
   };
 
   const checkPageBreak = (neededH: number) => {
@@ -380,7 +376,16 @@ export async function exportMediaPlanPDF(options: ExportOptions) {
   chartContentBottom = y;
   pageRows.push({ pageIdx, startY: currentPageStart, endY: chartContentBottom });
 
-  // Grid lines already drawn before rows on each page
+  // Now draw grid lines on top of row backgrounds but we need them BEHIND bars.
+  // Since jsPDF draws in order, we redraw grid lines now on each page clipped to content.
+  // We go back to each page and draw the lines.
+  const totalPages = pdf.getNumberOfPages();
+  for (const pr of pageRows) {
+    pdf.setPage(pr.pageIdx + 1);
+    drawMonthGridLines(pr.startY, pr.endY);
+  }
+  // Return to last page
+  pdf.setPage(totalPages);
 
   // ── 4. LEGEND ──
   y = chartContentBottom + 5;
