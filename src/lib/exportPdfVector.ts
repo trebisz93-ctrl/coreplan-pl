@@ -25,6 +25,7 @@ interface ExportOptions {
   clientName?: string;
   clientNames?: string[];
   multiClient?: boolean;
+  showPrices?: boolean;
 }
 
 // ── Color helpers ──
@@ -110,7 +111,7 @@ async function setupFonts(pdf: jsPDF) {
 // ── Main export function ──
 
 export async function exportMediaPlanPDF(options: ExportOptions) {
-  const { dateFrom, dateTo, year, packageGroups, productMap, clientName, clientNames, multiClient } = options;
+  const { dateFrom, dateTo, year, packageGroups, productMap, clientName, clientNames, multiClient, showPrices = true } = options;
 
   const pdf = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a3' });
   const pageW = pdf.internal.pageSize.getWidth();
@@ -169,7 +170,7 @@ export async function exportMediaPlanPDF(options: ExportOptions) {
     metaParts.push(`Klient: ${clientName}`);
   }
   const totalBudget = packageGroups.reduce((s, g) => s + g.activities.reduce((a, act) => a + act.price, 0), 0);
-  metaParts.push(`Budżet: ${formatPLN(totalBudget)}`);
+  if (showPrices) metaParts.push(`Budżet: ${formatPLN(totalBudget)}`);
   const totalActs = packageGroups.reduce((s, g) => s + g.activities.length, 0);
   metaParts.push(`Aktywności: ${totalActs}`);
   pdf.text(metaParts.join('   |   '), margin, y + 10);
@@ -226,6 +227,9 @@ export async function exportMediaPlanPDF(options: ExportOptions) {
     });
   };
 
+  // Draw grid lines for full page height BEFORE rows (so rows paint on top)
+  drawMonthGridLines(y, pageH - margin);
+
   // First pass: draw all rows, track y positions for grid
   const pageRows: { pageIdx: number; startY: number; endY: number }[] = [];
   let currentPageStart = y;
@@ -256,6 +260,9 @@ export async function exportMediaPlanPDF(options: ExportOptions) {
     pdf.line(margin, y, pageW - margin, y);
 
     currentPageStart = y;
+
+    // Draw grid lines for full page height BEFORE rows
+    drawMonthGridLines(y, pageH - margin);
   };
 
   const checkPageBreak = (neededH: number) => {
@@ -285,7 +292,9 @@ export async function exportMediaPlanPDF(options: ExportOptions) {
     // Package name
     setFont('bold', 8.5);
     pdf.setTextColor(35, 35, 45);
-    const pkgLabel = `${group.packageName}  (${group.activities.length} akt. \u2022 ${formatPLN(totalPrice)})`;
+    const pkgLabel = showPrices
+      ? `${group.packageName}  (${group.activities.length} akt. \u2022 ${formatPLN(totalPrice)})`
+      : `${group.packageName}  (${group.activities.length} akt.)`;
     pdf.text(truncate(pkgLabel, 55), margin + 5, y + 6);
 
     // Package aggregate bar
@@ -354,7 +363,9 @@ export async function exportMediaPlanPDF(options: ExportOptions) {
       if (barWidth > 18) {
         setFont('bold', 5.5);
         pdf.setTextColor(255, 255, 255);
-        const barLabel = `${brandLabel || act.name} \u2022 ${formatPLN(act.price)}`;
+        const barLabel = showPrices
+          ? `${brandLabel || act.name} \u2022 ${formatPLN(act.price)}`
+          : `${brandLabel || act.name}`;
         pdf.text(truncate(barLabel, 50), barX1 + 1.5, barY + 3.2);
       }
 
@@ -369,18 +380,7 @@ export async function exportMediaPlanPDF(options: ExportOptions) {
   chartContentBottom = y;
   pageRows.push({ pageIdx, startY: currentPageStart, endY: chartContentBottom });
 
-  // ── Draw month grid lines (only within content area, per page) ──
-  const totalPages = pageIdx + 1;
-  for (let p = 0; p < totalPages; p++) {
-    pdf.setPage(p + 1);
-    const row = pageRows.find(r => r.pageIdx === p);
-    if (row) {
-      drawMonthGridLines(row.startY, row.endY);
-    }
-  }
-
-  // Go back to last page for legend
-  pdf.setPage(totalPages);
+  // Grid lines already drawn before rows on each page
 
   // ── 4. LEGEND ──
   y = chartContentBottom + 5;
