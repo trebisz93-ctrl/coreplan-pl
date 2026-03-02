@@ -1,68 +1,45 @@
 
 
-# Plan: Naprawa i ulepszenia aplikacji MediaPlan CRM
+# Ukrywanie cen + poprawka kolejnosci warstw w PDF
 
-## 1. Brak polityki RLS dla DELETE na activities (assigned users)
+## Co robimy
 
-Przypisani uzytkownicy moga widziec i edytowac aktywnosci klienta, ale NIE moga ich usuwac. Brakuje polityki DELETE dla `client_assignments`.
-
-Analogicznie brakuje polityk INSERT/UPDATE/DELETE dla assigned users na tabelach: `confirmations`, `products`, `media_plans`.
-
-**Zmiana:** Migracja SQL dodajaca brakujace polityki RLS:
-- `activities` -- DELETE dla assigned users
-- `confirmations` -- INSERT, UPDATE, DELETE dla assigned users
-- `products` -- UPDATE, DELETE dla assigned users  
-- `media_plans` -- UPDATE, DELETE dla assigned users
-
----
-
-## 2. Brak polityki INSERT na activities dla assigned users
-
-Przypisany uzytkownik widzi klienta, ale nie moze dodac nowej aktywnosci dla tego klienta, bo INSERT wymaga `auth.uid() = user_id` -- a `user_id` w tabeli activities to tworca, nie przypisany uzytkownik.
-
-**Zmiana:** Nowa polityka INSERT na `activities` pozwalajaca assigned users tworzyc aktywnosci dla przypisanego klienta.
+1. **Przelacznik "Ukryj ceny"** w pasku kontrolnym YearView -- toggle Switch obok przycisku PDF
+2. **Widok (YearView)** -- gdy `showPrices=false`:
+   - Ukrywa kwoty w pasku pakietu (`formatPLN(totalPrice)` na pasku aggregate i w etykiecie `akt.`)
+   - Ukrywa kwoty w tooltip aktywnosci
+   - Ukrywa kwoty na paskach glownych (bar label)
+   - Ukrywa budzet w headerze pakietu
+3. **PDF (exportPdfVector)** -- przekazujemy `showPrices` jako nowa opcja:
+   - Gdy `false`: pomija "Budzet: ..." w metadanych
+   - Pomija cene w etykiecie pakietu
+   - Pomija cene w etykiecie paska aktywnosci
+4. **PDF warstwy** -- linie siatki miesiecznej rysowane SA PRZED pakami/aktywnosciami (tzn. najpierw siatka, potem rysujemy wiersze na wierzchu)
 
 ---
 
-## 3. Ostrzezenie w konsoli: SettingsView nie uzywa forwardRef
+## Szczegoly techniczne
 
-Konsola pokazuje: "Function components cannot be given refs. Check the render method of App" dla `SettingsView`.
+### Plik: `src/components/YearView.tsx`
 
-**Zmiana:** Dodanie `React.forwardRef` do `SettingsView` lub naprawienie sposobu renderowania w `App.tsx` (prawdopodobnie React Router przekazuje ref do komponentu strony).
+- Dodac stan: `const [showPrices, setShowPrices] = useState(true);`
+- W pasku kontrolnym (obok przycisku PDF) dodac Switch + label "Ceny"
+- Warunkowo ukrywac kwoty w:
+  - Linia 551: `{totalActivities} akt.` -- dodac warunkowo ` • ${formatPLN(totalPrice)}`
+  - Linia 574: bar label pakietu -- warunkowo `formatPLN`
+  - Linia 347: tooltip `formatPLN(activity.price)` 
+  - Linia 586: tooltip budzet
+- Przekazac `showPrices` do `exportMediaPlanPDF`
 
----
+### Plik: `src/lib/exportPdfVector.ts`
 
-## 4. Brak usuwania aktywnosci z poziomu UI
+- Dodac `showPrices?: boolean` do `ExportOptions`
+- Warunkowo pomijac:
+  - Linia 172: `metaParts.push(Budzet: ...)` 
+  - Linia 288: cena w etykiecie pakietu
+  - Linia 357: cena na pasku aktywnosci
 
-`ActivityDetailDrawer` pozwala edytowac aktywnosc, ale nie ma przycisku "Usun". Hook `useDeleteActivity` istnieje, ale nie jest uzyty w UI.
+- **Poprawka warstw**: Obecnie siatka rysowana jest PO wierszach (linie 372-380). Zmienimy kolejnosc -- siatka bedzie rysowana PRZED wierszami pakietow/aktywnosci. Realizacja: zbieramy pozycje X miesiecy, a nastepnie w petli rysowania wierszy rysujemy linie siatki najpierw (na kazdej stronie), a dopiero potem rysujemy tla wierszy i paski aktywnosci na wierzchu. Alternatywnie (prosciej): rysujemy siatke PRZED wierszami na kazdej stronie -- to wymaga dwoch przejsc lub rysowania siatki na poczatku strony, a potem rysowania wierszy "nadpisujacych" te linie swoimi tlamib i paskami.
 
-**Zmiana:** Dodanie przycisku "Usun aktywnosc" z potwierdzeniem (AlertDialog) w `ActivityDetailDrawer`.
-
----
-
-## 5. Rok hardcoded na 2026
-
-W `YearView.tsx` rok jest ustawiony na stale `const year = 2026`. Uzytkownik nie moze przelaczac miedzy latami.
-
-**Zmiana:** Dodanie selektora roku (np. przyciski -/+ lub dropdown) w panelu kontrolnym YearView.
-
----
-
-## 6. Brak walidacji dat w ActivityDialog
-
-Formularz nie sprawdza, czy daty sa w zakresie wybranego roku. Mozna dodac aktywnosc z datami spoza widocznego zakresu.
-
-**Zmiana:** Dodanie domyslnych dat (dzisiejszy dzien) i walidacji zakresu w `ActivityDialog`.
-
----
-
-## Pliki do zmiany
-
-| Element | Zmiana |
-|---------|--------|
-| Migracja SQL | ~8 nowych polityk RLS (DELETE/INSERT dla assigned users) |
-| `src/components/ActivityDetailDrawer.tsx` | Przycisk usuwania aktywnosci |
-| `src/components/YearView.tsx` | Selektor roku |
-| `src/components/SettingsView.tsx` | Fix ostrzezenia forwardRef |
-| `src/components/ActivityDialog.tsx` | Domyslne daty |
+  Najlepsza strategia: rysowac linie siatki tuz po headerze miesiecznym, na cala dostepna wysokosc strony (do `pageH - margin`), a POTEM rysowac wiersze z ich tlami i paskami -- tla wierszy (rect fill) przykryja linie, ale same linie beda widoczne w przerwach. W efekcie paski beda NA WIERZCHU linii siatki.
 
