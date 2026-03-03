@@ -5,6 +5,14 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+async function sha256(data: string): Promise<string> {
+  const encoder = new TextEncoder();
+  const hashBuffer = await crypto.subtle.digest('SHA-256', encoder.encode(data));
+  return Array.from(new Uint8Array(hashBuffer))
+    .map(b => b.toString(16).padStart(2, '0'))
+    .join('');
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -44,15 +52,23 @@ Deno.serve(async (req) => {
     }
 
     const body = await req.json();
-    const { tables } = body;
+    const { tables, checksum } = body;
 
     if (!tables || typeof tables !== 'object') {
       return new Response(JSON.stringify({ error: 'Invalid backup format' }), { status: 400, headers: corsHeaders });
     }
 
+    // Verify checksum if present
+    if (checksum) {
+      const tablesJson = JSON.stringify(tables);
+      const computedChecksum = await sha256(tablesJson);
+      if (computedChecksum !== checksum) {
+        return new Response(JSON.stringify({ error: 'Checksum mismatch - backup file may be corrupted or tampered with' }), { status: 400, headers: corsHeaders });
+      }
+    }
+
     const results: Record<string, { inserted: number; errors: string[] }> = {};
     
-    // Import order matters (foreign keys)
     const importOrder = ['clients', 'products', 'product_clients', 'packages', 'media_plans', 'activities', 'confirmations', 'campaign_types'];
 
     for (const table of importOrder) {
@@ -66,7 +82,6 @@ Deno.serve(async (req) => {
       let inserted = 0;
 
       for (const row of rows) {
-        // Remap user_id to current user for ownership
         if ('user_id' in row) {
           row.user_id = user.id;
         }
