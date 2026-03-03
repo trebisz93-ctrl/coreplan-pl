@@ -1,13 +1,13 @@
 import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/context/AuthContext';
-import { useMyRole } from '@/hooks/useData';
+import { useIsAdmin } from '@/hooks/useRole';
 import { useQuery } from '@tanstack/react-query';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Download, Upload, Database, History, Shield, RotateCcw } from 'lucide-react';
+import { Download, Upload, Database, History, RotateCcw, Clock, AlertTriangle, CheckCircle, XCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
@@ -33,10 +33,29 @@ const tableLabels: Record<string, string> = {
 
 export const BackupSection = () => {
   const { user } = useAuth();
-  const { data: myRole } = useMyRole();
-  const isAdmin = myRole === 'admin';
+  const isAdmin = useIsAdmin();
   const [exporting, setExporting] = useState(false);
   const [importing, setImporting] = useState(false);
+
+  // Backup history
+  const { data: backupHistory = [], isLoading: historyLoading } = useQuery({
+    queryKey: ['backup_history'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('backup_history')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(20);
+      if (error) throw error;
+      return data as any[];
+    },
+    enabled: !!user && isAdmin,
+  });
+
+  const latestBackup = backupHistory[0];
+  const isBackupStale = latestBackup
+    ? new Date().getTime() - new Date(latestBackup.created_at).getTime() > 48 * 60 * 60 * 1000
+    : true;
 
   const { data: auditLogs = [], isLoading: logsLoading } = useQuery({
     queryKey: ['audit_log', user?.id],
@@ -70,7 +89,7 @@ export const BackupSection = () => {
       }
       return results.sort((a, b) => new Date(b.deleted_at).getTime() - new Date(a.deleted_at).getTime());
     },
-    enabled: !!user,
+    enabled: !!user && isAdmin,
   });
 
   const handleExport = async () => {
@@ -82,14 +101,16 @@ export const BackupSection = () => {
         { headers: { Authorization: `Bearer ${session?.access_token}` } }
       );
       if (!res.ok) throw new Error(await res.text());
-      const blob = new Blob([await res.text()], { type: 'application/json' });
+      const text = await res.text();
+      const parsed = JSON.parse(text);
+      toast.success(`Backup pobrany (checksum: ${parsed.checksum?.slice(0, 12)}…)`);
+      const blob = new Blob([text], { type: 'application/json' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
       a.download = `backup-${new Date().toISOString().slice(0, 10)}.json`;
       a.click();
       URL.revokeObjectURL(url);
-      toast.success('Backup pobrany pomyślnie');
     } catch (e: any) {
       toast.error('Błąd eksportu: ' + e.message);
     }
@@ -143,6 +164,16 @@ export const BackupSection = () => {
     }
   };
 
+  const formatBytes = (bytes: number) => {
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  };
+
+  if (!isAdmin) {
+    return null;
+  }
+
   return (
     <>
       {/* Backup & Restore */}
@@ -151,51 +182,96 @@ export const BackupSection = () => {
           <CardTitle className="flex items-center gap-2 text-base">
             <Database className="h-4 w-4" /> Backup i przywracanie danych
           </CardTitle>
-          <CardDescription>Eksportuj i importuj dane CRM w formacie JSON</CardDescription>
+          <CardDescription>Eksportuj i importuj dane CRM w formacie JSON (tylko admin)</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
+          {isBackupStale && (
+            <div className="flex items-center gap-2 p-3 rounded-md bg-destructive/10 text-destructive text-sm">
+              <AlertTriangle className="h-4 w-4 shrink-0" />
+              {latestBackup
+                ? `Ostatni backup: ${new Date(latestBackup.created_at).toLocaleString('pl-PL')} — ponad 48h temu!`
+                : 'Brak backupów w historii. Wykonaj pierwszy backup.'}
+            </div>
+          )}
           <div className="flex gap-3 flex-wrap">
             <Button onClick={handleExport} disabled={exporting} className="gap-2">
               <Download className="h-4 w-4" />
               {exporting ? 'Eksportowanie...' : 'Pobierz backup'}
             </Button>
-            {isAdmin && (
-              <AlertDialog>
-                <AlertDialogTrigger asChild>
-                  <Button variant="outline" disabled={importing} className="gap-2">
-                    <Upload className="h-4 w-4" />
-                    {importing ? 'Importowanie...' : 'Importuj backup'}
-                  </Button>
-                </AlertDialogTrigger>
-                <AlertDialogContent>
-                  <AlertDialogHeader>
-                    <AlertDialogTitle>Importuj backup</AlertDialogTitle>
-                    <AlertDialogDescription>
-                      Import nadpisze istniejące dane (upsert). Czy na pewno chcesz kontynuować?
-                    </AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel>Anuluj</AlertDialogCancel>
-                    <AlertDialogAction onClick={handleImport}>Importuj</AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
-            )}
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button variant="outline" disabled={importing} className="gap-2">
+                  <Upload className="h-4 w-4" />
+                  {importing ? 'Importowanie...' : 'Importuj backup'}
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Importuj backup</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Import nadpisze istniejące dane (upsert). Checksum zostanie zweryfikowany. Czy na pewno chcesz kontynuować?
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Anuluj</AlertDialogCancel>
+                  <AlertDialogAction onClick={handleImport}>Importuj</AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
           </div>
           <p className="text-xs text-muted-foreground">
-            Backup zawiera: klientów, produkty, aktywności, media plany, pakiety, potwierdzenia, typy kampanii.
+            Backup zawiera: klientów, produkty, aktywności, media plany, pakiety, potwierdzenia, typy kampanii. Każdy backup posiada checksum SHA-256.
           </p>
         </CardContent>
       </Card>
 
-      {/* Deleted items - restore */}
+      {/* Backup History */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base">
+            <Clock className="h-4 w-4" /> Historia backupów
+          </CardTitle>
+          <CardDescription>Automatyczne i ręczne kopie zapasowe (max 30 dni retencji)</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {historyLoading ? (
+            <p className="text-sm text-muted-foreground">Ładowanie...</p>
+          ) : backupHistory.length === 0 ? (
+            <p className="text-sm text-muted-foreground italic">Brak wpisów w historii backupów.</p>
+          ) : (
+            <ScrollArea className="max-h-60">
+              <div className="space-y-1.5">
+                {backupHistory.map((bh: any) => (
+                  <div key={bh.id} className="flex items-center gap-2 py-1.5 border-b border-border last:border-0 text-sm">
+                    {bh.status === 'success' ? (
+                      <CheckCircle className="h-4 w-4 text-green-600 shrink-0" />
+                    ) : (
+                      <XCircle className="h-4 w-4 text-destructive shrink-0" />
+                    )}
+                    <Badge variant={bh.type === 'scheduled' ? 'default' : 'outline'} className="text-xs">
+                      {bh.type === 'scheduled' ? 'Auto' : 'Ręczny'}
+                    </Badge>
+                    <span className="text-xs text-muted-foreground">{formatBytes(bh.size_bytes)}</span>
+                    <code className="text-xs text-muted-foreground font-mono">{bh.checksum?.slice(0, 12)}…</code>
+                    <span className="text-xs text-muted-foreground ml-auto">
+                      {new Date(bh.created_at).toLocaleString('pl-PL', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </ScrollArea>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Deleted items - restore (admin only) */}
       {deletedItems.length > 0 && (
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-base">
               <RotateCcw className="h-4 w-4" /> Usunięte elementy
             </CardTitle>
-            <CardDescription>Przywróć usunięte rekordy</CardDescription>
+            <CardDescription>Przywróć usunięte rekordy (tylko admin)</CardDescription>
           </CardHeader>
           <CardContent>
             <ScrollArea className="max-h-60">
