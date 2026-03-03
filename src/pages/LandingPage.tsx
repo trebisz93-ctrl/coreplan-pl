@@ -262,8 +262,8 @@ const LandingPage = () => {
         </div>
       </footer>
 
-      {/* SEO content */}
-      <article className="max-w-4xl mx-auto px-6 py-12 text-muted-foreground/50 text-xs leading-relaxed space-y-4">
+      {/* SEO content – visually hidden, accessible to crawlers */}
+      <article className="sr-only" aria-hidden="true">
         <h2 className="text-sm font-semibold text-muted-foreground/60">CorePlan – CRM do mediaplanu i budżetu marketingowego</h2>
         <p>
           CorePlan to nowoczesny <strong>CRM mediowy</strong> stworzony z myślą o zespołach marketingowych, agencjach reklamowych i media plannerach.
