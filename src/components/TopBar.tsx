@@ -14,7 +14,7 @@ import { useLocation } from 'react-router-dom';
 import { NotificationCenter } from './NotificationCenter';
 
 const routeTitles: Record<string, string> = {
-  '/': 'CorePlan',
+  '/app': 'CorePlan',
   '/dashboard': 'Dashboard',
   '/clients': 'Klienci',
   '/products': 'Produkty',

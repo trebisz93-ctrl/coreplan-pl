@@ -17,6 +17,7 @@ import { SettingsView } from "./components/SettingsView";
 import { UsersView } from "./components/UsersView";
 import Auth from "./pages/Auth";
 import ResetPassword from "./pages/ResetPassword";
+import LandingPage from "./pages/LandingPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -29,10 +30,11 @@ const App = () => (
       <BrowserRouter>
         <AuthProvider>
           <Routes>
+            <Route path="/" element={<LandingPage />} />
             <Route path="/auth" element={<Auth />} />
             <Route path="/reset-password" element={<ResetPassword />} />
             <Route element={<ProtectedRoute><AppProvider><AppLayout /></AppProvider></ProtectedRoute>}>
-              <Route path="/" element={<YearView />} />
+              <Route path="/app" element={<YearView />} />
               <Route path="/dashboard" element={<DashboardView />} />
               <Route path="/clients" element={<ClientsView />} />
               <Route path="/products" element={<ProductsView />} />

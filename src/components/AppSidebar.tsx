@@ -6,7 +6,7 @@ import { useIsAdmin } from '@/hooks/useRole';
 import corePlanLogo from '@/assets/core-plan-logo.png';
 
 const baseNavItems = [
-  { label: 'Media plan', icon: CalendarDays, path: '/' },
+  { label: 'Media plan', icon: CalendarDays, path: '/app' },
   { label: 'Dashboard', icon: BarChart3, path: '/dashboard' },
   { label: 'Klienci', icon: Building2, path: '/clients' },
   { label: 'Produkty', icon: ShoppingBag, path: '/products' },
