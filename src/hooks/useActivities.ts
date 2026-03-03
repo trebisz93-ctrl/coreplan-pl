@@ -58,7 +58,7 @@ export const useActivities = (clientId?: string, queryEnabled = true) => {
   return useQuery({
     queryKey: ['activities', user?.id, clientId],
     queryFn: async () => {
-      let query = supabase.from('activities').select('*').order('start_date');
+      let query = supabase.from('activities').select('*').is('deleted_at', null).order('start_date');
       if (clientId) query = query.eq('client_id', clientId);
       const { data, error } = await query;
       if (error) throw error;
@@ -76,7 +76,7 @@ export const useActivitiesMulti = (clientIds: string[]) => {
     queryFn: async () => {
       if (clientIds.length === 0) return [];
       const { data, error } = await supabase
-        .from('activities').select('*').in('client_id', clientIds).order('start_date');
+        .from('activities').select('*').in('client_id', clientIds).is('deleted_at', null).order('start_date');
       if (error) throw error;
       return (data as any[]) as DbActivity[];
     },
@@ -135,7 +135,7 @@ export const useDeleteActivity = () => {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.from('activities').delete().eq('id', id);
+      const { error } = await supabase.from('activities').update({ deleted_at: new Date().toISOString() } as any).eq('id', id);
       if (error) throw error;
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['activities'] }),
@@ -149,7 +149,7 @@ export const useMediaPlans = (clientId?: string) => {
   return useQuery({
     queryKey: ['media_plans', user?.id, clientId],
     queryFn: async () => {
-      let query = supabase.from('media_plans').select('*').order('year', { ascending: false });
+      let query = supabase.from('media_plans').select('*').is('deleted_at', null).order('year', { ascending: false });
       if (clientId) query = query.eq('client_id', clientId);
       const { data, error } = await query;
       if (error) throw error;

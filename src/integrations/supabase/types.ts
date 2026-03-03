@@ -20,6 +20,7 @@ export type Database = {
           channel: string
           client_id: string
           created_at: string
+          deleted_at: string | null
           end_date: string
           id: string
           name: string
@@ -38,6 +39,7 @@ export type Database = {
           channel?: string
           client_id: string
           created_at?: string
+          deleted_at?: string | null
           end_date?: string
           id?: string
           name: string
@@ -56,6 +58,7 @@ export type Database = {
           channel?: string
           client_id?: string
           created_at?: string
+          deleted_at?: string | null
           end_date?: string
           id?: string
           name?: string
@@ -92,6 +95,39 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      audit_log: {
+        Row: {
+          action: string
+          created_at: string
+          id: string
+          new_data: Json | null
+          old_data: Json | null
+          record_id: string | null
+          table_name: string
+          user_id: string
+        }
+        Insert: {
+          action: string
+          created_at?: string
+          id?: string
+          new_data?: Json | null
+          old_data?: Json | null
+          record_id?: string | null
+          table_name: string
+          user_id: string
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          id?: string
+          new_data?: Json | null
+          old_data?: Json | null
+          record_id?: string | null
+          table_name?: string
+          user_id?: string
+        }
+        Relationships: []
       }
       campaign_types: {
         Row: {
@@ -151,6 +187,7 @@ export type Database = {
           annual_budget: number
           created_at: string
           currency: string
+          deleted_at: string | null
           id: string
           name: string
           updated_at: string
@@ -160,6 +197,7 @@ export type Database = {
           annual_budget?: number
           created_at?: string
           currency?: string
+          deleted_at?: string | null
           id?: string
           name: string
           updated_at?: string
@@ -169,6 +207,7 @@ export type Database = {
           annual_budget?: number
           created_at?: string
           currency?: string
+          deleted_at?: string | null
           id?: string
           name?: string
           updated_at?: string
@@ -180,6 +219,7 @@ export type Database = {
         Row: {
           activity_id: string
           created_at: string
+          deleted_at: string | null
           id: string
           image_url: string
           is_cover: boolean
@@ -189,6 +229,7 @@ export type Database = {
         Insert: {
           activity_id: string
           created_at?: string
+          deleted_at?: string | null
           id?: string
           image_url: string
           is_cover?: boolean
@@ -198,6 +239,7 @@ export type Database = {
         Update: {
           activity_id?: string
           created_at?: string
+          deleted_at?: string | null
           id?: string
           image_url?: string
           is_cover?: boolean
@@ -218,6 +260,7 @@ export type Database = {
         Row: {
           client_id: string
           created_at: string
+          deleted_at: string | null
           id: string
           name: string
           updated_at: string
@@ -228,6 +271,7 @@ export type Database = {
         Insert: {
           client_id: string
           created_at?: string
+          deleted_at?: string | null
           id?: string
           name: string
           updated_at?: string
@@ -238,6 +282,7 @@ export type Database = {
         Update: {
           client_id?: string
           created_at?: string
+          deleted_at?: string | null
           id?: string
           name?: string
           updated_at?: string
@@ -298,6 +343,7 @@ export type Database = {
         Row: {
           created_at: string
           default_price: number
+          deleted_at: string | null
           description: string | null
           id: string
           items: Json
@@ -308,6 +354,7 @@ export type Database = {
         Insert: {
           created_at?: string
           default_price?: number
+          deleted_at?: string | null
           description?: string | null
           id?: string
           items?: Json
@@ -318,6 +365,7 @@ export type Database = {
         Update: {
           created_at?: string
           default_price?: number
+          deleted_at?: string | null
           description?: string | null
           id?: string
           items?: Json
@@ -369,6 +417,7 @@ export type Database = {
           category: string | null
           client_id: string | null
           created_at: string
+          deleted_at: string | null
           ean: string | null
           id: string
           name: string
@@ -381,6 +430,7 @@ export type Database = {
           category?: string | null
           client_id?: string | null
           created_at?: string
+          deleted_at?: string | null
           ean?: string | null
           id?: string
           name: string
@@ -393,6 +443,7 @@ export type Database = {
           category?: string | null
           client_id?: string | null
           created_at?: string
+          deleted_at?: string | null
           ean?: string | null
           id?: string
           name?: string
