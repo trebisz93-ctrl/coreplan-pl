@@ -37,6 +37,12 @@ export default {
           border: "hsl(var(--sidebar-border))",
           ring: "hsl(var(--sidebar-ring))",
         },
+        copper: {
+          DEFAULT: "hsl(var(--copper))",
+          light: "hsl(var(--copper-light))",
+          dark: "hsl(var(--copper-dark))",
+        },
+        charcoal: "hsl(var(--charcoal))",
         online: "hsl(var(--online))",
         offline: "hsl(var(--offline))",
         "status-planned": "hsl(var(--status-planned))",
