@@ -1,11 +1,12 @@
 import { Link } from 'react-router-dom';
-import { CalendarDays, BarChart3, Shield, FileText, Users, Zap, ArrowRight, Mail, Clock, Database, CheckCircle2 } from 'lucide-react';
+import { CalendarDays, BarChart3, Shield, FileText, Users, Zap, ArrowRight, Mail, Clock, Database, CheckCircle2, Lock, ServerCrash, Eye } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import corePlanLogo from '@/assets/core-plan-logo.png';
 import { HeroMockup } from '@/components/landing/HeroMockup';
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { toast } from 'sonner';
+import { motion, useInView } from 'framer-motion';
 
 const features = [
   {
@@ -40,6 +41,33 @@ const features = [
   },
 ];
 
+const fadeUp = {
+  hidden: { opacity: 0, y: 30 },
+  visible: { opacity: 1, y: 0 },
+};
+
+const staggerContainer = {
+  hidden: {},
+  visible: { transition: { staggerChildren: 0.1 } },
+};
+
+function AnimatedSection({ children, className = '' }: { children: React.ReactNode; className?: string }) {
+  const ref = useRef(null);
+  const isInView = useInView(ref, { once: true, margin: '-60px' });
+  return (
+    <motion.div
+      ref={ref}
+      initial="hidden"
+      animate={isInView ? 'visible' : 'hidden'}
+      variants={fadeUp}
+      transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
+      className={className}
+    >
+      {children}
+    </motion.div>
+  );
+}
+
 const LandingPage = () => {
   const [demoName, setDemoName] = useState('');
   const [demoEmail, setDemoEmail] = useState('');
@@ -51,7 +79,6 @@ const LandingPage = () => {
       toast.error('Podaj imię i email');
       return;
     }
-    // In production this would hit an edge function
     toast.success('Dziękujemy! Odezwiemy się w ciągu 24h.');
     setDemoName('');
     setDemoEmail('');
@@ -88,7 +115,11 @@ const LandingPage = () => {
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,hsl(var(--copper)/0.06),transparent_60%)]" />
         <div className="max-w-6xl mx-auto px-6 py-20 md:py-28 relative">
           <div className="grid lg:grid-cols-2 gap-12 items-center">
-            <div>
+            <motion.div
+              initial={{ opacity: 0, y: 40 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
+            >
               <h1 className="text-4xl md:text-5xl lg:text-[3.25rem] font-extrabold tracking-tight text-foreground leading-[1.1]">
                 CRM do mediaplanu
                 <br />
@@ -114,10 +145,15 @@ const LandingPage = () => {
                   <Link to="/auth">Zaloguj się</Link>
                 </Button>
               </div>
-            </div>
-            <div className="hidden lg:block">
+            </motion.div>
+            <motion.div
+              className="hidden lg:block"
+              initial={{ opacity: 0, x: 60 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.8, delay: 0.2, ease: [0.22, 1, 0.36, 1] }}
+            >
               <HeroMockup />
-            </div>
+            </motion.div>
           </div>
         </div>
       </section>
@@ -125,15 +161,28 @@ const LandingPage = () => {
       {/* Features */}
       <section id="funkcje" className="py-24 bg-secondary/30">
         <div className="max-w-6xl mx-auto px-6">
-          <div className="text-center mb-16">
-            <h2 className="text-3xl md:text-4xl font-bold text-foreground">Wszystko czego potrzebujesz</h2>
-            <p className="mt-4 text-muted-foreground text-lg max-w-2xl mx-auto">
-              Jeden system zamiast wielu narzędzi. CorePlan łączy planowanie, budżetowanie i raportowanie.
-            </p>
-          </div>
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {features.map((f) => (
-              <div key={f.title} className="bg-card rounded-xl p-6 border border-border hover:border-primary/20 hover:shadow-lg hover:shadow-primary/5 transition-all duration-300 group">
+          <AnimatedSection>
+            <div className="text-center mb-16">
+              <h2 className="text-3xl md:text-4xl font-bold text-foreground">Wszystko czego potrzebujesz</h2>
+              <p className="mt-4 text-muted-foreground text-lg max-w-2xl mx-auto">
+                Jeden system zamiast wielu narzędzi. CorePlan łączy planowanie, budżetowanie i raportowanie.
+              </p>
+            </div>
+          </AnimatedSection>
+          <motion.div
+            className="grid md:grid-cols-2 lg:grid-cols-3 gap-6"
+            variants={staggerContainer}
+            initial="hidden"
+            whileInView="visible"
+            viewport={{ once: true, margin: '-40px' }}
+          >
+            {features.map((f, i) => (
+              <motion.div
+                key={f.title}
+                variants={fadeUp}
+                transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
+                className="bg-card rounded-xl p-6 border border-border hover:border-primary/20 hover:shadow-lg hover:shadow-primary/5 transition-all duration-300 group"
+              >
                 <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center mb-4 group-hover:bg-primary/15 transition-colors">
                   <f.icon className="h-5 w-5 text-primary/70" />
                 </div>
@@ -146,100 +195,126 @@ const LandingPage = () => {
                     </li>
                   ))}
                 </ul>
-              </div>
+              </motion.div>
             ))}
-          </div>
+          </motion.div>
         </div>
       </section>
 
       {/* Security */}
       <section id="bezpieczenstwo" className="py-24">
         <div className="max-w-6xl mx-auto px-6">
-          <div className="bg-charcoal rounded-2xl p-10 md:p-16 flex flex-col md:flex-row items-start gap-10">
-            <div className="flex-shrink-0">
-              <div className="h-20 w-20 rounded-2xl bg-gradient-to-br from-copper-light to-copper-dark flex items-center justify-center">
-                <Shield className="h-10 w-10 text-primary-foreground" />
-              </div>
-            </div>
-            <div className="flex-1">
-              <h2 className="text-2xl md:text-3xl font-bold text-primary-foreground mb-4">
-                Twoje dane są bezpieczne
-              </h2>
-              <p className="text-primary-foreground/70 text-base leading-relaxed mb-6">
-                Uwierzytelnianie dwuskładnikowe (2FA/TOTP), szyfrowanie danych w spoczynku i w transporcie (TLS),
-                automatyczne codzienne backupy z checksumą SHA-256 oraz pełny audit log każdej operacji.
-              </p>
-              <div className="grid sm:grid-cols-2 gap-4 mb-6">
-                <div className="flex items-start gap-3">
-                  <Clock className="h-5 w-5 text-copper-light mt-0.5 flex-shrink-0" />
-                  <div>
-                    <p className="text-primary-foreground text-sm font-medium">Automatyczne backupy</p>
-                    <p className="text-primary-foreground/50 text-xs">Codziennie o 3:00, retencja 30 dni</p>
-                  </div>
-                </div>
-                <div className="flex items-start gap-3">
-                  <Database className="h-5 w-5 text-copper-light mt-0.5 flex-shrink-0" />
-                  <div>
-                    <p className="text-primary-foreground text-sm font-medium">Audit log</p>
-                    <p className="text-primary-foreground/50 text-xs">Każda zmiana danych jest rejestrowana</p>
-                  </div>
+          <AnimatedSection>
+            <div className="bg-charcoal rounded-2xl p-10 md:p-16 flex flex-col md:flex-row items-start gap-10">
+              <div className="flex-shrink-0">
+                <div className="h-20 w-20 rounded-2xl bg-gradient-to-br from-copper-light to-copper-dark flex items-center justify-center">
+                  <Shield className="h-10 w-10 text-primary-foreground" />
                 </div>
               </div>
-              <div className="flex flex-wrap gap-3">
-                {['2FA / TOTP', 'Szyfrowanie TLS', 'Backupy SHA-256', 'Audit log'].map((tag) => (
-                  <span key={tag} className="px-3 py-1.5 rounded-full text-xs font-medium bg-primary-foreground/10 text-primary-foreground/80 border border-primary-foreground/10">
-                    {tag}
-                  </span>
-                ))}
+              <div className="flex-1">
+                <h2 className="text-2xl md:text-3xl font-bold text-primary-foreground mb-4">
+                  Twoje dane są bezpieczne
+                </h2>
+                <p className="text-primary-foreground/70 text-base leading-relaxed mb-8">
+                  Uwierzytelnianie dwuskładnikowe (2FA/TOTP), szyfrowanie danych w spoczynku i w transporcie (TLS),
+                  automatyczne kopie zapasowe z weryfikacją integralności SHA-256 oraz pełny dziennik zmian.
+                </p>
+                <div className="grid sm:grid-cols-2 gap-6 mb-8">
+                  <div className="flex items-start gap-4">
+                    <div className="h-10 w-10 rounded-lg bg-copper-light/10 flex items-center justify-center flex-shrink-0">
+                      <Clock className="h-5 w-5 text-copper-light" />
+                    </div>
+                    <div>
+                      <p className="text-primary-foreground text-sm font-semibold">Zaplanowane kopie zapasowe</p>
+                      <p className="text-primary-foreground/50 text-sm mt-1">Automatyczna archiwizacja danych co 24h z walidacją checksum SHA-256. Retencja: 30 dni.</p>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-4">
+                    <div className="h-10 w-10 rounded-lg bg-copper-light/10 flex items-center justify-center flex-shrink-0">
+                      <Eye className="h-5 w-5 text-copper-light" />
+                    </div>
+                    <div>
+                      <p className="text-primary-foreground text-sm font-semibold">Dziennik audytu</p>
+                      <p className="text-primary-foreground/50 text-sm mt-1">Pełna genealogia operacji — każdy INSERT, UPDATE i DELETE z migawką danych przed i po zmianie.</p>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-4">
+                    <div className="h-10 w-10 rounded-lg bg-copper-light/10 flex items-center justify-center flex-shrink-0">
+                      <Lock className="h-5 w-5 text-copper-light" />
+                    </div>
+                    <div>
+                      <p className="text-primary-foreground text-sm font-semibold">Szyfrowanie TLS / AES-256</p>
+                      <p className="text-primary-foreground/50 text-sm mt-1">Dane szyfrowane w transporcie (TLS 1.3) i w spoczynku (AES-256). Certyfikaty odnawiane automatycznie.</p>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-4">
+                    <div className="h-10 w-10 rounded-lg bg-copper-light/10 flex items-center justify-center flex-shrink-0">
+                      <ServerCrash className="h-5 w-5 text-copper-light" />
+                    </div>
+                    <div>
+                      <p className="text-primary-foreground text-sm font-semibold">Disaster recovery</p>
+                      <p className="text-primary-foreground/50 text-sm mt-1">Procedura przywracania danych z kopii zapasowej z weryfikacją integralności — RPO &lt; 24h.</p>
+                    </div>
+                  </div>
+                </div>
+                <div className="flex flex-wrap gap-3">
+                  {['2FA / TOTP', 'TLS 1.3', 'AES-256', 'SHA-256 checksum', 'Audit log', 'RPO < 24h'].map((tag) => (
+                    <span key={tag} className="px-3 py-1.5 rounded-full text-xs font-medium bg-primary-foreground/10 text-primary-foreground/80 border border-primary-foreground/10">
+                      {tag}
+                    </span>
+                  ))}
+                </div>
               </div>
             </div>
-          </div>
+          </AnimatedSection>
         </div>
       </section>
 
       {/* Demo form CTA */}
       <section id="demo" className="py-24 bg-secondary/30">
         <div className="max-w-6xl mx-auto px-6">
-          <div className="max-w-2xl mx-auto text-center">
-            <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-4">
-              Gotowy na lepszy media plan?
-            </h2>
-            <p className="text-muted-foreground text-lg mb-10">
-              Umów krótkie demo i sprawdź jak CorePlan usprawni Twoje kampanie.
-            </p>
-            <form onSubmit={handleDemoSubmit} className="bg-card border border-border rounded-xl p-6 md:p-8 shadow-sm">
-              <div className="grid sm:grid-cols-2 gap-4 mb-4">
-                <Input
-                  placeholder="Imię i nazwisko"
-                  value={demoName}
-                  onChange={(e) => setDemoName(e.target.value)}
-                  className="h-11"
-                />
-                <Input
-                  placeholder="Firma (opcjonalnie)"
-                  value={demoCompany}
-                  onChange={(e) => setDemoCompany(e.target.value)}
-                  className="h-11"
-                />
-              </div>
-              <div className="flex flex-col sm:flex-row gap-4">
-                <Input
-                  type="email"
-                  placeholder="Twój email"
-                  value={demoEmail}
-                  onChange={(e) => setDemoEmail(e.target.value)}
-                  className="h-11 flex-1"
-                />
-                <Button type="submit" size="lg" className="bg-gradient-to-r from-copper-light to-copper-dark text-primary-foreground hover:opacity-90 transition-opacity h-11 px-8">
-                  <Mail className="mr-2 h-4 w-4" />
-                  Umów demo
-                </Button>
-              </div>
-              <p className="text-xs text-muted-foreground mt-3">
-                Odezwiemy się w ciągu 24h. Bez spamu, obiecujemy.
+          <AnimatedSection>
+            <div className="max-w-2xl mx-auto text-center">
+              <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-4">
+                Gotowy na lepszy media plan?
+              </h2>
+              <p className="text-muted-foreground text-lg mb-10">
+                Umów krótkie demo i sprawdź jak CorePlan usprawni Twoje kampanie.
               </p>
-            </form>
-          </div>
+              <form onSubmit={handleDemoSubmit} className="bg-card border border-border rounded-xl p-6 md:p-8 shadow-sm">
+                <div className="grid sm:grid-cols-2 gap-4 mb-4">
+                  <Input
+                    placeholder="Imię i nazwisko"
+                    value={demoName}
+                    onChange={(e) => setDemoName(e.target.value)}
+                    className="h-11"
+                  />
+                  <Input
+                    placeholder="Firma (opcjonalnie)"
+                    value={demoCompany}
+                    onChange={(e) => setDemoCompany(e.target.value)}
+                    className="h-11"
+                  />
+                </div>
+                <div className="flex flex-col sm:flex-row gap-4">
+                  <Input
+                    type="email"
+                    placeholder="Twój email"
+                    value={demoEmail}
+                    onChange={(e) => setDemoEmail(e.target.value)}
+                    className="h-11 flex-1"
+                  />
+                  <Button type="submit" size="lg" className="bg-gradient-to-r from-copper-light to-copper-dark text-primary-foreground hover:opacity-90 transition-opacity h-11 px-8">
+                    <Mail className="mr-2 h-4 w-4" />
+                    Umów demo
+                  </Button>
+                </div>
+                <p className="text-xs text-muted-foreground mt-3">
+                  Odezwiemy się w ciągu 24h. Bez spamu, obiecujemy.
+                </p>
+              </form>
+            </div>
+          </AnimatedSection>
         </div>
       </section>
 
@@ -250,13 +325,8 @@ const LandingPage = () => {
             <div className="flex items-center gap-3">
               <img src={corePlanLogo} alt="CorePlan" className="h-7 object-contain" />
             </div>
-            <div className="flex items-center gap-6 text-sm text-primary-foreground/40">
-              <a href="mailto:kontakt@coreplan.pl" className="hover:text-primary-foreground/60 transition-colors">Kontakt</a>
-              <Link to="/privacy" className="hover:text-primary-foreground/60 transition-colors">Polityka prywatności</Link>
-              <Link to="/terms" className="hover:text-primary-foreground/60 transition-colors">Regulamin</Link>
-            </div>
             <p className="text-primary-foreground/40 text-sm">
-              © 2026 CorePlan
+              © {new Date().getFullYear()} CorePlan
             </p>
           </div>
         </div>
@@ -269,7 +339,6 @@ const LandingPage = () => {
           CorePlan to nowoczesny <strong>CRM mediowy</strong> stworzony z myślą o zespołach marketingowych, agencjach reklamowych i media plannerach.
           Nasz <strong>system do mediaplanu</strong> pozwala w jednym miejscu planować kampanie, kontrolować budżet i generować raporty.
         </p>
-
         <h3 className="text-xs font-semibold text-muted-foreground/60 pt-2">Planowanie kampanii online i offline</h3>
         <p>
           Dzięki intuicyjnemu widokowi kalendarza i tablicy Gantta, CorePlan umożliwia <strong>planowanie kampanii marketingowych</strong> online i offline
@@ -280,19 +349,16 @@ const LandingPage = () => {
           <li>Przypisuj produkty do aktywności</li>
           <li>Śledź statusy realizacji w czasie rzeczywistym</li>
         </ul>
-
         <h3 className="text-xs font-semibold text-muted-foreground/60 pt-2">Kontrola budżetu marketingowego</h3>
         <p>
           <strong>Zarządzanie budżetem marketingowym</strong> nigdy nie było prostsze. CorePlan automatycznie sumuje wydatki na kampanie,
           porównuje je z rocznym budżetem klienta i wizualizuje wykorzystanie środków w przejrzystych wykresach.
         </p>
-
         <h3 className="text-xs font-semibold text-muted-foreground/60 pt-2">Raportowanie i eksport danych</h3>
         <p>
           Generuj profesjonalne raporty PDF i CSV jednym kliknięciem. <strong>Media plan CRM</strong> CorePlan agreguje dane z wielu kampanii
           i klientów, tworząc spójne zestawienia obejmujące kanały, typy kampanii, produkty i koszty.
         </p>
-
         <h3 className="text-xs font-semibold text-muted-foreground/60 pt-2">Kompletny ekosystem marketingowy</h3>
         <p>
           CorePlan to nie tylko <strong>CRM marketingowy</strong> — to kompletny ekosystem do zarządzania relacjami z klientami.
