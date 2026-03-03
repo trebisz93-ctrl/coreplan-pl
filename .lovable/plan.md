@@ -1,45 +1,99 @@
 
 
-# Ukrywanie cen + poprawka kolejnosci warstw w PDF
+# Rekomendacje i plan ulepszen backupu / przywracania
 
-## Co robimy
+## Analiza stanu obecnego
 
-1. **Przelacznik "Ukryj ceny"** w pasku kontrolnym YearView -- toggle Switch obok przycisku PDF
-2. **Widok (YearView)** -- gdy `showPrices=false`:
-   - Ukrywa kwoty w pasku pakietu (`formatPLN(totalPrice)` na pasku aggregate i w etykiecie `akt.`)
-   - Ukrywa kwoty w tooltip aktywnosci
-   - Ukrywa kwoty na paskach glownych (bar label)
-   - Ukrywa budzet w headerze pakietu
-3. **PDF (exportPdfVector)** -- przekazujemy `showPrices` jako nowa opcja:
-   - Gdy `false`: pomija "Budzet: ..." w metadanych
-   - Pomija cene w etykiecie pakietu
-   - Pomija cene w etykiecie paska aktywnosci
-4. **PDF warstwy** -- linie siatki miesiecznej rysowane SA PRZED pakami/aktywnosciami (tzn. najpierw siatka, potem rysujemy wiersze na wierzchu)
+**Co dziala:**
+- Eksport JSON (wszystkie tabele) -- ale dostepny dla kazdego zalogowanego (brak sprawdzania roli w data-export)
+- Import JSON -- tylko admin (sprawdzane w data-import)
+- Soft-delete + przywracanie z UI -- ale dostepne dla kazdego zalogowanego (brak roli)
+- Audit log -- rejestruje operacje przez triggery DB
+
+**Glowne luki:**
+1. **Eksport nie sprawdza roli** -- kazdy zalogowany moze pobrac caly backup
+2. **Przywracanie (restore) nie sprawdza roli** -- kazdy moze przywrocic usuniety rekord
+3. **Brak automatycznego backupu** -- tylko reczny przycisk
+4. **Brak integralnosci** -- backup JSON bez checksum/podpisu
+5. **Brak offsite storage** -- backup leci tylko do przegladarki uzytkownika
+6. **Brak historii backupow** -- nie wiadomo kto/kiedy pobral backup
 
 ---
 
-## Szczegoly techniczne
+## Co mozna wdrozyc w Lovable (realistycznie)
 
-### Plik: `src/components/YearView.tsx`
+Nie wszystko z rekomendacji "enterprise" da sie zrobic w Lovable Cloud (brak dostepu do pg_dump, WAL, S3 IAM, Object Lock). Ponizej plan tego co JEST mozliwe:
 
-- Dodac stan: `const [showPrices, setShowPrices] = useState(true);`
-- W pasku kontrolnym (obok przycisku PDF) dodac Switch + label "Ceny"
-- Warunkowo ukrywac kwoty w:
-  - Linia 551: `{totalActivities} akt.` -- dodac warunkowo ` • ${formatPLN(totalPrice)}`
-  - Linia 574: bar label pakietu -- warunkowo `formatPLN`
-  - Linia 347: tooltip `formatPLN(activity.price)` 
-  - Linia 586: tooltip budzet
-- Przekazac `showPrices` do `exportMediaPlanPDF`
+### 1. Ograniczenie eksportu/przywracania do admina (~5 kredytow)
 
-### Plik: `src/lib/exportPdfVector.ts`
+**data-export**: dodac sprawdzanie roli admin (tak jak w data-import)
+**BackupSection UI**: przywracanie (`handleRestore`) -- ograniczyc do admina, dodac wpis do audit_log
 
-- Dodac `showPrices?: boolean` do `ExportOptions`
-- Warunkowo pomijac:
-  - Linia 172: `metaParts.push(Budzet: ...)` 
-  - Linia 288: cena w etykiecie pakietu
-  - Linia 357: cena na pasku aktywnosci
+### 2. Checksum backupu (SHA-256 hash) (~10 kredytow)
 
-- **Poprawka warstw**: Obecnie siatka rysowana jest PO wierszach (linie 372-380). Zmienimy kolejnosc -- siatka bedzie rysowana PRZED wierszami pakietow/aktywnosci. Realizacja: zbieramy pozycje X miesiecy, a nastepnie w petli rysowania wierszy rysujemy linie siatki najpierw (na kazdej stronie), a dopiero potem rysujemy tla wierszy i paski aktywnosci na wierzchu. Alternatywnie (prosciej): rysujemy siatke PRZED wierszami na kazdej stronie -- to wymaga dwoch przejsc lub rysowania siatki na poczatku strony, a potem rysowania wierszy "nadpisujacych" te linie swoimi tlamib i paskami.
+- Edge function `data-export` generuje SHA-256 hash calego JSON
+- Hash dolaczany w metadanych backupu + wyswietlany w UI
+- Przy imporcie (`data-import`) weryfikacja checksum -- jesli sie nie zgadza = odrzucenie
 
-  Najlepsza strategia: rysowac linie siatki tuz po headerze miesiecznym, na cala dostepna wysokosc strony (do `pageH - margin`), a POTEM rysowac wiersze z ich tlami i paskami -- tla wierszy (rect fill) przykryja linie, ale same linie beda widoczne w przerwach. W efekcie paski beda NA WIERZCHU linii siatki.
+### 3. Automatyczny backup do Storage (~15-20 kredytow)
+
+- Nowa edge function `scheduled-backup` ktora:
+  - Eksportuje dane (jak data-export)
+  - Zapisuje JSON do storage bucket `backups` (prywatny)
+  - Zapisuje metadane (checksum, rozmiar, timestamp) do nowej tabeli `backup_history`
+- Cron job (pg_cron + pg_net) uruchamiany co 24h
+- UI w BackupSection: lista ostatnich backupow z mozliwoscia pobrania
+
+### 4. Retencja backupow (~5 kredytow)
+
+- Tabela `backup_history` z kolumnami: id, created_at, file_path, checksum, size_bytes, status
+- Edge function lub DB function czyszczaca stare backupy (>30 dni)
+
+### 5. Alerty o bledach backupu (~5 kredytow)
+
+- Jesli scheduled-backup sie nie powiedzie -- notyfikacja do admina (tabela notifications)
+
+### 6. Potwierdzenie przywracania w audit log (~3 kredyty)
+
+- Kazde przywrocenie (restore) -- explicite wpisywane do audit_log z poziomu kodu (nie tylko trigger)
+- Wyswietlanie kto przywrocil w UI audit log
+
+---
+
+## Czego NIE da sie zrobic w Lovable Cloud
+
+- pg_dump / WAL archiving (brak dostepu do Postgres CLI)
+- Object Lock / immutability (brak dostepu do konfiguracji storage na tym poziomie)
+- Multi-region offsite (storage jest w jednym regionie)
+- Szyfrowanie AES-256 po stronie serwera z wlasnym KMS (mozna natomiast robic prosty hash/podpis)
+- Dedykowane IAM role do zapisu/odczytu backupow
+
+---
+
+## Plan implementacji (szacunkowo ~40-45 kredytow)
+
+### Krok 1: Zabezpieczenie eksportu i przywracania
+- `data-export`: dodac sprawdzanie roli admin (identycznie jak w data-import)
+- `BackupSection`: przywracanie widoczne tylko dla admina
+- Eksport widoczny tylko dla admina
+
+### Krok 2: Checksum w backupie
+- `data-export`: generowac SHA-256 hash, dolaczac w JSON
+- `data-import`: weryfikowac hash przy imporcie
+
+### Krok 3: Storage bucket + tabela backup_history
+- Migracja: tabela `backup_history` (id, created_at, file_path, checksum, size_bytes, type, user_id)
+- Storage bucket `backups` (prywatny) z RLS
+- Edge function `scheduled-backup`: eksport + zapis do storage + wpis do backup_history
+
+### Krok 4: Cron job
+- Wlaczenie pg_cron + pg_net
+- Job co 24h wywolujacy `scheduled-backup`
+
+### Krok 5: UI historii backupow
+- W BackupSection: lista backupow z backup_history (data, rozmiar, checksum, przycisk "Pobierz")
+- Alert jesli ostatni backup starszy niz 48h
+
+### Krok 6: Czyszczenie starych backupow
+- DB function lub edge function usuwajaca backupy starsze niz 30 dni (storage + tabela)
 
