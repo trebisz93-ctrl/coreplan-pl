@@ -244,7 +244,7 @@ export const BackupSection = () => {
                 {backupHistory.map((bh: any) => (
                   <div key={bh.id} className="flex items-center gap-2 py-1.5 border-b border-border last:border-0 text-sm">
                     {bh.status === 'success' ? (
-                      <CheckCircle className="h-4 w-4 text-green-600 shrink-0" />
+                      <CheckCircle className="h-4 w-4 text-primary shrink-0" />
                     ) : (
                       <XCircle className="h-4 w-4 text-destructive shrink-0" />
                     )}
