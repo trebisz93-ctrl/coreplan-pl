@@ -129,6 +129,42 @@ export type Database = {
         }
         Relationships: []
       }
+      backup_history: {
+        Row: {
+          checksum: string
+          created_at: string
+          error_message: string | null
+          file_path: string
+          id: string
+          size_bytes: number
+          status: string
+          type: string
+          user_id: string
+        }
+        Insert: {
+          checksum: string
+          created_at?: string
+          error_message?: string | null
+          file_path: string
+          id?: string
+          size_bytes?: number
+          status?: string
+          type?: string
+          user_id: string
+        }
+        Update: {
+          checksum?: string
+          created_at?: string
+          error_message?: string | null
+          file_path?: string
+          id?: string
+          size_bytes?: number
+          status?: string
+          type?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       campaign_types: {
         Row: {
           created_at: string
@@ -523,6 +559,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      cleanup_old_backups: { Args: never; Returns: undefined }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
