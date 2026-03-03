@@ -8,12 +8,10 @@ import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '@/comp
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Checkbox } from '@/components/ui/checkbox';
-import { ScrollArea } from '@/components/ui/scroll-area';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
   ChevronDown, ChevronRight, Plus, Search, FileDown,
-  Calendar, LayoutGrid, List, Package, Layers, EyeOff, Eye, Filter, X
+  Calendar, LayoutGrid, List, Package, Layers, EyeOff, Eye
 } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
@@ -104,8 +102,8 @@ export const YearView = () => {
   const [dateFrom, setDateFrom] = useState(`${year}-01-01`);
   const [dateTo, setDateTo] = useState(`${year}-12-31`);
   const [activePeriod, setActivePeriod] = useState<string>('year');
-  const [selectedProductIds, setSelectedProductIds] = useState<Set<string>>(new Set());
-  const [selectedCategories, setSelectedCategories] = useState<Set<string>>(new Set());
+  const [categoryFilter, setCategoryFilter] = useState<string>('all');
+  const [subcategoryFilter, setSubcategoryFilter] = useState<string>('all');
 
   useSeedDefaultPackages();
   const { data: packages = [] } = usePackages();
@@ -134,17 +132,20 @@ export const YearView = () => {
 
   const filteredActivities = useMemo(() => {
     let acts = allFilteredActivities.filter(a => !(a.endDate < dateFrom || a.startDate > dateTo));
-    if (selectedProductIds.size > 0) {
-      acts = acts.filter(a => a.productIds.some(pid => selectedProductIds.has(pid)));
-    }
-    if (selectedCategories.size > 0) {
+    if (categoryFilter !== 'all') {
       acts = acts.filter(a => a.productIds.some(pid => {
         const p = productMap.get(pid);
-        return p && p.category && selectedCategories.has(p.category);
+        return p && p.category === categoryFilter;
+      }));
+    }
+    if (subcategoryFilter !== 'all') {
+      acts = acts.filter(a => a.productIds.some(pid => {
+        const p = productMap.get(pid);
+        return p && p.subcategory === subcategoryFilter;
       }));
     }
     return acts;
-  }, [allFilteredActivities, dateFrom, dateTo, selectedProductIds, selectedCategories, productMap]);
+  }, [allFilteredActivities, dateFrom, dateTo, categoryFilter, subcategoryFilter, productMap]);
 
   const visibleMonths = useMemo(() => {
     const s = parseInt(dateFrom.slice(5, 7)) - 1;
@@ -202,26 +203,18 @@ export const YearView = () => {
     return m;
   }, [packages]);
 
-  // ── Available products & categories for filters ──
-  const availableProducts = useMemo(() => {
-    const productIdsInActivities = new Set(allFilteredActivities.flatMap(a => a.productIds));
-    return effectiveProducts
-      .filter(p => productIdsInActivities.has(p.id))
-      .sort((a, b) => (a.name || '').localeCompare(b.name || ''));
-  }, [effectiveProducts, allFilteredActivities]);
-
+  // ── Available categories & subcategories for filters ──
   const availableCategories = useMemo(() => {
     const cats = new Set<string>();
-    availableProducts.forEach(p => { if (p.category) cats.add(p.category); });
+    effectiveProducts.forEach(p => { if (p.category) cats.add(p.category); });
     return [...cats].sort();
-  }, [availableProducts]);
+  }, [effectiveProducts]);
 
-  const toggleProductFilter = (id: string) =>
-    setSelectedProductIds(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
-  const toggleCategoryFilter = (cat: string) =>
-    setSelectedCategories(prev => { const n = new Set(prev); n.has(cat) ? n.delete(cat) : n.add(cat); return n; });
-  const clearFilters = () => { setSelectedProductIds(new Set()); setSelectedCategories(new Set()); };
-  const hasActiveFilters = selectedProductIds.size > 0 || selectedCategories.size > 0;
+  const availableSubcategories = useMemo(() => {
+    const subs = new Set<string>();
+    effectiveProducts.forEach(p => { if (p.subcategory) subs.add(p.subcategory); });
+    return [...subs].sort();
+  }, [effectiveProducts]);
 
   // ── Expand/collapse state ──
   const [expandedPackages, setExpandedPackages] = useState<Set<string>>(new Set());
@@ -484,77 +477,34 @@ export const YearView = () => {
           ))}
         </div>
 
-        <div className="relative">
+        {/* Search & Filters – like ProductsView */}
+        <div className="relative flex-1 min-w-48">
           <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input placeholder="Szukaj aktywności..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} className="pl-9 w-52 h-8 text-xs" />
+          <Input
+            placeholder="Szukaj po nazwie, produkcie, marce..."
+            value={searchQuery}
+            onChange={e => setSearchQuery(e.target.value)}
+            className="pl-9 h-8 text-xs"
+          />
         </div>
-
-        {/* Product & Category filters */}
-        <Popover>
-          <PopoverTrigger asChild>
-            <Button variant={hasActiveFilters ? 'default' : 'outline'} size="sm" className="h-8 text-xs gap-1.5">
-              <Filter className="h-3.5 w-3.5" />
-              Filtruj
-              {hasActiveFilters && (
-                <Badge variant="secondary" className="h-4 px-1 text-[10px] ml-0.5">
-                  {selectedProductIds.size + selectedCategories.size}
-                </Badge>
-              )}
-            </Button>
-          </PopoverTrigger>
-          <PopoverContent className="w-80 p-0" align="start">
-            <div className="p-3 border-b border-border flex items-center justify-between">
-              <span className="text-sm font-semibold">Filtruj aktywności</span>
-              {hasActiveFilters && (
-                <Button variant="ghost" size="sm" onClick={clearFilters} className="h-6 text-xs gap-1 px-2">
-                  <X className="h-3 w-3" /> Wyczyść
-                </Button>
-              )}
-            </div>
-            {availableCategories.length > 0 && (
-              <div className="p-3 border-b border-border">
-                <div className="text-xs font-semibold text-muted-foreground mb-2">Kategorie</div>
-                <ScrollArea className="max-h-32">
-                  <div className="space-y-1.5">
-                    {availableCategories.map(cat => (
-                      <label key={cat} className="flex items-center gap-2 text-xs cursor-pointer hover:bg-secondary/50 px-1.5 py-1 rounded">
-                        <Checkbox
-                          checked={selectedCategories.has(cat)}
-                          onCheckedChange={() => toggleCategoryFilter(cat)}
-                          className="h-3.5 w-3.5"
-                        />
-                        {cat}
-                      </label>
-                    ))}
-                  </div>
-                </ScrollArea>
-              </div>
-            )}
-            {availableProducts.length > 0 && (
-              <div className="p-3">
-                <div className="text-xs font-semibold text-muted-foreground mb-2">Produkty</div>
-                <ScrollArea className="max-h-48">
-                  <div className="space-y-1.5">
-                    {availableProducts.map(p => (
-                      <label key={p.id} className="flex items-center gap-2 text-xs cursor-pointer hover:bg-secondary/50 px-1.5 py-1 rounded">
-                        <Checkbox
-                          checked={selectedProductIds.has(p.id)}
-                          onCheckedChange={() => toggleProductFilter(p.id)}
-                          className="h-3.5 w-3.5"
-                        />
-                        <span className="truncate">{p.name}</span>
-                        {p.brand && <span className="text-muted-foreground text-[10px] shrink-0">({p.brand})</span>}
-                      </label>
-                    ))}
-                  </div>
-                </ScrollArea>
-              </div>
-            )}
-            {availableProducts.length === 0 && availableCategories.length === 0 && (
-              <div className="p-4 text-xs text-muted-foreground text-center">Brak produktów do filtrowania</div>
-            )}
-          </PopoverContent>
-        </Popover>
+        {availableCategories.length > 0 && (
+          <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+            <SelectTrigger className="w-40 h-8 text-xs"><SelectValue placeholder="Kategoria" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Wszystkie kategorie</SelectItem>
+              {availableCategories.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        )}
+        {availableSubcategories.length > 0 && (
+          <Select value={subcategoryFilter} onValueChange={setSubcategoryFilter}>
+            <SelectTrigger className="w-44 h-8 text-xs"><SelectValue placeholder="Subkategoria" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Wszystkie subkategorie</SelectItem>
+              {availableSubcategories.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        )}
 
         <div className="flex-1" />
 
