@@ -62,7 +62,7 @@ export const useClients = () => {
   return useQuery({
     queryKey: ['clients', user?.id],
     queryFn: async () => {
-      const { data, error } = await supabase.from('clients').select('*').order('name');
+      const { data, error } = await supabase.from('clients').select('*').is('deleted_at', null).order('name');
       if (error) throw error;
       return data as DbClient[];
     },
@@ -110,7 +110,7 @@ export const useDeleteClient = () => {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.from('clients').delete().eq('id', id);
+      const { error } = await supabase.from('clients').update({ deleted_at: new Date().toISOString() } as any).eq('id', id);
       if (error) throw error;
     },
     onSuccess: () => {
@@ -127,7 +127,7 @@ export const useProducts = (clientId?: string) => {
   return useQuery({
     queryKey: ['products', user?.id, clientId],
     queryFn: async () => {
-      let query = supabase.from('products').select('*').order('name');
+      let query = supabase.from('products').select('*').is('deleted_at', null).order('name');
       if (clientId) query = query.eq('client_id', clientId);
       const { data, error } = await query;
       if (error) throw error;
@@ -166,7 +166,7 @@ export const useDeleteProduct = () => {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.from('products').delete().eq('id', id);
+      const { error } = await supabase.from('products').update({ deleted_at: new Date().toISOString() } as any).eq('id', id);
       if (error) throw error;
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['products'] }),
@@ -193,9 +193,9 @@ export const usePackages = () => {
   return useQuery({
     queryKey: ['packages', user?.id],
     queryFn: async () => {
-      const { data, error } = await supabase.from('packages').select('*').order('name');
+      const { data, error } = await supabase.from('packages').select('*').is('deleted_at', null).order('name');
       if (error) throw error;
-      return data as DbPackage[];
+      return (data as any[]) as DbPackage[];
     },
     enabled: !!user,
   });
@@ -209,7 +209,7 @@ export const useCreatePackage = () => {
       const { data, error } = await supabase
         .from('packages').insert({ ...pkg, user_id: user!.id } as any).select().single();
       if (error) throw error;
-      return data as DbPackage;
+      return data as unknown as DbPackage;
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['packages'] }),
   });
@@ -230,7 +230,7 @@ export const useDeletePackage = () => {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.from('packages').delete().eq('id', id);
+      const { error } = await supabase.from('packages').update({ deleted_at: new Date().toISOString() } as any).eq('id', id);
       if (error) throw error;
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['packages'] }),

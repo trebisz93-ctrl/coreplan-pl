@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { User, Mail, Shield, Plus, Pencil, Trash2, Check, X, Tag } from 'lucide-react';
 import { MfaSetup } from './MfaSetup';
+import { BackupSection } from './BackupSection';
 import { toast } from 'sonner';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
@@ -172,6 +173,8 @@ export const SettingsView = forwardRef<HTMLDivElement>((_, ref) => {
           )}
         </CardContent>
       </Card>
+
+      <BackupSection />
 
       <Card>
         <CardHeader>

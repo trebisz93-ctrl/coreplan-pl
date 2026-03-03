@@ -1,1 +1,7 @@
 project_id = "aswmmhxyqafqsvnnspqj"
+
+[functions.data-export]
+verify_jwt = false
+
+[functions.data-import]
+verify_jwt = false
