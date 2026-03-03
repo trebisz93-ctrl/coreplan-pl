@@ -9,6 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
 import { Shield } from 'lucide-react';
+import corePlanLogo from '@/assets/core-plan-logo.png';
 
 const Auth = () => {
   const { user, loading, signIn, signUp, resetPassword, currentAal, nextAal, refreshAal } = useAuth();
@@ -199,7 +200,10 @@ const Auth = () => {
     <div className="flex items-center justify-center min-h-screen bg-background p-4">
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
-          <CardTitle className="text-2xl">📊 MediaPlan CRM</CardTitle>
+          <div className="flex items-center justify-center gap-2 mb-1">
+            <img src={corePlanLogo} alt="CorePlan logo" className="h-9 w-9 object-contain" />
+            <CardTitle className="text-2xl">CorePlan</CardTitle>
+          </div>
           <CardDescription>Zaloguj się lub utwórz konto</CardDescription>
         </CardHeader>
         <CardContent>
@@ -244,6 +248,41 @@ const Auth = () => {
           </Tabs>
         </CardContent>
       </Card>
+
+      {/* SEO content — visible to crawlers, subtle for users */}
+      <article className="mt-12 max-w-2xl text-muted-foreground/60 text-xs leading-relaxed space-y-3 px-4">
+        <h1 className="text-sm font-semibold text-muted-foreground/80">CorePlan – CRM do mediaplanu i budżetu marketingowego</h1>
+        <p>
+          CorePlan to nowoczesny <strong>CRM mediowy</strong> stworzony z myślą o zespołach marketingowych, agencjach reklamowych i media plannerach.
+          Nasz <strong>system do mediaplanu</strong> pozwala w jednym miejscu planować kampanie, kontrolować budżet i generować raporty —
+          bez potrzeby żonglowania arkuszami kalkulacyjnymi i wieloma narzędziami.
+        </p>
+        <h2 className="text-xs font-semibold text-muted-foreground/70">Planowanie kampanii marketingowych</h2>
+        <p>
+          Dzięki intuicyjnemu widokowi kalendarza i tablicy Gantta, CorePlan umożliwia <strong>planowanie kampanii marketingowych</strong> online i offline
+          z pełną kontrolą nad harmonogramem, kanałami i budżetem. Twórz mediaplany dla wielu klientów jednocześnie, przypisuj produkty do aktywności
+          i śledź statusy realizacji w czasie rzeczywistym.
+        </p>
+        <h2 className="text-xs font-semibold text-muted-foreground/70">Kontrola budżetu marketingowego</h2>
+        <p>
+          <strong>Zarządzanie budżetem marketingowym</strong> nigdy nie było prostsze. CorePlan automatycznie sumuje wydatki na kampanie,
+          porównuje je z rocznym budżetem klienta i wizualizuje wykorzystanie środków w przejrzystych wykresach.
+          Koniec z przekraczaniem budżetu — system ostrzega, gdy zbliżasz się do limitu.
+        </p>
+        <h2 className="text-xs font-semibold text-muted-foreground/70">Raportowanie i analityka</h2>
+        <p>
+          Generuj profesjonalne raporty PDF i CSV jednym kliknięciem. <strong>Media plan CRM</strong> CorePlan agreguje dane z wielu kampanii
+          i klientów, tworząc spójne zestawienia obejmujące kanały, typy kampanii, produkty i koszty.
+          Eksportuj dane do dalszej analizy lub prezentacji zarządczych.
+        </p>
+        <h2 className="text-xs font-semibold text-muted-foreground/70">Zarządzanie klientami i produktami</h2>
+        <p>
+          CorePlan to nie tylko <strong>CRM marketingowy</strong> — to kompletny ekosystem do zarządzania relacjami z klientami.
+          Prowadź bazę klientów z przypisanymi produktami, markami i budżetami. Definiuj pakiety usług, zarządzaj uprawnieniami zespołu
+          i utrzymuj porządek w całym procesie planowania mediów. Wypróbuj CorePlan i odkryj, jak prosty może być
+          <strong>system do mediaplanu</strong> nowej generacji.
+        </p>
+      </article>
     </div>
   );
 };

@@ -42,7 +42,7 @@ export const MfaSetup = () => {
     setEnrolling(true);
     const { data, error } = await supabase.auth.mfa.enroll({
       factorType: 'totp',
-      friendlyName: 'MediaPlan CRM',
+      friendlyName: 'CorePlan',
     });
     if (error) {
       toast.error('Błąd podczas konfiguracji 2FA: ' + error.message);
