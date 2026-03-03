@@ -157,7 +157,7 @@ export async function exportMediaPlanPDF(options: ExportOptions) {
 
   setFont('bold', 16);
   pdf.setTextColor(30, 30, 30);
-  pdf.text('Media Plan', margin, y + 5);
+  pdf.text('CorePlan', margin, y + 5);
 
   setFont('regular', 9);
   pdf.setTextColor(100, 100, 100);
@@ -415,7 +415,7 @@ export async function exportMediaPlanPDF(options: ExportOptions) {
   });
 
   // ── Save ──
-  pdf.save(`mediaplan-${year}-${dateFrom}_${dateTo}.pdf`);
+  pdf.save(`coreplan-${year}-${dateFrom}_${dateTo}.pdf`);
 }
 
 // ── Helpers ──

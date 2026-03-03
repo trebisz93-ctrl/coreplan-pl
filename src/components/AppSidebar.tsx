@@ -3,6 +3,7 @@ import { CalendarDays, BarChart3, Package, FileText, Settings, LogOut, Building2
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/context/AuthContext';
 import { useIsAdmin } from '@/hooks/useRole';
+import corePlanLogo from '@/assets/core-plan-logo.png';
 
 const baseNavItems = [
   { label: 'Media plan', icon: CalendarDays, path: '/' },
@@ -30,10 +31,15 @@ export const AppSidebar = () => {
   return (
     <aside className="w-60 shrink-0 bg-sidebar text-sidebar-foreground flex flex-col border-r border-sidebar-border">
       <div className="p-5 border-b border-sidebar-border">
-        <h1 className="text-lg font-bold text-sidebar-primary-foreground tracking-tight">
-          📊 MediaPlan <span className="text-sidebar-primary">CRM</span>
-        </h1>
-        <p className="text-xs text-sidebar-foreground/60 mt-1">Zarządzanie mediaplanami</p>
+        <div className="flex items-center gap-2.5">
+          <img src={corePlanLogo} alt="CorePlan logo" className="h-8 w-8 object-contain" />
+          <div>
+            <h1 className="text-lg font-bold text-sidebar-primary-foreground tracking-tight">
+              CorePlan
+            </h1>
+            <p className="text-xs text-sidebar-foreground/60">All your marketing. In one place.</p>
+          </div>
+        </div>
       </div>
       <nav className="flex-1 p-3 space-y-1">
         {navItems.map(item => {
@@ -64,7 +70,7 @@ export const AppSidebar = () => {
           <LogOut className="h-4 w-4" />
           Wyloguj
         </button>
-        <div className="text-xs text-sidebar-foreground/40">MediaPlan CRM v1.0</div>
+        <div className="text-xs text-sidebar-foreground/40">CorePlan v1.0</div>
       </div>
     </aside>
   );

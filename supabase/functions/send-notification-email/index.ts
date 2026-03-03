@@ -34,7 +34,7 @@ function buildEmailHtml(title: string, description: string | null, type: string,
         <tr><td style="background:linear-gradient(135deg,#2563eb,#1d4ed8);padding:24px 32px;">
           <table width="100%" cellpadding="0" cellspacing="0">
             <tr>
-              <td style="color:#ffffff;font-size:18px;font-weight:700;letter-spacing:-0.3px;">MediaPlan CRM</td>
+              <td style="color:#ffffff;font-size:18px;font-weight:700;letter-spacing:-0.3px;">CorePlan</td>
               <td align="right" style="color:rgba(255,255,255,0.7);font-size:12px;">${catLabel}</td>
             </tr>
           </table>
@@ -46,14 +46,14 @@ function buildEmailHtml(title: string, description: string | null, type: string,
           </div>
           <h1 style="margin:16px 0 8px;font-size:20px;font-weight:700;color:#18181b;line-height:1.3;">${title}</h1>
           ${description ? `<p style="margin:0 0 24px;font-size:14px;color:#52525b;line-height:1.6;">${description}</p>` : ''}
-          <a href="https://mediaplancrm.lovable.app" style="display:inline-block;background-color:#2563eb;color:#ffffff;text-decoration:none;font-size:14px;font-weight:600;padding:12px 24px;border-radius:8px;">
+          <a href="https://coreplan.pl" style="display:inline-block;background-color:#2563eb;color:#ffffff;text-decoration:none;font-size:14px;font-weight:600;padding:12px 24px;border-radius:8px;">
             Otwórz aplikację
           </a>
         </td></tr>
         <!-- Footer -->
         <tr><td style="padding:20px 32px;border-top:1px solid #e4e4e7;">
           <p style="margin:0;font-size:11px;color:#a1a1aa;text-align:center;">
-            Otrzymujesz ten e-mail, ponieważ masz konto w MediaPlan CRM.
+            Otrzymujesz ten e-mail, ponieważ masz konto w CorePlan.
           </p>
         </td></tr>
       </table>
@@ -103,7 +103,7 @@ serve(async (req) => {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        from: 'MediaPlan CRM <noreply@neovir.pl>',
+        from: 'CorePlan <noreply@neovir.pl>',
         to: [email],
         subject: `${(typeConfig[type] || typeConfig.info).emoji} ${title}`,
         html,

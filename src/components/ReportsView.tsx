@@ -38,7 +38,7 @@ export const ReportsView = () => {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `raport-${selectedClient?.name || 'mediaplan'}.csv`;
+    a.download = `raport-${selectedClient?.name || 'coreplan'}.csv`;
     a.click();
     URL.revokeObjectURL(url);
   };

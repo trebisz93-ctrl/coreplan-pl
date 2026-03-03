@@ -182,8 +182,8 @@ export const SettingsView = forwardRef<HTMLDivElement>((_, ref) => {
           <CardDescription>Informacje o aplikacji</CardDescription>
         </CardHeader>
         <CardContent className="space-y-2 text-sm text-muted-foreground">
-          <p>MediaPlan CRM v1.0</p>
-          <p>© 2026 MediaPlan CRM. Wszelkie prawa zastrzeżone.</p>
+          <p>CorePlan v1.0</p>
+          <p>© 2026 CorePlan. Wszelkie prawa zastrzeżone.</p>
         </CardContent>
       </Card>
     </div>
