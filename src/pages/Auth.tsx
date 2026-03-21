@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Navigate, Link } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
-import { useIsSuperAdminRole } from '@/hooks/useRole';
+import { useIsSuperAdmin } from '@/hooks/useSuperAdmin';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -70,6 +70,7 @@ const MfaScreen = ({ factorId, challengeId, setChallengeId, refreshAal }: {
 
 const Auth = () => {
   const { user, loading, signIn, signUp, resetPassword, currentAal, nextAal, refreshAal } = useAuth();
+  const { data: isSuperAdmin, isLoading: isRoleLoading } = useIsSuperAdmin();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -98,15 +99,13 @@ const Auth = () => {
     }
   }, [needsMfa]);
 
-  if (loading) {
+  if (loading || (user && isRoleLoading)) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-background">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
       </div>
     );
   }
-
-  const isSuperAdmin = useIsSuperAdminRole();
 
   if (user && !needsMfa) return <Navigate to={isSuperAdmin ? "/admin" : "/app"} replace />;
 
