@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/context/AuthContext';
+import { useOrganization } from '@/context/OrganizationContext';
 import type { SeedProduct } from '@/data/seedProducts';
 
 export interface DbClient {
@@ -73,14 +74,26 @@ export const useClients = () => {
 export const useCreateClient = () => {
   const qc = useQueryClient();
   const { user } = useAuth();
+  const { orgId } = useOrganization();
   return useMutation({
     mutationFn: async (name: string) => {
+      // 1. Create client
       const { data, error } = await supabase
         .from('clients').insert({ name, user_id: user!.id }).select().single();
       if (error) throw error;
+      // 2. Link to current organization
+      if (orgId) {
+        const { error: linkErr } = await supabase
+          .from('organization_clients')
+          .insert({ organization_id: orgId, client_id: data.id });
+        if (linkErr) throw linkErr;
+      }
       return data as DbClient;
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['clients'] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['clients'] });
+      qc.invalidateQueries({ queryKey: ['organization_clients'] });
+    },
   });
 };
 
@@ -140,10 +153,11 @@ export const useProducts = (clientId?: string) => {
 export const useCreateProduct = () => {
   const qc = useQueryClient();
   const { user } = useAuth();
+  const { orgId } = useOrganization();
   return useMutation({
     mutationFn: async ({ name, clientId, ean, category, subcategory, brand }: { name: string; clientId?: string; ean?: string; category?: string; subcategory?: string; brand?: string }) => {
       const { data, error } = await supabase
-        .from('products').insert({ name, client_id: clientId || null, user_id: user!.id, ean: ean || null, category: category || null, subcategory: subcategory || null, brand: brand || null } as any).select().single();
+        .from('products').insert({ name, client_id: clientId || null, user_id: user!.id, organization_id: orgId, ean: ean || null, category: category || null, subcategory: subcategory || null, brand: brand || null } as any).select().single();
       if (error) throw error;
       return data as DbProduct;
     },
@@ -176,9 +190,10 @@ export const useDeleteProduct = () => {
 export const useSeedProducts = () => {
   const qc = useQueryClient();
   const { user } = useAuth();
+  const { orgId } = useOrganization();
   return useMutation({
     mutationFn: async ({ clientId, products }: { clientId: string; products: SeedProduct[] }) => {
-      const rows = products.map(p => ({ name: p.name, ean: p.ean, client_id: clientId, user_id: user!.id }));
+      const rows = products.map(p => ({ name: p.name, ean: p.ean, client_id: clientId, user_id: user!.id, organization_id: orgId }));
       const { error } = await supabase.from('products').insert(rows as any);
       if (error) throw error;
     },
@@ -204,10 +219,11 @@ export const usePackages = () => {
 export const useCreatePackage = () => {
   const qc = useQueryClient();
   const { user } = useAuth();
+  const { orgId } = useOrganization();
   return useMutation({
     mutationFn: async (pkg: { name: string; description: string; default_price: number; items: any[] }) => {
       const { data, error } = await supabase
-        .from('packages').insert({ ...pkg, user_id: user!.id } as any).select().single();
+        .from('packages').insert({ ...pkg, user_id: user!.id, organization_id: orgId } as any).select().single();
       if (error) throw error;
       return data as unknown as DbPackage;
     },
