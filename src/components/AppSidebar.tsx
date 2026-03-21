@@ -31,14 +31,8 @@ export const AppSidebar = () => {
   return (
     <aside className="w-60 shrink-0 bg-sidebar text-sidebar-foreground flex flex-col border-r border-sidebar-border">
       <div className="p-5 border-b border-sidebar-border">
-        <div className="flex items-center gap-2.5">
-          <img src={corePlanLogo} alt="CorePlan logo" className="h-8 w-8 object-contain" />
-          <div>
-            <h1 className="text-lg font-bold text-sidebar-primary-foreground tracking-tight">
-              CorePlan
-            </h1>
-            <p className="text-xs text-sidebar-foreground/60">All your marketing. In one place.</p>
-          </div>
+        <div className="flex items-center">
+          <img src={corePlanLogo} alt="CorePlan logo" className="h-10 object-contain" />
         </div>
       </div>
       <nav className="flex-1 p-3 space-y-1">
