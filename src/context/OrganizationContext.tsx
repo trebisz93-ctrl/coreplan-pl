@@ -7,6 +7,7 @@ interface Organization {
   name: string;
   slug: string;
   status: string;
+  onboarding_completed: boolean;
 }
 
 type ViewMode = 'global' | 'org' | 'impersonate';

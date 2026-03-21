@@ -3,6 +3,7 @@ import { useClients, useProducts, DbProduct } from '@/hooks/useData';
 import { useActivities } from '@/hooks/useActivities';
 import { useApp } from '@/context/AppContext';
 import { useUnreadCount } from '@/hooks/useNotifications';
+import { OrgOnboarding } from '@/components/OrgOnboarding';
 import { Building2, Package, DollarSign, ChevronDown, ChevronRight, Calendar, TrendingUp, GitCompare, Bell } from 'lucide-react';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
@@ -153,6 +154,7 @@ export const DashboardView = () => {
 
   return (
     <div className="space-y-6">
+      <OrgOnboarding />
       {/* Notification widget */}
       {unreadCount > 0 && (
         <div className="bg-primary/5 border border-primary/20 rounded-xl p-4 flex items-center justify-between">
