@@ -6,8 +6,14 @@ import { cn } from '@/lib/utils';
 
 export const AdminContextBar = () => {
   const { viewMode, currentOrg, impersonatedUserName, switchToGlobal, stopImpersonation } = useOrganization();
+  const navigate = useNavigate();
 
   if (viewMode === 'global') return null;
+
+  const handleSwitchToGlobal = () => {
+    switchToGlobal();
+    navigate('/admin');
+  };
 
   const isImpersonating = viewMode === 'impersonate';
 
