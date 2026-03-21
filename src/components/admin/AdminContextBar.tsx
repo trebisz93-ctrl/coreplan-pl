@@ -1,4 +1,5 @@
 import { useOrganization } from '@/context/OrganizationContext';
+import { useNavigate } from 'react-router-dom';
 import { Building2, Eye, X, Globe } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
