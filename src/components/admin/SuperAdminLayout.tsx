@@ -1,11 +1,20 @@
-import { Outlet, Link, useLocation } from 'react-router-dom';
+import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard, Building2, Users, ScrollText, Database,
-  Settings, LogOut, Shield
+  Settings, LogOut, Shield, Trash2, Globe, ChevronDown
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/context/AuthContext';
+import { useOrganization } from '@/context/OrganizationContext';
+import { AdminContextBar } from './AdminContextBar';
 import corePlanLogo from '@/assets/core-plan-logo.png';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 
 const navItems = [
   { label: 'Dashboard', icon: LayoutDashboard, path: '/admin' },
@@ -13,6 +22,7 @@ const navItems = [
   { label: 'Użytkownicy', icon: Users, path: '/admin/users' },
   { label: 'Logi systemowe', icon: ScrollText, path: '/admin/logs' },
   { label: 'Backupy', icon: Database, path: '/admin/backups' },
+  { label: 'Kosz', icon: Trash2, path: '/admin/trash' },
   { label: 'Bezpieczeństwo', icon: Shield, path: '/admin/security' },
   { label: 'Ustawienia', icon: Settings, path: '/admin/settings' },
 ];
@@ -20,6 +30,8 @@ const navItems = [
 export const SuperAdminLayout = () => {
   const { signOut } = useAuth();
   const { pathname } = useLocation();
+  const navigate = useNavigate();
+  const { organizations, currentOrg, viewMode, switchToOrg, switchToGlobal } = useOrganization();
 
   return (
     <div className="flex h-screen w-full overflow-hidden">
@@ -32,6 +44,31 @@ export const SuperAdminLayout = () => {
             <span className="text-xs font-semibold uppercase tracking-wider text-primary/80">Super Admin</span>
           </div>
         </div>
+
+        {/* Org Switcher */}
+        <div className="p-3 border-b border-sidebar-border">
+          <DropdownMenu>
+            <DropdownMenuTrigger className="w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm font-medium bg-sidebar-accent/30 hover:bg-sidebar-accent/50 transition-colors">
+              <div className="flex items-center gap-2">
+                <Globe className="h-4 w-4" />
+                <span className="truncate">{viewMode === 'global' ? 'Widok globalny' : currentOrg?.name || 'Wybierz firmę'}</span>
+              </div>
+              <ChevronDown className="h-3 w-3 opacity-50" />
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="w-56">
+              <DropdownMenuItem onClick={() => { switchToGlobal(); navigate('/admin'); }}>
+                <Globe className="h-4 w-4 mr-2" /> Widok globalny
+              </DropdownMenuItem>
+              {organizations.length > 0 && <DropdownMenuSeparator />}
+              {organizations.map(org => (
+                <DropdownMenuItem key={org.id} onClick={() => { switchToOrg(org); navigate('/app'); }}>
+                  <Building2 className="h-4 w-4 mr-2" /> {org.name}
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+
         <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
           {navItems.map(item => {
             const isActive = pathname === item.path || (item.path !== '/admin' && pathname.startsWith(item.path));
@@ -71,6 +108,7 @@ export const SuperAdminLayout = () => {
         </div>
       </aside>
       <div className="flex flex-1 flex-col overflow-hidden">
+        <AdminContextBar />
         <main className="flex-1 overflow-auto p-6 bg-background">
           <Outlet />
         </main>
