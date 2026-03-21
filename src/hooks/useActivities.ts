@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/context/AuthContext';
+import { useOrganization } from '@/context/OrganizationContext';
 import type { Channel, CampaignType, ActivityStatus } from '@/types/mediaplan';
 
 export interface DbActivity {
@@ -87,6 +88,7 @@ export const useActivitiesMulti = (clientIds: string[]) => {
 export const useCreateActivity = () => {
   const qc = useQueryClient();
   const { user } = useAuth();
+  const { orgId } = useOrganization();
   return useMutation({
     mutationFn: async (input: {
       client_id: string;
@@ -107,6 +109,7 @@ export const useCreateActivity = () => {
         .insert({
           ...input,
           user_id: user!.id,
+          organization_id: orgId,
           product_ids: input.product_ids || [],
           package_id: input.package_id || null,
           status: input.status || 'planned',
@@ -162,11 +165,12 @@ export const useMediaPlans = (clientId?: string) => {
 export const useCreateMediaPlan = () => {
   const qc = useQueryClient();
   const { user } = useAuth();
+  const { orgId } = useOrganization();
   return useMutation({
     mutationFn: async (input: { client_id: string; name: string; year?: number; version?: string }) => {
       const { data, error } = await supabase
         .from('media_plans')
-        .insert({ ...input, user_id: user!.id } as any)
+        .insert({ ...input, user_id: user!.id, organization_id: orgId } as any)
         .select()
         .single();
       if (error) throw error;
