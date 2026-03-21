@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/context/AuthContext';
+import { useOrganization } from '@/context/OrganizationContext';
 
 export interface DbCampaignType {
   id: string;
@@ -29,11 +30,12 @@ export const useCampaignTypes = () => {
 export const useCreateCampaignType = () => {
   const qc = useQueryClient();
   const { user } = useAuth();
+  const { orgId } = useOrganization();
   return useMutation({
     mutationFn: async ({ name, label }: { name: string; label: string }) => {
       const { data, error } = await supabase
         .from('campaign_types')
-        .insert({ name, label, user_id: user!.id } as any)
+        .insert({ name, label, user_id: user!.id, organization_id: orgId } as any)
         .select()
         .single();
       if (error) throw error;

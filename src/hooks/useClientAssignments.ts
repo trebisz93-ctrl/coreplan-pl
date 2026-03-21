@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/context/AuthContext';
+import { useOrganization } from '@/context/OrganizationContext';
 
 export interface DbClientAssignment {
   id: string;
@@ -42,6 +43,7 @@ export const useMyClientAssignments = () => {
 
 export const useSetClientAssignments = () => {
   const qc = useQueryClient();
+  const { orgId } = useOrganization();
   return useMutation({
     mutationFn: async ({ userId, clientIds }: { userId: string; clientIds: string[] }) => {
       // Delete existing
@@ -50,9 +52,9 @@ export const useSetClientAssignments = () => {
         .delete()
         .eq('user_id', userId);
       if (delError) throw delError;
-      // Insert new
+      // Insert new with organization_id
       if (clientIds.length > 0) {
-        const rows = clientIds.map(cid => ({ user_id: userId, client_id: cid }));
+        const rows = clientIds.map(cid => ({ user_id: userId, client_id: cid, organization_id: orgId }));
         const { error } = await supabase.from('client_assignments').insert(rows as any);
         if (error) throw error;
       }
