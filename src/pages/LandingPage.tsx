@@ -331,9 +331,9 @@ const LandingPage = () => {
                     onChange={(e) => setDemoEmail(e.target.value)}
                     className="h-11 flex-1"
                   />
-                  <Button type="submit" size="lg" className="bg-gradient-to-r from-copper-light to-copper-dark text-primary-foreground hover:opacity-90 transition-opacity h-11 px-8">
+                  <Button type="submit" size="lg" disabled={demoLoading} className="bg-gradient-to-r from-copper-light to-copper-dark text-primary-foreground hover:opacity-90 transition-opacity h-11 px-8">
                     <Mail className="mr-2 h-4 w-4" />
-                    Umów demo
+                    {demoLoading ? 'Wysyłanie...' : 'Umów demo'}
                   </Button>
                 </div>
                 <p className="text-xs text-muted-foreground mt-3">
