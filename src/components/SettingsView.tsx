@@ -2,14 +2,20 @@ import { useState, forwardRef } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { useMyRole } from '@/hooks/useData';
 import { useCampaignTypes, useCreateCampaignType, useUpdateCampaignType, useDeleteCampaignType } from '@/hooks/useCampaignTypes';
+import { useAppSetting, useUpdateAppSetting, useDemoRequests, useMarkDemoRead } from '@/hooks/useAppSettings';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { User, Mail, Shield, Plus, Pencil, Trash2, Check, X, Tag } from 'lucide-react';
+import { User, Mail, Shield, Plus, Pencil, Trash2, Check, X, Tag, Settings2, Eye, EyeOff, Building2 } from 'lucide-react';
 import { MfaSetup } from './MfaSetup';
 import { BackupSection } from './BackupSection';
 import { toast } from 'sonner';
+import { format } from 'date-fns';
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
