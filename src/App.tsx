@@ -5,8 +5,15 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AppProvider } from "./context/AppContext";
 import { AuthProvider } from "./context/AuthContext";
+import { OrganizationProvider } from "./context/OrganizationContext";
 import { ProtectedRoute } from "./components/ProtectedRoute";
+import { SuperAdminRoute } from "./components/SuperAdminRoute";
 import { AppLayout } from "./components/AppLayout";
+import { SuperAdminLayout } from "./components/admin/SuperAdminLayout";
+import { SuperAdminDashboard } from "./components/admin/SuperAdminDashboard";
+import { OrganizationsView } from "./components/admin/OrganizationsView";
+import { GlobalUsersView } from "./components/admin/GlobalUsersView";
+import { SystemLogsView } from "./components/admin/SystemLogsView";
 import { YearView } from "./components/YearView";
 import { DashboardView } from "./components/DashboardView";
 import { PackagesView } from "./components/PackagesView";
@@ -29,22 +36,35 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <AuthProvider>
-          <Routes>
-            <Route path="/" element={<LandingPage />} />
-            <Route path="/auth" element={<Auth />} />
-            <Route path="/reset-password" element={<ResetPassword />} />
-            <Route element={<ProtectedRoute><AppProvider><AppLayout /></AppProvider></ProtectedRoute>}>
-              <Route path="/app" element={<YearView />} />
-              <Route path="/dashboard" element={<DashboardView />} />
-              <Route path="/clients" element={<ClientsView />} />
-              <Route path="/products" element={<ProductsView />} />
-              <Route path="/packages" element={<PackagesView />} />
-              <Route path="/reports" element={<ReportsView />} />
-              <Route path="/users" element={<UsersView />} />
-              <Route path="/settings" element={<SettingsView />} />
-            </Route>
-            <Route path="*" element={<NotFound />} />
-          </Routes>
+          <OrganizationProvider>
+            <Routes>
+              <Route path="/" element={<LandingPage />} />
+              <Route path="/auth" element={<Auth />} />
+              <Route path="/reset-password" element={<ResetPassword />} />
+              {/* Super Admin routes */}
+              <Route element={<SuperAdminRoute><SuperAdminLayout /></SuperAdminRoute>}>
+                <Route path="/admin" element={<SuperAdminDashboard />} />
+                <Route path="/admin/organizations" element={<OrganizationsView />} />
+                <Route path="/admin/users" element={<GlobalUsersView />} />
+                <Route path="/admin/logs" element={<SystemLogsView />} />
+                <Route path="/admin/backups" element={<SettingsView />} />
+                <Route path="/admin/security" element={<SettingsView />} />
+                <Route path="/admin/settings" element={<SettingsView />} />
+              </Route>
+              {/* Org-scoped routes */}
+              <Route element={<ProtectedRoute><AppProvider><AppLayout /></AppProvider></ProtectedRoute>}>
+                <Route path="/app" element={<YearView />} />
+                <Route path="/dashboard" element={<DashboardView />} />
+                <Route path="/clients" element={<ClientsView />} />
+                <Route path="/products" element={<ProductsView />} />
+                <Route path="/packages" element={<PackagesView />} />
+                <Route path="/reports" element={<ReportsView />} />
+                <Route path="/users" element={<UsersView />} />
+                <Route path="/settings" element={<SettingsView />} />
+              </Route>
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </OrganizationProvider>
         </AuthProvider>
       </BrowserRouter>
     </TooltipProvider>
