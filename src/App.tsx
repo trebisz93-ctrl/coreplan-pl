@@ -16,6 +16,9 @@ import { GlobalUsersView } from "./components/admin/GlobalUsersView";
 import { SystemLogsView } from "./components/admin/SystemLogsView";
 import { ActivityMonitoringView } from "./components/admin/ActivityMonitoringView";
 import { TrashView } from "./components/admin/TrashView";
+import { SecurityView } from "./components/admin/SecurityView";
+import { AdminBackupsView } from "./components/admin/AdminBackupsView";
+import { AdminReportsView } from "./components/admin/AdminReportsView";
 import { YearView } from "./components/YearView";
 import { DashboardView } from "./components/DashboardView";
 import { PackagesView } from "./components/PackagesView";
@@ -51,8 +54,9 @@ const App = () => (
                 <Route path="/admin/activity" element={<ActivityMonitoringView />} />
                 <Route path="/admin/logs" element={<SystemLogsView />} />
                 <Route path="/admin/trash" element={<TrashView />} />
-                <Route path="/admin/backups" element={<SettingsView />} />
-                <Route path="/admin/security" element={<SettingsView />} />
+                <Route path="/admin/backups" element={<AdminBackupsView />} />
+                <Route path="/admin/reports" element={<AdminReportsView />} />
+                <Route path="/admin/security" element={<SecurityView />} />
                 <Route path="/admin/settings" element={<SettingsView />} />
               </Route>
               {/* Org-scoped routes */}
