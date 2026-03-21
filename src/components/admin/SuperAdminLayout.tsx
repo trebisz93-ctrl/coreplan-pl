@@ -1,7 +1,7 @@
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard, Building2, Users, ScrollText, Database,
-  Settings, LogOut, Shield, Trash2, Globe, ChevronDown, Activity
+  Settings, LogOut, Shield, Trash2, Globe, ChevronDown, Activity, BarChart3
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/context/AuthContext';
@@ -23,6 +23,7 @@ const navItems = [
   { label: 'Aktywność', icon: Activity, path: '/admin/activity' },
   { label: 'Logi systemowe', icon: ScrollText, path: '/admin/logs' },
   { label: 'Backupy', icon: Database, path: '/admin/backups' },
+  { label: 'Raporty', icon: BarChart3, path: '/admin/reports' },
   { label: 'Kosz', icon: Trash2, path: '/admin/trash' },
   { label: 'Bezpieczeństwo', icon: Shield, path: '/admin/security' },
   { label: 'Ustawienia', icon: Settings, path: '/admin/settings' },
