@@ -7,5 +7,10 @@ export const useCanEdit = () => {
 
 export const useIsAdmin = () => {
   const { data: role } = useMyRole();
-  return role === 'admin';
+  return role === 'admin' || role === 'super_admin' || role === 'org_admin';
+};
+
+export const useIsSuperAdminRole = () => {
+  const { data: role } = useMyRole();
+  return role === 'super_admin';
 };
