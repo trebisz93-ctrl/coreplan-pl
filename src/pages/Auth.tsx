@@ -139,7 +139,7 @@ const Auth = () => {
       <nav className="bg-background/80 backdrop-blur-lg border-b border-border">
         <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
           <Link to="/" className="flex items-center gap-3">
-            <img src={corePlanLogo} alt="CorePlan logo" className="h-9 object-contain" />
+            <img src={corePlanLogo} alt="CorePlan logo" className="h-12 object-contain" />
           </Link>
         </div>
       </nav>
@@ -172,7 +172,7 @@ const Auth = () => {
           <Card className="w-full max-w-md shadow-xl border-border/50">
             <CardHeader className="text-center">
               <div className="flex items-center justify-center gap-2 mb-1">
-                <img src={corePlanLogo} alt="CorePlan logo" className="h-10 object-contain" />
+                <img src={corePlanLogo} alt="CorePlan logo" className="h-14 object-contain" />
               </div>
               <CardDescription>Zaloguj się lub utwórz konto</CardDescription>
             </CardHeader>
