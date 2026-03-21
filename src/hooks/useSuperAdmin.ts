@@ -26,6 +26,11 @@ export interface OrgSummary {
   status: string;
   created_at: string;
   member_count?: number;
+  deleted_at?: string | null;
+  email?: string | null;
+  phone?: string | null;
+  nip?: string | null;
+  onboarding_completed?: boolean;
 }
 
 export const useOrganizations = () => {
@@ -72,6 +77,22 @@ export const useGlobalProfiles = () => {
         .order('display_name');
       if (error) throw error;
       return data;
+    },
+    enabled: !!user,
+  });
+};
+
+export const useTrashCount = () => {
+  const { user } = useAuth();
+  return useQuery({
+    queryKey: ['trash_count'],
+    queryFn: async () => {
+      const { count, error } = await supabase
+        .from('trash_registry')
+        .select('*', { count: 'exact', head: true })
+        .is('restored_at', null);
+      if (error) throw error;
+      return count || 0;
     },
     enabled: !!user,
   });

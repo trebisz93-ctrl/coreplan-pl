@@ -309,8 +309,10 @@ export type Database = {
           created_at: string
           currency: string
           deleted_at: string | null
+          deleted_by: string | null
           id: string
           name: string
+          purge_at: string | null
           updated_at: string
           user_id: string
         }
@@ -319,8 +321,10 @@ export type Database = {
           created_at?: string
           currency?: string
           deleted_at?: string | null
+          deleted_by?: string | null
           id?: string
           name: string
+          purge_at?: string | null
           updated_at?: string
           user_id: string
         }
@@ -329,8 +333,10 @@ export type Database = {
           created_at?: string
           currency?: string
           deleted_at?: string | null
+          deleted_by?: string | null
           id?: string
           name?: string
+          purge_at?: string | null
           updated_at?: string
           user_id?: string
         }
@@ -578,28 +584,55 @@ export type Database = {
       }
       organizations: {
         Row: {
+          address: string | null
           created_at: string
           created_by: string | null
+          deleted_at: string | null
+          deleted_by: string | null
+          email: string | null
           id: string
+          internal_note: string | null
           name: string
+          nip: string | null
+          onboarding_completed: boolean
+          phone: string | null
+          purge_at: string | null
           slug: string
           status: string
           updated_at: string
         }
         Insert: {
+          address?: string | null
           created_at?: string
           created_by?: string | null
+          deleted_at?: string | null
+          deleted_by?: string | null
+          email?: string | null
           id?: string
+          internal_note?: string | null
           name: string
+          nip?: string | null
+          onboarding_completed?: boolean
+          phone?: string | null
+          purge_at?: string | null
           slug: string
           status?: string
           updated_at?: string
         }
         Update: {
+          address?: string | null
           created_at?: string
           created_by?: string | null
+          deleted_at?: string | null
+          deleted_by?: string | null
+          email?: string | null
           id?: string
+          internal_note?: string | null
           name?: string
+          nip?: string | null
+          onboarding_completed?: boolean
+          phone?: string | null
+          purge_at?: string | null
           slug?: string
           status?: string
           updated_at?: string
@@ -611,11 +644,13 @@ export type Database = {
           created_at: string
           default_price: number
           deleted_at: string | null
+          deleted_by: string | null
           description: string | null
           id: string
           items: Json
           name: string
           organization_id: string | null
+          purge_at: string | null
           updated_at: string
           user_id: string
         }
@@ -623,11 +658,13 @@ export type Database = {
           created_at?: string
           default_price?: number
           deleted_at?: string | null
+          deleted_by?: string | null
           description?: string | null
           id?: string
           items?: Json
           name: string
           organization_id?: string | null
+          purge_at?: string | null
           updated_at?: string
           user_id: string
         }
@@ -635,11 +672,13 @@ export type Database = {
           created_at?: string
           default_price?: number
           deleted_at?: string | null
+          deleted_by?: string | null
           description?: string | null
           id?: string
           items?: Json
           name?: string
           organization_id?: string | null
+          purge_at?: string | null
           updated_at?: string
           user_id?: string
         }
@@ -696,10 +735,12 @@ export type Database = {
           client_id: string | null
           created_at: string
           deleted_at: string | null
+          deleted_by: string | null
           ean: string | null
           id: string
           name: string
           organization_id: string | null
+          purge_at: string | null
           subcategory: string | null
           updated_at: string
           user_id: string
@@ -710,10 +751,12 @@ export type Database = {
           client_id?: string | null
           created_at?: string
           deleted_at?: string | null
+          deleted_by?: string | null
           ean?: string | null
           id?: string
           name: string
           organization_id?: string | null
+          purge_at?: string | null
           subcategory?: string | null
           updated_at?: string
           user_id: string
@@ -724,10 +767,12 @@ export type Database = {
           client_id?: string | null
           created_at?: string
           deleted_at?: string | null
+          deleted_by?: string | null
           ean?: string | null
           id?: string
           name?: string
           organization_id?: string | null
+          purge_at?: string | null
           subcategory?: string | null
           updated_at?: string
           user_id?: string
@@ -752,6 +797,8 @@ export type Database = {
       profiles: {
         Row: {
           created_at: string
+          deleted_at: string | null
+          deleted_by: string | null
           display_name: string | null
           first_name: string | null
           id: string
@@ -759,12 +806,15 @@ export type Database = {
           last_name: string | null
           onboarding_completed: boolean
           organization_id: string | null
+          purge_at: string | null
           status: string
           updated_at: string
           user_id: string
         }
         Insert: {
           created_at?: string
+          deleted_at?: string | null
+          deleted_by?: string | null
           display_name?: string | null
           first_name?: string | null
           id?: string
@@ -772,12 +822,15 @@ export type Database = {
           last_name?: string | null
           onboarding_completed?: boolean
           organization_id?: string | null
+          purge_at?: string | null
           status?: string
           updated_at?: string
           user_id: string
         }
         Update: {
           created_at?: string
+          deleted_at?: string | null
+          deleted_by?: string | null
           display_name?: string | null
           first_name?: string | null
           id?: string
@@ -785,6 +838,7 @@ export type Database = {
           last_name?: string | null
           onboarding_completed?: boolean
           organization_id?: string | null
+          purge_at?: string | null
           status?: string
           updated_at?: string
           user_id?: string
@@ -837,6 +891,42 @@ export type Database = {
           },
         ]
       }
+      trash_registry: {
+        Row: {
+          deleted_at: string
+          deleted_by: string
+          id: string
+          organization_id: string | null
+          purge_at: string
+          record_id: string
+          record_name: string
+          record_type: string
+          restored_at: string | null
+        }
+        Insert: {
+          deleted_at?: string
+          deleted_by: string
+          id?: string
+          organization_id?: string | null
+          purge_at?: string
+          record_id: string
+          record_name: string
+          record_type: string
+          restored_at?: string | null
+        }
+        Update: {
+          deleted_at?: string
+          deleted_by?: string
+          id?: string
+          organization_id?: string | null
+          purge_at?: string
+          record_id?: string
+          record_name?: string
+          record_type?: string
+          restored_at?: string | null
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           id: string
@@ -878,6 +968,7 @@ export type Database = {
         Returns: boolean
       }
       is_super_admin: { Args: { _user_id: string }; Returns: boolean }
+      purge_expired_trash: { Args: never; Returns: undefined }
     }
     Enums: {
       app_role:
