@@ -71,6 +71,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     if (!error) {
       await updateAal();
+      // Log login event
+      try {
+        const { data: { user: u } } = await supabase.auth.getUser();
+        if (u) {
+          await supabase.from('system_logs').insert({
+            event_type: 'login',
+            description: `Użytkownik ${email} zalogował się`,
+            user_id: u.id,
+          } as any);
+        }
+      } catch {}
     }
     return { error };
   };
@@ -85,6 +96,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const signOut = async () => {
+    // Log logout event before signing out
+    try {
+      const { data: { user: u } } = await supabase.auth.getUser();
+      if (u) {
+        await supabase.from('system_logs').insert({
+          event_type: 'logout',
+          description: `Użytkownik wylogował się`,
+          user_id: u.id,
+        } as any);
+      }
+    } catch {}
     await supabase.auth.signOut();
   };
 

@@ -1,10 +1,10 @@
-import { useGlobalProfiles } from '@/hooks/useSuperAdmin';
+import { useGlobalProfiles, useOrganizations } from '@/hooks/useSuperAdmin';
 import { useUserRoles } from '@/hooks/useData';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Trash2, Eye } from 'lucide-react';
+import { Trash2, Eye, ShieldBan, ShieldCheck } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/context/AuthContext';
 import { useOrganization } from '@/context/OrganizationContext';
@@ -18,6 +18,7 @@ import {
 export const GlobalUsersView = () => {
   const { data: profiles = [], isLoading } = useGlobalProfiles();
   const { data: roles = [] } = useUserRoles();
+  const { data: orgs = [] } = useOrganizations();
   const { user } = useAuth();
   const { impersonateUser } = useOrganization();
   const qc = useQueryClient();
@@ -30,11 +31,27 @@ export const GlobalUsersView = () => {
     return r?.role || 'user';
   };
 
+  const getOrgName = (orgId: string | null) => {
+    if (!orgId) return '—';
+    const org = orgs.find(o => o.id === orgId);
+    return org?.name || '—';
+  };
+
   const statusVariant = (s: string) => {
     if (s === 'approved' || s === 'active') return 'default' as const;
     if (s === 'pending' || s === 'invited') return 'secondary' as const;
     if (s === 'blocked') return 'destructive' as const;
     return 'outline' as const;
+  };
+
+  const updateStatus = async (profile: any, newStatus: string) => {
+    try {
+      await supabase.from('profiles').update({ status: newStatus } as any).eq('user_id', profile.user_id);
+      toast({ title: 'Zaktualizowano', description: `Status użytkownika zmieniony na: ${newStatus}` });
+      qc.invalidateQueries({ queryKey: ['global_profiles'] });
+    } catch (err: any) {
+      toast({ title: 'Błąd', description: err.message, variant: 'destructive' });
+    }
   };
 
   const softDeleteUser = async (profile: any) => {
@@ -43,21 +60,16 @@ export const GlobalUsersView = () => {
       const purgeAt = new Date(Date.now() + 180 * 24 * 60 * 60 * 1000).toISOString();
 
       await supabase.from('profiles').update({
-        deleted_at: now,
-        deleted_by: user!.id,
-        purge_at: purgeAt,
-        status: 'deleted',
+        deleted_at: now, deleted_by: user!.id, purge_at: purgeAt, status: 'deleted',
       } as any).eq('user_id', profile.user_id);
 
       await supabase.from('trash_registry').insert({
-        record_type: 'user',
-        record_id: profile.user_id,
+        record_type: 'user', record_id: profile.user_id,
         record_name: profile.display_name || profile.first_name || 'Nieznany',
-        deleted_by: user!.id,
-        organization_id: profile.organization_id,
+        deleted_by: user!.id, organization_id: profile.organization_id,
       } as any);
 
-      toast({ title: 'Przeniesiono do kosza', description: `Użytkownik został przeniesiony do kosza.` });
+      toast({ title: 'Przeniesiono do kosza' });
       qc.invalidateQueries({ queryKey: ['global_profiles'] });
     } catch (err: any) {
       toast({ title: 'Błąd', description: err.message, variant: 'destructive' });
@@ -87,6 +99,7 @@ export const GlobalUsersView = () => {
                   <TableHead>Nazwa</TableHead>
                   <TableHead>Imię</TableHead>
                   <TableHead>Nazwisko</TableHead>
+                  <TableHead>Firma</TableHead>
                   <TableHead>Rola</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Dołączył</TableHead>
@@ -99,12 +112,9 @@ export const GlobalUsersView = () => {
                     <TableCell className="font-medium">{p.display_name || '—'}</TableCell>
                     <TableCell>{p.first_name || '—'}</TableCell>
                     <TableCell>{p.last_name || '—'}</TableCell>
-                    <TableCell>
-                      <Badge variant="outline">{getRole(p.user_id)}</Badge>
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant={statusVariant(p.status)}>{p.status}</Badge>
-                    </TableCell>
+                    <TableCell className="text-sm">{getOrgName(p.organization_id)}</TableCell>
+                    <TableCell><Badge variant="outline">{getRole(p.user_id)}</Badge></TableCell>
+                    <TableCell><Badge variant={statusVariant(p.status)}>{p.status}</Badge></TableCell>
                     <TableCell className="text-sm text-muted-foreground">
                       {new Date(p.created_at).toLocaleDateString('pl-PL')}
                     </TableCell>
@@ -112,9 +122,18 @@ export const GlobalUsersView = () => {
                       <div className="flex items-center justify-end gap-1">
                         {getRole(p.user_id) !== 'super_admin' && (
                           <>
-                            <Button variant="ghost" size="sm" onClick={() => impersonateUser(p.user_id, p.display_name || p.first_name || 'Użytkownik')} className="h-8 w-8 p-0">
+                            <Button variant="ghost" size="sm" onClick={() => impersonateUser(p.user_id, p.display_name || p.first_name || 'Użytkownik')} className="h-8 w-8 p-0" title="Podejrzyj">
                               <Eye className="h-4 w-4" />
                             </Button>
+                            {p.status === 'blocked' ? (
+                              <Button variant="ghost" size="sm" onClick={() => updateStatus(p, 'active')} className="h-8 w-8 p-0 text-green-600" title="Aktywuj">
+                                <ShieldCheck className="h-4 w-4" />
+                              </Button>
+                            ) : (
+                              <Button variant="ghost" size="sm" onClick={() => updateStatus(p, 'blocked')} className="h-8 w-8 p-0 text-amber-600" title="Zablokuj">
+                                <ShieldBan className="h-4 w-4" />
+                              </Button>
+                            )}
                             <AlertDialog>
                               <AlertDialogTrigger asChild>
                                 <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-destructive hover:text-destructive">
