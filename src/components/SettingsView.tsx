@@ -41,6 +41,13 @@ export const SettingsView = forwardRef<HTMLDivElement>((_, ref) => {
   const [editCTName, setEditCTName] = useState('');
   const [editCTLabel, setEditCTLabel] = useState('');
 
+  // Demo email settings (admin only)
+  const { data: demoEmail } = useAppSetting('demo_notification_email');
+  const updateSetting = useUpdateAppSetting();
+  const { data: demoRequests = [] } = useDemoRequests();
+  const markRead = useMarkDemoRead();
+  const [editDemoEmail, setEditDemoEmail] = useState('');
+  const [editingDemoEmail, setEditingDemoEmail] = useState(false);
   const handleCreateCT = async () => {
     if (!newCTName.trim() || !newCTLabel.trim()) { toast.error('Podaj nazwę i etykietę'); return; }
     try {
@@ -177,6 +184,105 @@ export const SettingsView = forwardRef<HTMLDivElement>((_, ref) => {
       </Card>
 
       <BackupSection />
+
+      {/* Demo form settings - admin only */}
+      {isAdmin && (
+        <>
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-base">
+                <Settings2 className="h-4 w-4" /> Formularz demo
+              </CardTitle>
+              <CardDescription>Konfiguruj adres e-mail na który trafiają zgłoszenia demo z landing page</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex items-center gap-3">
+                <Mail className="h-4 w-4 text-muted-foreground" />
+                <div className="flex-1">
+                  <p className="text-sm font-medium mb-1">E-mail powiadomień demo</p>
+                  {editingDemoEmail ? (
+                    <div className="flex gap-2">
+                      <Input
+                        type="email"
+                        value={editDemoEmail}
+                        onChange={e => setEditDemoEmail(e.target.value)}
+                        onKeyDown={e => {
+                          if (e.key === 'Enter') {
+                            updateSetting.mutate({ key: 'demo_notification_email', value: editDemoEmail }, {
+                              onSuccess: () => { setEditingDemoEmail(false); toast.success('Email zaktualizowany'); },
+                              onError: (err: any) => toast.error(err.message),
+                            });
+                          }
+                        }}
+                        className="h-8 text-sm max-w-xs"
+                      />
+                      <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => {
+                        updateSetting.mutate({ key: 'demo_notification_email', value: editDemoEmail }, {
+                          onSuccess: () => { setEditingDemoEmail(false); toast.success('Email zaktualizowany'); },
+                          onError: (err: any) => toast.error(err.message),
+                        });
+                      }}>
+                        <Check className="h-3 w-3" />
+                      </Button>
+                      <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => setEditingDemoEmail(false)}>
+                        <X className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-2">
+                      <p className="text-sm text-muted-foreground">{demoEmail ?? 'admin@coreplan.pl'}</p>
+                      <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => {
+                        setEditDemoEmail(demoEmail ?? 'admin@coreplan.pl');
+                        setEditingDemoEmail(true);
+                      }}>
+                        <Pencil className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-base">
+                <Building2 className="h-4 w-4" /> Zgłoszenia demo
+                {demoRequests.filter(d => !d.is_read).length > 0 && (
+                  <Badge variant="default" className="ml-2">{demoRequests.filter(d => !d.is_read).length} nowe</Badge>
+                )}
+              </CardTitle>
+              <CardDescription>Ostatnie zgłoszenia z formularza na stronie głównej</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {demoRequests.length === 0 ? (
+                <p className="text-sm text-muted-foreground italic">Brak zgłoszeń demo.</p>
+              ) : (
+                <div className="space-y-2 max-h-80 overflow-y-auto">
+                  {demoRequests.map(req => (
+                    <div key={req.id} className={`flex items-center justify-between py-2 px-3 rounded-lg border ${req.is_read ? 'border-border' : 'border-primary/30 bg-primary/5'}`}>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-medium truncate">{req.name}</span>
+                          {req.company && <span className="text-xs text-muted-foreground">• {req.company}</span>}
+                          {!req.is_read && <Badge variant="secondary" className="text-xs">Nowe</Badge>}
+                        </div>
+                        <a href={`mailto:${req.email}`} className="text-xs text-primary hover:underline">{req.email}</a>
+                        <p className="text-xs text-muted-foreground">{format(new Date(req.created_at), 'dd.MM.yyyy HH:mm')}</p>
+                      </div>
+                      {!req.is_read && (
+                        <Button size="icon" variant="ghost" className="h-7 w-7 shrink-0" onClick={() => markRead.mutate(req.id)} title="Oznacz jako przeczytane">
+                          <Eye className="h-3 w-3" />
+                        </Button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </>
+      )}
 
       <Card>
         <CardHeader>
