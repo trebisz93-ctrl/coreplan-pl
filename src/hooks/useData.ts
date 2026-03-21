@@ -52,7 +52,7 @@ export interface DbProfile {
 export interface DbUserRole {
   id: string;
   user_id: string;
-  role: 'admin' | 'manager' | 'user' | 'viewer';
+  role: 'super_admin' | 'org_admin' | 'admin' | 'manager' | 'user' | 'viewer';
 }
 
 // ── Clients ──
@@ -273,7 +273,7 @@ export const useMyRole = () => {
       const { data, error } = await supabase
         .from('user_roles').select('role').eq('user_id', user!.id);
       if (error) throw error;
-      return data?.[0]?.role as 'admin' | 'manager' | 'user' | 'viewer' | undefined;
+      return data?.[0]?.role as 'super_admin' | 'org_admin' | 'admin' | 'manager' | 'user' | 'viewer' | undefined;
     },
     enabled: !!user,
   });
