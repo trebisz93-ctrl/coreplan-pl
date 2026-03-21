@@ -7,6 +7,7 @@ import { HeroMockup } from '@/components/landing/HeroMockup';
 import { useState, useRef, useEffect } from 'react';
 import { toast } from 'sonner';
 import { motion, useInView } from 'framer-motion';
+import { supabase } from '@/integrations/supabase/client';
 
 const features = [
   {
@@ -73,16 +74,42 @@ const LandingPage = () => {
   const [demoEmail, setDemoEmail] = useState('');
   const [demoCompany, setDemoCompany] = useState('');
 
-  const handleDemoSubmit = (e: React.FormEvent) => {
+  const [demoLoading, setDemoLoading] = useState(false);
+
+  const handleDemoSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!demoName || !demoEmail) {
       toast.error('Podaj imię i email');
       return;
     }
-    toast.success('Dziękujemy! Odezwiemy się w ciągu 24h.');
-    setDemoName('');
-    setDemoEmail('');
-    setDemoCompany('');
+    setDemoLoading(true);
+    try {
+      // Save to database
+      const { error: dbError } = await supabase.from('demo_requests').insert({
+        name: demoName,
+        email: demoEmail,
+        company: demoCompany || null,
+      });
+      if (dbError) throw dbError;
+
+      // Send notification email
+      const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
+      await fetch(`https://${projectId}.supabase.co/functions/v1/send-demo-notification`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: demoName, email: demoEmail, company: demoCompany || null }),
+      });
+
+      toast.success('Dziękujemy! Odezwiemy się w ciągu 24h.');
+      setDemoName('');
+      setDemoEmail('');
+      setDemoCompany('');
+    } catch (err: any) {
+      console.error('Demo submit error:', err);
+      toast.error('Coś poszło nie tak. Spróbuj ponownie.');
+    } finally {
+      setDemoLoading(false);
+    }
   };
 
   return (
@@ -304,9 +331,9 @@ const LandingPage = () => {
                     onChange={(e) => setDemoEmail(e.target.value)}
                     className="h-11 flex-1"
                   />
-                  <Button type="submit" size="lg" className="bg-gradient-to-r from-copper-light to-copper-dark text-primary-foreground hover:opacity-90 transition-opacity h-11 px-8">
+                  <Button type="submit" size="lg" disabled={demoLoading} className="bg-gradient-to-r from-copper-light to-copper-dark text-primary-foreground hover:opacity-90 transition-opacity h-11 px-8">
                     <Mail className="mr-2 h-4 w-4" />
-                    Umów demo
+                    {demoLoading ? 'Wysyłanie...' : 'Umów demo'}
                   </Button>
                 </div>
                 <p className="text-xs text-muted-foreground mt-3">
