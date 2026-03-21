@@ -1,16 +1,21 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useOrganizations } from '@/hooks/useSuperAdmin';
+import { useOrganizations, type OrgSummary } from '@/hooks/useSuperAdmin';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Plus, Building2, Trash2, ExternalLink } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import { Plus, Building2, Trash2, ExternalLink, Pencil } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useQueryClient } from '@tanstack/react-query';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/context/AuthContext';
 import { useOrganization } from '@/context/OrganizationContext';
 import { CreateOrganizationWizard } from './CreateOrganizationWizard';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
@@ -19,6 +24,7 @@ import {
 export const OrganizationsView = () => {
   const { data: orgs = [], isLoading } = useOrganizations();
   const [wizardOpen, setWizardOpen] = useState(false);
+  const [editOrg, setEditOrg] = useState<OrgSummary | null>(null);
   const qc = useQueryClient();
   const { toast } = useToast();
   const { user } = useAuth();
@@ -26,6 +32,51 @@ export const OrganizationsView = () => {
   const navigate = useNavigate();
 
   const activeOrgs = orgs.filter(o => !o.deleted_at);
+
+  // Edit form state
+  const [editName, setEditName] = useState('');
+  const [editEmail, setEditEmail] = useState('');
+  const [editPhone, setEditPhone] = useState('');
+  const [editNip, setEditNip] = useState('');
+  const [editAddress, setEditAddress] = useState('');
+  const [editNote, setEditNote] = useState('');
+  const [editStatus, setEditStatus] = useState('');
+  const [editLoading, setEditLoading] = useState(false);
+
+  const openEdit = (org: OrgSummary) => {
+    setEditOrg(org);
+    setEditName(org.name);
+    setEditEmail(org.email || '');
+    setEditPhone(org.phone || '');
+    setEditNip(org.nip || '');
+    setEditAddress(org.address || '');
+    setEditNote(org.internal_note || '');
+    setEditStatus(org.status);
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editOrg) return;
+    setEditLoading(true);
+    try {
+      const { error } = await supabase.from('organizations').update({
+        name: editName.trim(),
+        email: editEmail || null,
+        phone: editPhone || null,
+        nip: editNip || null,
+        address: editAddress || null,
+        internal_note: editNote || null,
+        status: editStatus,
+      } as any).eq('id', editOrg.id);
+      if (error) throw error;
+      toast({ title: 'Zapisano', description: 'Dane firmy zostały zaktualizowane.' });
+      setEditOrg(null);
+      qc.invalidateQueries({ queryKey: ['organizations'] });
+    } catch (err: any) {
+      toast({ title: 'Błąd', description: err.message, variant: 'destructive' });
+    } finally {
+      setEditLoading(false);
+    }
+  };
 
   const toggleStatus = async (orgId: string, currentStatus: string) => {
     const newStatus = currentStatus === 'active' ? 'suspended' : 'active';
@@ -46,33 +97,20 @@ export const OrganizationsView = () => {
       const purgeAt = new Date(Date.now() + 180 * 24 * 60 * 60 * 1000).toISOString();
 
       await supabase.from('organizations').update({
-        deleted_at: now,
-        deleted_by: user!.id,
-        purge_at: purgeAt,
-        status: 'deleted',
+        deleted_at: now, deleted_by: user!.id, purge_at: purgeAt, status: 'deleted',
       } as any).eq('id', org.id);
 
       await supabase.from('trash_registry').insert({
-        record_type: 'organization',
-        record_id: org.id,
-        record_name: org.name,
-        deleted_by: user!.id,
-        organization_id: org.id,
+        record_type: 'organization', record_id: org.id, record_name: org.name,
+        deleted_by: user!.id, organization_id: org.id,
       } as any);
 
-      // Soft-delete org members' profiles
       const { data: members } = await supabase
-        .from('organization_members')
-        .select('user_id')
-        .eq('organization_id', org.id);
-
-      if (members && members.length > 0) {
+        .from('organization_members').select('user_id').eq('organization_id', org.id);
+      if (members?.length) {
         for (const m of members) {
           await supabase.from('profiles').update({
-            deleted_at: now,
-            deleted_by: user!.id,
-            purge_at: purgeAt,
-            status: 'deleted',
+            deleted_at: now, deleted_by: user!.id, purge_at: purgeAt, status: 'deleted',
           } as any).eq('user_id', m.user_id);
         }
       }
@@ -84,10 +122,7 @@ export const OrganizationsView = () => {
     }
   };
 
-  const handleEnterOrg = (org: any) => {
-    switchToOrg(org);
-    navigate('/app');
-  };
+  const handleEnterOrg = (org: any) => { switchToOrg(org); navigate('/app'); };
 
   const statusColor = (s: string) => {
     if (s === 'active') return 'default';
@@ -117,6 +152,39 @@ export const OrganizationsView = () => {
 
       <CreateOrganizationWizard open={wizardOpen} onOpenChange={setWizardOpen} />
 
+      {/* Edit dialog */}
+      <Dialog open={!!editOrg} onOpenChange={v => { if (!v) setEditOrg(null); }}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader><DialogTitle>Edytuj firmę</DialogTitle></DialogHeader>
+          <div className="space-y-3">
+            <div><Label>Nazwa *</Label><Input value={editName} onChange={e => setEditName(e.target.value)} /></div>
+            <div className="grid grid-cols-2 gap-3">
+              <div><Label>E-mail</Label><Input value={editEmail} onChange={e => setEditEmail(e.target.value)} /></div>
+              <div><Label>Telefon</Label><Input value={editPhone} onChange={e => setEditPhone(e.target.value)} /></div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div><Label>NIP</Label><Input value={editNip} onChange={e => setEditNip(e.target.value)} /></div>
+              <div><Label>Adres</Label><Input value={editAddress} onChange={e => setEditAddress(e.target.value)} /></div>
+            </div>
+            <div>
+              <Label>Status</Label>
+              <Select value={editStatus} onValueChange={setEditStatus}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="active">Aktywna</SelectItem>
+                  <SelectItem value="configuring">W konfiguracji</SelectItem>
+                  <SelectItem value="suspended">Zawieszona</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div><Label>Notatka wewnętrzna</Label><Textarea value={editNote} onChange={e => setEditNote(e.target.value)} rows={2} /></div>
+            <Button onClick={handleSaveEdit} disabled={editLoading || !editName.trim()} className="w-full">
+              {editLoading ? 'Zapisywanie...' : 'Zapisz zmiany'}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       {isLoading ? (
         <div className="flex justify-center py-12">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
@@ -134,6 +202,7 @@ export const OrganizationsView = () => {
               </CardHeader>
               <CardContent>
                 <p className="text-xs text-muted-foreground mb-1">Slug: {org.slug}</p>
+                {org.email && <p className="text-xs text-muted-foreground mb-1">{org.email}</p>}
                 <p className="text-xs text-muted-foreground mb-3">
                   Utworzono: {new Date(org.created_at).toLocaleDateString('pl-PL')}
                 </p>
@@ -141,11 +210,10 @@ export const OrganizationsView = () => {
                   <Button variant="outline" size="sm" onClick={() => handleEnterOrg(org)} className="gap-1">
                     <ExternalLink className="h-3 w-3" /> Wejdź
                   </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => toggleStatus(org.id, org.status)}
-                  >
+                  <Button variant="outline" size="sm" onClick={() => openEdit(org)} className="gap-1">
+                    <Pencil className="h-3 w-3" /> Edytuj
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={() => toggleStatus(org.id, org.status)}>
                     {org.status === 'active' ? 'Zawieś' : 'Aktywuj'}
                   </Button>
                   <AlertDialog>
@@ -159,7 +227,6 @@ export const OrganizationsView = () => {
                         <AlertDialogTitle>Usuń firmę</AlertDialogTitle>
                         <AlertDialogDescription>
                           Firma „{org.name}" zostanie przeniesiona do kosza na 180 dni.
-                          Jej użytkownicy zostaną dezaktywowani. Możesz ją przywrócić z kosza.
                         </AlertDialogDescription>
                       </AlertDialogHeader>
                       <AlertDialogFooter>
