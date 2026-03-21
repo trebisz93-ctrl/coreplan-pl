@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Navigate, Link } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
+import { useIsSuperAdminRole } from '@/hooks/useRole';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -105,7 +106,9 @@ const Auth = () => {
     );
   }
 
-  if (user && !needsMfa) return <Navigate to="/app" replace />;
+  const isSuperAdmin = useIsSuperAdminRole();
+
+  if (user && !needsMfa) return <Navigate to={isSuperAdmin ? "/admin" : "/app"} replace />;
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
