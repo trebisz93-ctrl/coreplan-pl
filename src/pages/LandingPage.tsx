@@ -7,6 +7,7 @@ import { HeroMockup } from '@/components/landing/HeroMockup';
 import { useState, useRef, useEffect } from 'react';
 import { toast } from 'sonner';
 import { motion, useInView } from 'framer-motion';
+import { supabase } from '@/integrations/supabase/client';
 
 const features = [
   {
@@ -73,16 +74,42 @@ const LandingPage = () => {
   const [demoEmail, setDemoEmail] = useState('');
   const [demoCompany, setDemoCompany] = useState('');
 
-  const handleDemoSubmit = (e: React.FormEvent) => {
+  const [demoLoading, setDemoLoading] = useState(false);
+
+  const handleDemoSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!demoName || !demoEmail) {
       toast.error('Podaj imię i email');
       return;
     }
-    toast.success('Dziękujemy! Odezwiemy się w ciągu 24h.');
-    setDemoName('');
-    setDemoEmail('');
-    setDemoCompany('');
+    setDemoLoading(true);
+    try {
+      // Save to database
+      const { error: dbError } = await supabase.from('demo_requests').insert({
+        name: demoName,
+        email: demoEmail,
+        company: demoCompany || null,
+      });
+      if (dbError) throw dbError;
+
+      // Send notification email
+      const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
+      await fetch(`https://${projectId}.supabase.co/functions/v1/send-demo-notification`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: demoName, email: demoEmail, company: demoCompany || null }),
+      });
+
+      toast.success('Dziękujemy! Odezwiemy się w ciągu 24h.');
+      setDemoName('');
+      setDemoEmail('');
+      setDemoCompany('');
+    } catch (err: any) {
+      console.error('Demo submit error:', err);
+      toast.error('Coś poszło nie tak. Spróbuj ponownie.');
+    } finally {
+      setDemoLoading(false);
+    }
   };
 
   return (
