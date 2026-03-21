@@ -1,12 +1,19 @@
 import { useOrganization } from '@/context/OrganizationContext';
+import { useNavigate } from 'react-router-dom';
 import { Building2, Eye, X, Globe } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
 export const AdminContextBar = () => {
   const { viewMode, currentOrg, impersonatedUserName, switchToGlobal, stopImpersonation } = useOrganization();
+  const navigate = useNavigate();
 
   if (viewMode === 'global') return null;
+
+  const handleSwitchToGlobal = () => {
+    switchToGlobal();
+    navigate('/admin');
+  };
 
   const isImpersonating = viewMode === 'impersonate';
 
@@ -37,7 +44,7 @@ export const AdminContextBar = () => {
             <X className="h-3 w-3" /> Zakończ podgląd
           </Button>
         )}
-        <Button variant="ghost" size="sm" onClick={switchToGlobal} className="h-7 gap-1 text-xs">
+        <Button variant="ghost" size="sm" onClick={handleSwitchToGlobal} className="h-7 gap-1 text-xs">
           <Globe className="h-3 w-3" /> Widok globalny
         </Button>
       </div>
