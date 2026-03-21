@@ -1,7 +1,8 @@
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard, Building2, Users, ScrollText, Database,
-  Settings, LogOut, Shield, Trash2, Globe, ChevronDown, Activity, BarChart3
+  Settings, LogOut, Shield, Trash2, Globe, ChevronDown, Activity, BarChart3,
+  ShoppingCart, Key, Plug
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/context/AuthContext';
@@ -20,12 +21,15 @@ const navItems = [
   { label: 'Dashboard', icon: LayoutDashboard, path: '/admin' },
   { label: 'Firmy', icon: Building2, path: '/admin/organizations' },
   { label: 'Użytkownicy', icon: Users, path: '/admin/users' },
+  { label: 'Klienci globalni', icon: ShoppingCart, path: '/admin/clients' },
   { label: 'Aktywność', icon: Activity, path: '/admin/activity' },
   { label: 'Logi systemowe', icon: ScrollText, path: '/admin/logs' },
   { label: 'Backupy', icon: Database, path: '/admin/backups' },
   { label: 'Raporty', icon: BarChart3, path: '/admin/reports' },
   { label: 'Kosz', icon: Trash2, path: '/admin/trash' },
+  { label: 'Role i uprawnienia', icon: Key, path: '/admin/roles' },
   { label: 'Bezpieczeństwo', icon: Shield, path: '/admin/security' },
+  { label: 'Integracje', icon: Plug, path: '/admin/integrations' },
   { label: 'Ustawienia', icon: Settings, path: '/admin/settings' },
 ];
 
@@ -92,13 +96,6 @@ export const SuperAdminLayout = () => {
           })}
         </nav>
         <div className="p-4 border-t border-sidebar-border space-y-2">
-          <Link
-            to="/app"
-            className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground transition-colors"
-          >
-            <Building2 className="h-4 w-4" />
-            Panel firmowy
-          </Link>
           <button
             onClick={() => signOut()}
             className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium w-full text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground transition-colors"
