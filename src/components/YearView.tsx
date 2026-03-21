@@ -1,4 +1,5 @@
 import { useMemo, useState, useCallback, useRef } from 'react';
+import { OrgOnboarding } from '@/components/OrgOnboarding';
 import { useApp } from '@/context/AppContext';
 import { useCanEdit } from '@/hooks/useRole';
 import { useProducts, DbProduct, usePackages, DbPackage } from '@/hooks/useData';
@@ -428,6 +429,7 @@ export const YearView = () => {
 
   return (
     <div className="space-y-4">
+      <OrgOnboarding />
       {/* ── Controls ── */}
       <div className="flex items-center gap-3 flex-wrap">
         <div className="flex gap-1">
