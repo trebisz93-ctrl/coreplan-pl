@@ -70,6 +70,7 @@ const MfaScreen = ({ factorId, challengeId, setChallengeId, refreshAal }: {
 
 const Auth = () => {
   const { user, loading, signIn, signUp, resetPassword, currentAal, nextAal, refreshAal } = useAuth();
+  const isSuperAdmin = useIsSuperAdminRole();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -105,8 +106,6 @@ const Auth = () => {
       </div>
     );
   }
-
-  const isSuperAdmin = useIsSuperAdminRole();
 
   if (user && !needsMfa) return <Navigate to={isSuperAdmin ? "/admin" : "/app"} replace />;
 
