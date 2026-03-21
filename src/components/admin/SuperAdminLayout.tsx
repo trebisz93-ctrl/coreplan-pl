@@ -92,13 +92,6 @@ export const SuperAdminLayout = () => {
           })}
         </nav>
         <div className="p-4 border-t border-sidebar-border space-y-2">
-          <Link
-            to="/app"
-            className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground transition-colors"
-          >
-            <Building2 className="h-4 w-4" />
-            Panel firmowy
-          </Link>
           <button
             onClick={() => signOut()}
             className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium w-full text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground transition-colors"
