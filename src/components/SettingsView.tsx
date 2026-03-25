@@ -95,7 +95,7 @@ export const SettingsView = forwardRef<HTMLDivElement>((_, ref) => {
             <Shield className="h-4 w-4 text-muted-foreground" />
             <div>
               <p className="text-sm font-medium">Rola</p>
-              <Badge variant={isAdmin ? 'default' : 'secondary'}>{roleLabels[myRole || 'user'] || myRole}</Badge>
+              <Badge variant={isAdmin ? 'default' : 'secondary'}>{isAdmin ? 'Administrator' : 'Użytkownik'}</Badge>
             </div>
           </div>
         </CardContent>
