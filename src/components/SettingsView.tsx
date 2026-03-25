@@ -1,6 +1,6 @@
 import { useState, forwardRef } from 'react';
 import { useAuth } from '@/context/AuthContext';
-import { useMyRole } from '@/hooks/useData';
+import { useIsAdmin } from '@/hooks/useRole';
 import { useCampaignTypes, useCreateCampaignType, useUpdateCampaignType, useDeleteCampaignType } from '@/hooks/useCampaignTypes';
 import { useAppSetting, useUpdateAppSetting, useDemoRequests, useMarkDemoRead } from '@/hooks/useAppSettings';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -26,8 +26,7 @@ const roleLabels: Record<string, string> = {
 
 export const SettingsView = forwardRef<HTMLDivElement>((_, ref) => {
   const { user } = useAuth();
-  const { data: myRole } = useMyRole();
-  const isAdmin = myRole === 'admin';
+  const isAdmin = useIsAdmin();
 
   // Campaign types
   const { data: campaignTypes = [] } = useCampaignTypes();
@@ -96,7 +95,7 @@ export const SettingsView = forwardRef<HTMLDivElement>((_, ref) => {
             <Shield className="h-4 w-4 text-muted-foreground" />
             <div>
               <p className="text-sm font-medium">Rola</p>
-              <Badge variant={isAdmin ? 'default' : 'secondary'}>{roleLabels[myRole || 'user'] || myRole}</Badge>
+              <Badge variant={isAdmin ? 'default' : 'secondary'}>{isAdmin ? 'Administrator' : 'Użytkownik'}</Badge>
             </div>
           </div>
         </CardContent>

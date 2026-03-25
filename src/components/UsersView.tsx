@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
-import { useProfiles, useUserRoles, useSetUserRole, useClients } from '@/hooks/useData';
+import { useOrganization } from '@/context/OrganizationContext';
+import { useProfiles, useClients } from '@/hooks/useData';
+import { useOrgMembers, useSetOrgRole } from '@/hooks/useOrgMembers';
 import { usePendingProfiles, useApproveUser } from '@/hooks/useProfileStatus';
 import { useClientAssignments, useSetClientAssignments } from '@/hooks/useClientAssignments';
 import { useIsAdmin } from '@/hooks/useRole';
@@ -11,13 +13,13 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
-import { User, CheckCircle, XCircle, Clock, Building2, Search, UserX, Shield } from 'lucide-react';
+import { User, CheckCircle, XCircle, Clock, Building2, Search, UserX, Shield, Plus } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { useQueryClient } from '@tanstack/react-query';
 
 const roleLabels: Record<string, string> = {
-  admin: 'Administrator',
+  org_admin: 'Admin firmy',
   manager: 'Manager',
   user: 'Użytkownik',
   viewer: 'Viewer',
@@ -32,13 +34,14 @@ const jobRoleLabels: Record<string, string> = {
 
 export const UsersView = () => {
   const { user } = useAuth();
+  const { orgId, isSuperAdmin } = useOrganization();
   const isAdmin = useIsAdmin();
   const { data: profiles = [] } = useProfiles();
-  const { data: roles = [] } = useUserRoles();
+  const { data: orgMembers = [] } = useOrgMembers();
   const { data: clients = [] } = useClients();
   const { data: pendingProfiles = [] } = usePendingProfiles();
   const { data: allAssignments = [] } = useClientAssignments();
-  const setUserRole = useSetUserRole();
+  const setOrgRole = useSetOrgRole();
   const approveUser = useApproveUser();
   const setClientAssignments = useSetClientAssignments();
   const qc = useQueryClient();
@@ -50,6 +53,15 @@ export const UsersView = () => {
   const [editingAssignments, setEditingAssignments] = useState<string | null>(null);
   const [tempAssignments, setTempAssignments] = useState<string[]>([]);
 
+  // New user creation
+  const [showCreateDialog, setShowCreateDialog] = useState(false);
+  const [newEmail, setNewEmail] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [newFirstName, setNewFirstName] = useState('');
+  const [newLastName, setNewLastName] = useState('');
+  const [newOrgRole, setNewOrgRole] = useState('user');
+  const [creating, setCreating] = useState(false);
+
   if (!isAdmin) {
     return (
       <div className="p-12 text-center text-muted-foreground">
@@ -59,11 +71,20 @@ export const UsersView = () => {
     );
   }
 
-  const getUserRole = (userId: string) => roles.find(r => r.user_id === userId)?.role ?? 'user';
+  // Build a map of org_role per user from organization_members
+  const getOrgRole = (userId: string) => {
+    const member = orgMembers.find(m => m.user_id === userId);
+    return member?.org_role || 'user';
+  };
+
   const getUserAssignments = (userId: string) => allAssignments.filter(a => a.user_id === userId);
 
-  const activeProfiles = profiles.filter((p: any) => p.status === 'active');
-  const deactivatedProfiles = profiles.filter((p: any) => p.status === 'deactivated');
+  // Only show profiles that are members of this org
+  const orgMemberUserIds = new Set(orgMembers.map(m => m.user_id));
+  const orgProfiles = profiles.filter((p: any) => orgMemberUserIds.has(p.user_id));
+
+  const activeProfiles = orgProfiles.filter((p: any) => p.status === 'active');
+  const deactivatedProfiles = orgProfiles.filter((p: any) => p.status === 'deactivated');
 
   const filteredActive = activeProfiles.filter((p: any) => {
     if (!searchQuery) return true;
@@ -76,21 +97,32 @@ export const UsersView = () => {
 
   const handleRoleChange = async (userId: string, role: string) => {
     try {
-      await setUserRole.mutateAsync({ userId, role: role as any });
+      await setOrgRole.mutateAsync({ userId, orgRole: role });
       toast.success('Rola zaktualizowana');
     } catch (e: any) { toast.error('Błąd: ' + e.message); }
   };
 
   const handleApprove = async () => {
-    if (!approvalDialog) return;
+    if (!approvalDialog || !orgId) return;
     try {
-      await setUserRole.mutateAsync({ userId: approvalDialog.userId, role: approvalRole as any });
+      // Add to organization_members with selected role
+      await supabase.from('organization_members').insert({
+        organization_id: orgId,
+        user_id: approvalDialog.userId,
+        org_role: approvalRole,
+      } as any);
+
       if (approvalClients.length > 0) {
         await setClientAssignments.mutateAsync({ userId: approvalDialog.userId, clientIds: approvalClients });
       }
       await approveUser.mutateAsync({ userId: approvalDialog.userId, status: 'active' });
+
+      // Update profile organization_id
+      await supabase.from('profiles').update({ organization_id: orgId } as any).eq('user_id', approvalDialog.userId);
+
       toast.success('Użytkownik zatwierdzony');
       setApprovalDialog(null);
+      qc.invalidateQueries({ queryKey: ['org_members'] });
     } catch (e: any) { toast.error('Błąd: ' + e.message); }
   };
 
@@ -132,11 +164,59 @@ export const UsersView = () => {
     } catch (e: any) { toast.error('Błąd: ' + e.message); }
   };
 
+  const handleCreateUser = async () => {
+    if (!newEmail || !newPassword || !orgId) return;
+    setCreating(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('create-org-member', {
+        body: {
+          email: newEmail,
+          password: newPassword,
+          first_name: newFirstName,
+          last_name: newLastName,
+          organization_id: orgId,
+          org_role: newOrgRole,
+        },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+
+      toast.success('Użytkownik utworzony');
+      setShowCreateDialog(false);
+      setNewEmail('');
+      setNewPassword('');
+      setNewFirstName('');
+      setNewLastName('');
+      setNewOrgRole('user');
+      qc.invalidateQueries({ queryKey: ['profiles'] });
+      qc.invalidateQueries({ queryKey: ['org_members'] });
+    } catch (e: any) {
+      toast.error('Błąd: ' + e.message);
+    } finally {
+      setCreating(false);
+    }
+  };
+
+  // Available roles for org_admin to assign (cannot assign org_admin unless super_admin)
+  const availableRoles = isSuperAdmin
+    ? [
+        { value: 'org_admin', label: 'Admin firmy' },
+        { value: 'manager', label: 'Manager' },
+        { value: 'user', label: 'Użytkownik' },
+        { value: 'viewer', label: 'Viewer' },
+      ]
+    : [
+        { value: 'manager', label: 'Manager' },
+        { value: 'user', label: 'Użytkownik' },
+        { value: 'viewer', label: 'Viewer' },
+      ];
+
   const renderUserRow = (profile: any, showDeactivate = true) => {
-    const role = getUserRole(profile.user_id);
+    const role = getOrgRole(profile.user_id);
     const isSelf = profile.user_id === user?.id;
     const assignments = getUserAssignments(profile.user_id);
     const isEditing = editingAssignments === profile.user_id;
+    const canChangeRole = !isSelf && (isSuperAdmin || role !== 'org_admin');
 
     return (
       <div key={profile.id} className="py-4 border-b border-border last:border-0 space-y-2">
@@ -157,26 +237,28 @@ export const UsersView = () => {
               <div className="flex items-center gap-2 text-xs text-muted-foreground">
                 {profile.job_role && <span>{jobRoleLabels[profile.job_role] || profile.job_role}</span>}
                 <span>•</span>
-                <span>{profile.display_name || profile.user_id.slice(0, 8)}</span>
+                <span>{roleLabels[role] || role}</span>
               </div>
             </div>
           </div>
           <div className="flex items-center gap-2 shrink-0">
-            <Select
-              value={role}
-              onValueChange={v => handleRoleChange(profile.user_id, v)}
-              disabled={isSelf}
-            >
-              <SelectTrigger className="w-40 h-8 text-sm">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="admin">Administrator</SelectItem>
-                <SelectItem value="manager">Manager</SelectItem>
-                <SelectItem value="user">Użytkownik</SelectItem>
-                <SelectItem value="viewer">Viewer</SelectItem>
-              </SelectContent>
-            </Select>
+            {canChangeRole ? (
+              <Select
+                value={role}
+                onValueChange={v => handleRoleChange(profile.user_id, v)}
+              >
+                <SelectTrigger className="w-40 h-8 text-sm">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {availableRoles.map(r => (
+                    <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            ) : (
+              <Badge variant="secondary" className="text-xs">{roleLabels[role] || role}</Badge>
+            )}
             {showDeactivate && !isSelf && (
               <Button size="sm" variant="ghost" onClick={() => handleDeactivate(profile.user_id)} className="text-destructive hover:text-destructive">
                 <UserX className="h-4 w-4" />
@@ -185,7 +267,7 @@ export const UsersView = () => {
           </div>
         </div>
 
-        {role !== 'admin' && (
+        {role !== 'org_admin' && (
           <div className="pl-12">
             <div className="flex items-center gap-2 mb-1">
               <Building2 className="h-3 w-3 text-muted-foreground" />
@@ -246,14 +328,19 @@ export const UsersView = () => {
     <div className="space-y-6 max-w-4xl">
       <div className="flex items-center justify-between gap-4">
         <h2 className="text-xl font-bold">Użytkownicy</h2>
-        <div className="relative">
-          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Szukaj użytkowników..."
-            value={searchQuery}
-            onChange={e => setSearchQuery(e.target.value)}
-            className="pl-9 w-64"
-          />
+        <div className="flex items-center gap-3">
+          <div className="relative">
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Szukaj użytkowników..."
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+              className="pl-9 w-64"
+            />
+          </div>
+          <Button onClick={() => setShowCreateDialog(true)} className="gap-1">
+            <Plus className="h-4 w-4" /> Dodaj użytkownika
+          </Button>
         </div>
       </div>
 
@@ -309,7 +396,7 @@ export const UsersView = () => {
             Aktywni użytkownicy
             <Badge variant="secondary">{filteredActive.length}</Badge>
           </CardTitle>
-          <CardDescription>Zarządzaj rolami, przypisaniami klientów i dostępem</CardDescription>
+          <CardDescription>Zarządzaj rolami w kontekście Twojej firmy, przypisaniami klientów i dostępem</CardDescription>
         </CardHeader>
         <CardContent>
           {filteredActive.length === 0 ? (
@@ -357,7 +444,7 @@ export const UsersView = () => {
           </DialogHeader>
           <div className="space-y-4">
             <div>
-              <label className="text-sm font-medium">Rola</label>
+              <label className="text-sm font-medium">Rola w firmie</label>
               <Select value={approvalRole} onValueChange={v => setApprovalRole(v as any)}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
@@ -389,6 +476,52 @@ export const UsersView = () => {
             <Button variant="outline" onClick={() => setApprovalDialog(null)}>Anuluj</Button>
             <Button onClick={handleApprove} disabled={approveUser.isPending}>
               {approveUser.isPending ? 'Zatwierdzanie...' : 'Zatwierdź i aktywuj'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Create user dialog */}
+      <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Dodaj nowego użytkownika</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-sm font-medium">Imię</label>
+                <Input value={newFirstName} onChange={e => setNewFirstName(e.target.value)} placeholder="Jan" />
+              </div>
+              <div>
+                <label className="text-sm font-medium">Nazwisko</label>
+                <Input value={newLastName} onChange={e => setNewLastName(e.target.value)} placeholder="Kowalski" />
+              </div>
+            </div>
+            <div>
+              <label className="text-sm font-medium">Email</label>
+              <Input type="email" value={newEmail} onChange={e => setNewEmail(e.target.value)} placeholder="jan@firma.pl" />
+            </div>
+            <div>
+              <label className="text-sm font-medium">Hasło</label>
+              <Input type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)} placeholder="Min. 8 znaków" />
+            </div>
+            <div>
+              <label className="text-sm font-medium">Rola w firmie</label>
+              <Select value={newOrgRole} onValueChange={setNewOrgRole}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {availableRoles.map(r => (
+                    <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowCreateDialog(false)}>Anuluj</Button>
+            <Button onClick={handleCreateUser} disabled={creating || !newEmail || !newPassword}>
+              {creating ? 'Tworzenie...' : 'Utwórz użytkownika'}
             </Button>
           </DialogFooter>
         </DialogContent>

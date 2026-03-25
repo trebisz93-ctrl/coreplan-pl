@@ -2,8 +2,7 @@ import React, { createContext, useContext, useState, useMemo, useCallback } from
 import { Activity, Channel, ActivityStatus } from '@/types/mediaplan';
 import { useClients, DbClient } from '@/hooks/useData';
 import { useActivities, useActivitiesMulti, dbToActivity } from '@/hooks/useActivities';
-import { useIsAdmin } from '@/hooks/useRole';
-import { useMyRole } from '@/hooks/useData';
+import { useIsAdmin, useMyOrgRole } from '@/hooks/useRole';
 import { useMyClientAssignments } from '@/hooks/useClientAssignments';
 
 interface ClientBudget {
@@ -55,8 +54,7 @@ export const useApp = () => {
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { data: dbClients = [], isLoading: clientsLoading } = useClients();
-  const { data: myRole } = useMyRole();
-  const isAdmin = myRole === 'admin';
+  const isAdmin = useIsAdmin();
   const { data: myAssignments = [] } = useMyClientAssignments();
 
   const [selectedClientId, setSelectedClientId] = useState('');

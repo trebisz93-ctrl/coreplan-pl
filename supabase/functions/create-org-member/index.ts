@@ -16,7 +16,7 @@ Deno.serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
     );
 
-    // Verify caller is super_admin
+    // Verify caller
     const authHeader = req.headers.get('Authorization');
     if (!authHeader) throw new Error('Brak autoryzacji');
 
@@ -24,18 +24,39 @@ Deno.serve(async (req) => {
     const { data: { user: caller } } = await supabaseAdmin.auth.getUser(token);
     if (!caller) throw new Error('Nieprawidłowy token');
 
-    const { data: roles } = await supabaseAdmin
+    const { email, password, first_name, last_name, organization_id, org_role } = await req.json();
+
+    if (!email || !password || !organization_id) {
+      throw new Error('Wymagane pola: email, password, organization_id');
+    }
+
+    // Check if caller is super_admin OR org_admin of the target organization
+    const { data: superRoles } = await supabaseAdmin
       .from('user_roles')
       .select('role')
       .eq('user_id', caller.id)
       .eq('role', 'super_admin');
 
-    if (!roles || roles.length === 0) throw new Error('Brak uprawnień');
+    const isSuperAdmin = (superRoles?.length ?? 0) > 0;
 
-    const { email, password, first_name, last_name, organization_id, org_role } = await req.json();
+    if (!isSuperAdmin) {
+      // Check if caller is org_admin of the target organization
+      const { data: membership } = await supabaseAdmin
+        .from('organization_members')
+        .select('org_role')
+        .eq('user_id', caller.id)
+        .eq('organization_id', organization_id)
+        .single();
 
-    if (!email || !password || !organization_id) {
-      throw new Error('Wymagane pola: email, password, organization_id');
+      if (!membership || membership.org_role !== 'org_admin') {
+        throw new Error('Brak uprawnień — musisz być administratorem tej firmy');
+      }
+    }
+
+    // Prevent org_admin from creating super_admin or org_admin
+    const targetRole = org_role || 'user';
+    if (!isSuperAdmin && (targetRole === 'super_admin' || targetRole === 'org_admin')) {
+      throw new Error('Tylko Super Admin może nadawać rolę administratora firmy');
     }
 
     // Create auth user
@@ -62,20 +83,19 @@ Deno.serve(async (req) => {
       .eq('user_id', userId);
 
     // Add to organization_members with org_role
-    const role = org_role || 'user';
     await supabaseAdmin.from('organization_members').insert({
       organization_id,
       user_id: userId,
-      org_role: role,
+      org_role: targetRole,
     });
 
     // Log action
     await supabaseAdmin.from('system_logs').insert({
       user_id: caller.id,
       event_type: 'user_created',
-      description: `Utworzono użytkownika ${email} dla organizacji ${organization_id}`,
+      description: `Utworzono użytkownika ${email} w organizacji`,
       organization_id,
-      metadata: { created_user_id: userId, role },
+      metadata: { created_user_id: userId, role: targetRole },
     });
 
     return new Response(JSON.stringify({ success: true, user_id: userId }), {

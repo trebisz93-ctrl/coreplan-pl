@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/context/AuthContext';
-import { useMyRole } from '@/hooks/useData';
+import { useIsAdmin } from '@/hooks/useRole';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -12,8 +12,7 @@ import { toast } from 'sonner';
 
 export const MfaSetup = () => {
   const { refreshAal } = useAuth();
-  const { data: myRole } = useMyRole();
-  const isAdmin = myRole === 'admin';
+  const isAdmin = useIsAdmin();
 
   const [factors, setFactors] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
