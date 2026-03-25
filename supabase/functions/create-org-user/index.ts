@@ -56,16 +56,13 @@ Deno.serve(async (req) => {
         last_name: last_name || null,
         display_name: `${first_name || ''} ${last_name || ''}`.trim() || email,
         organization_id,
-        status: 'approved',
+        status: 'active',
         onboarding_completed: true,
       })
       .eq('user_id', userId);
 
-    // Set org role
-    const role = org_role || 'org_admin';
-    await supabaseAdmin.from('user_roles').update({ role }).eq('user_id', userId);
-
-    // Add to organization_members
+    // Add to organization_members with org_role
+    const role = org_role || 'user';
     await supabaseAdmin.from('organization_members').insert({
       organization_id,
       user_id: userId,
