@@ -1,4 +1,5 @@
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
+import { MobileAdminNav } from '@/components/MobileAdminNav';
 import {
   LayoutDashboard, Building2, Users, ScrollText, Database,
   Settings, LogOut, Shield, Trash2, Globe, ChevronDown, Activity, BarChart3,
