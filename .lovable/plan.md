@@ -1,138 +1,82 @@
 
 
-# Analiza i Projekt Struktury Ról i Uprawnień
+# Responsywny Design (iOS/Android style) + Instalacja na Pulpit (PWA)
 
-## Część 1: Weryfikacja obecnego modelu
+## Zakres prac
 
-### Obecna architektura ról
+### 1. Responsywny layout mobilny (iOS/Android style)
 
-System używa **dwóch tabel** do zarządzania rolami:
-- `user_roles` — jedna globalna rola per użytkownik (`super_admin`, `org_admin`, `admin`, `manager`, `user`, `viewer`)
-- `organization_members` — przypisanie użytkownika do firmy z polem `org_role`
+**AppLayout.tsx** — na mobile sidebar zamienia się w dolny tab bar (bottom navigation jak w iOS/Android):
+- Desktop (>=768px): sidebar po lewej (jak teraz)
+- Mobile (<768px): sidebar ukryty, dolny pasek nawigacji z ikonami (Media plan, Dashboard, Klienci, Więcej)
 
-### Odpowiedzi na pytania weryfikacyjne
+**Nowy komponent: `MobileBottomNav.tsx`**
+- 5 głównych ikon w dolnym pasku (jak iOS tab bar)
+- Aktywna ikona podświetlona kolorem primary (miedź)
+- "Więcej" otwiera drawer/sheet z resztą opcji (Produkty, Pakiety, Raporty, Ustawienia, Wyloguj)
+- Zaokrąglone ikony, delikatne animacje, safe area padding na dole
 
-**1. Czy Super Admin nadaje uprawnienia Admina osobno dla każdej firmy?**
+**TopBar.tsx** — na mobile:
+- Uproszczony: logo po lewej, bell po prawej
+- Selektor klientów w collapsible dropdown pod top barem
 
-**NIE.** Rola w `user_roles` jest globalna — jeden wpis na użytkownika. Zmiana roli na `org_admin` w `RolesManagementView` ustawia ją globalnie, nie w kontekście konkretnej firmy. Pole `org_role` w `organization_members` istnieje, ale nie jest używane do kontroli dostępu w kodzie frontendowym.
+**SuperAdminLayout.tsx** — analogicznie:
+- Mobile: dolny tab bar z głównymi sekcjami admina
+- Drawer "Więcej" z resztą nawigacji
 
-**2. Czy Admin firmy X może zarządzać wyłącznie użytkownikami swojej firmy?**
+**Ogólne CSS zmiany:**
+- `main` padding zmniejszony na mobile (p-3 zamiast p-6)
+- Karty, tabele, formularze — responsywne z `overflow-x-auto`
+- Font-size bazowy dostosowany do mobile
 
-**NIE.** `useIsAdmin()` sprawdza globalną rolę (`admin || super_admin || org_admin`). `UsersView` używa `useProfiles()` i `useUserRoles()`, które pobierają dane na podstawie RLS — więc dane są ograniczone do firmy, ALE logika uprawnień nie sprawdza, czy użytkownik jest adminem **tej konkretnej** firmy. Użytkownik z rolą `org_admin` w firmie X, gdyby miał członkostwo w firmie Y, mógłby potencjalnie zarządzać użytkownikami firmy Y.
+### 2. Ikona aplikacji
 
-**3. Czy Admin firmy może tworzyć konta, nadawać/odbierać uprawnienia?**
+Propozycja: Wykorzystanie istniejącego logo CorePlan jako ikony — wygenerowanie zestawu ikon PWA (192x192, 512x512) z logo na tle w kolorze granatu (#1e293b) z miedzianym akcentem. Ikony zostaną utworzone jako pliki SVG/PNG w `public/`.
 
-- **Tworzyć konta**: NIE — tworzenie kont wymaga `supabase.auth.admin.createUser()`, co jest dostępne tylko w edge function `create-org-user`, zabezpieczonej wyłącznie dla `super_admin`.
-- **Nadawać/odbierać uprawnienia**: CZĘŚCIOWO — `UsersView` pozwala zmieniać role, ale zmienia globalną rolę w `user_roles`, nie rolę w kontekście firmy.
-- **Zarządzanie swoim obszarem**: CZĘŚCIOWO — RLS izoluje dane, ale brak walidacji "czy jestem adminem **tej** firmy".
+### 3. Instalacja na pulpit (PWA — bez service worker)
 
-### Zidentyfikowane luki i problemy
+Zgodnie z wytycznymi, prosty manifest.json **bez** vite-plugin-pwa i service workera:
 
-| # | Problem | Szczegóły |
-|---|---------|-----------|
-| 1 | **Rola globalna zamiast per-firma** | `user_roles.role` to jedna wartość globalna. Użytkownik nie może być adminem firmy X i zwykłym userem firmy Y |
-| 2 | **`org_role` nieużywany w logice** | `organization_members.org_role` istnieje, ale `useIsAdmin()`, `useCanEdit()` i cała logika UI czyta z `user_roles`, ignorując `org_role` |
-| 3 | **Admin nie tworzy kont** | Edge function `create-org-user` wymaga `super_admin` — org_admin nie ma tej możliwości |
-| 4 | **Brak walidacji kontekstu firmy** | `useIsAdmin()` nie sprawdza, czy użytkownik jest adminem w kontekście **aktualnie wybranej** firmy |
-| 5 | **`useSetUserRole` zmienia globalną rolę** | Zmiana roli w `UsersView` operuje na `user_roles`, nie `organization_members.org_role` |
+**`public/manifest.json`:**
+- `name`: "CorePlan"
+- `short_name`: "CorePlan"  
+- `display`: "standalone"
+- `background_color`: "#1e293b" (navy)
+- `theme_color`: "#C77745" (miedź)
+- `icons`: 192x192 + 512x512
+- `start_url`: "/"
 
----
+**`index.html`:**
+- Dodanie `<link rel="manifest" href="/manifest.json">`
+- Meta tagi: `apple-mobile-web-app-capable`, `apple-mobile-web-app-status-bar-style`, `theme-color`
+- Apple touch icon
 
-## Część 2: Nowa proponowana struktura
-
-### Model docelowy
-
-```text
-┌─────────────────────────────────────────────┐
-│               SUPER ADMIN                    │
-│  (rola globalna w user_roles)               │
-│  → widzi wszystko, zarządza firmami          │
-└──────────────┬──────────────────────────────┘
-               │ tworzy firmy, przypisuje adminów
-    ┌──────────┼──────────┐
-    ▼          ▼          ▼
-┌────────┐ ┌────────┐ ┌────────┐
-│Firma X │ │Firma Y │ │Firma Z │
-└───┬────┘ └───┬────┘ └───┬────┘
-    │          │          │
-    ▼          ▼          ▼
-┌────────┐ ┌────────┐ ┌────────┐
-│org_admin│ │org_admin│ │org_admin│  ← role per firma
-│manager  │ │user    │ │manager  │     (organization_members.org_role)
-│user     │ │viewer  │ │user     │
-│viewer   │ └────────┘ └────────┘
-└────────┘
-```
-
-### Zasady kluczowe
-
-1. **`user_roles`** — tylko dla `super_admin`. Zwykli użytkownicy NIE potrzebują wpisu tutaj.
-2. **`organization_members.org_role`** — jedyne źródło uprawnień w kontekście firmy (`org_admin`, `manager`, `user`, `viewer`).
-3. **Jeden użytkownik, wiele firm** — użytkownik może mieć różne role w różnych firmach.
-4. **Admin firmy = `org_role === 'org_admin'` w `organization_members`** — NIE globalna rola.
-
-### Nowa logika uprawnień
-
-```text
-Pytanie: "Czy użytkownik może X?"
-
-1. Czy jest super_admin? (user_roles) → TAK → może wszystko
-2. Jaka jest jego org_role w AKTUALNEJ firmie? (organization_members)
-   → org_admin: zarządza użytkownikami, rolami, danymi firmy
-   → manager: edytuje dane biznesowe (aktywności, plany)
-   → user: edytuje przypisane dane
-   → viewer: tylko odczyt
-```
-
-### Zmiany w bazie danych
-
-Nie trzeba zmieniać schematu — `organization_members.org_role` już istnieje. Trzeba:
-- Przestać używać `user_roles` do czegokolwiek poza `super_admin`
-- Zbudować nową funkcję `get_org_role()` (już istnieje w DB!) i używać jej w kodzie
-
-### Zmiany w kodzie (zakres implementacji)
-
-**Krok 1: Nowe hooki uprawnień**
-- `useMyOrgRole()` — pobiera `org_role` z `organization_members` dla aktualnej firmy
-- Przepisać `useIsAdmin()` → sprawdza `super_admin` LUB `org_role === 'org_admin'` w kontekście aktualnej firmy
-- Przepisać `useCanEdit()` → sprawdza `org_role !== 'viewer'`
-
-**Krok 2: Admin firmy może zarządzać użytkownikami**
-- Nowa edge function `create-org-member` — dostępna dla `org_admin` danej firmy (nie tylko super_admin)
-- `UsersView` — zmiana roli operuje na `organization_members.org_role`, NIE na `user_roles`
-- Admin firmy widzi tylko użytkowników swojej firmy (już działa przez RLS)
-
-**Krok 3: Aktualizacja UI i walidacji**
-- `RolesManagementView` (Super Admin) — pokazuje role per firma, nie globalnie
-- `UsersView` (Org Admin) — zarządzanie rolami w kontekście firmy
-- `SettingsView`, `MfaSetup`, `AppContext` — zamiana `useMyRole()` na `useMyOrgRole()` gdzie potrzeba
+**Ikony PWA:**
+- `public/icon-192.png` i `public/icon-512.png` — logo CorePlan na granatowym tle
 
 ---
 
-## Część 3: Przykładowe scenariusze
+## Struktura plików
 
-**Scenariusz 1**: Super Admin tworzy firmę X
-→ `organizations.insert(...)` → Super Admin przypisuje użytkownika J jako `org_admin` w `organization_members`
-
-**Scenariusz 2**: Admin firmy X tworzy użytkownika
-→ Edge function `create-org-member` sprawdza: czy caller ma `org_role = 'org_admin'` w firmie X? → TAK → tworzy konto, dodaje do `organization_members` z wybraną rolą
-
-**Scenariusz 3**: Admin firmy X próbuje zarządzać firmą Y
-→ `organization_members` nie ma wpisu dla tego użytkownika w firmie Y → brak dostępu (RLS + walidacja w kodzie)
-
-**Scenariusz 4**: Użytkownik w dwóch firmach
-→ Jan: `org_admin` w firmie X, `viewer` w firmie Y → po przełączeniu kontekstu firmy zmienia się jego zakres uprawnień
+| Plik | Zmiana |
+|------|--------|
+| `src/components/MobileBottomNav.tsx` | NOWY — dolna nawigacja iOS-style |
+| `src/components/MobileAdminNav.tsx` | NOWY — dolna nawigacja dla Super Admina |
+| `src/components/AppLayout.tsx` | Dodanie MobileBottomNav, ukrycie sidebar na mobile |
+| `src/components/AppSidebar.tsx` | `hidden md:flex` — ukryty na mobile |
+| `src/components/TopBar.tsx` | Responsywny na mobile |
+| `src/components/admin/SuperAdminLayout.tsx` | Responsywny + mobile nav |
+| `src/index.css` | Drobne mobilne poprawki |
+| `public/manifest.json` | NOWY — PWA manifest |
+| `public/icon-192.png` | NOWY — ikona PWA |
+| `public/icon-512.png` | NOWY — ikona PWA |
+| `index.html` | Meta tagi PWA + manifest link |
 
 ---
 
-## Podsumowanie zmian
+## Efekt końcowy
 
-| Warstwa | Obecny stan | Docelowy stan |
-|---------|-------------|---------------|
-| Źródło uprawnień | `user_roles` (globalne) | `organization_members.org_role` (per firma) |
-| `user_roles` | Wszystkie role | Tylko `super_admin` |
-| `useIsAdmin()` | Sprawdza globalną rolę | Sprawdza `org_role` w aktualnej firmie |
-| Tworzenie kont | Tylko super_admin | super_admin + org_admin (w swojej firmie) |
-| Zmiana ról | Globalna zmiana w `user_roles` | Zmiana `org_role` w `organization_members` |
-| Wielofirmowość | Jedna rola dla wszystkich firm | Różna rola per firma |
+- Na telefonie: dolny tab bar jak natywna aplikacja iOS/Android
+- Na pulpicie: "Zainstaluj aplikację" z przeglądarki → działa jak desktop app
+- Ikona CorePlan na pulpicie/home screen z granatowym tłem i miedzianym logo
 
