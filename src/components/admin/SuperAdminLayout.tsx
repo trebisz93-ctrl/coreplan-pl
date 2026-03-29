@@ -1,4 +1,5 @@
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
+import { MobileAdminNav } from '@/components/MobileAdminNav';
 import {
   LayoutDashboard, Building2, Users, ScrollText, Database,
   Settings, LogOut, Shield, Trash2, Globe, ChevronDown, Activity, BarChart3,
@@ -41,7 +42,7 @@ export const SuperAdminLayout = () => {
 
   return (
     <div className="flex h-screen w-full overflow-hidden">
-      <aside className="w-64 shrink-0 bg-sidebar text-sidebar-foreground flex flex-col border-r border-sidebar-border">
+      <aside className="hidden md:flex w-64 shrink-0 bg-sidebar text-sidebar-foreground flex-col border-r border-sidebar-border">
         <div className="p-5 border-b border-sidebar-border">
           <div className="flex items-center gap-2">
             <img src={corePlanLogo} alt="CorePlan logo" className="h-10 object-contain" />
@@ -108,10 +109,11 @@ export const SuperAdminLayout = () => {
       </aside>
       <div className="flex flex-1 flex-col overflow-hidden">
         <AdminContextBar />
-        <main className="flex-1 overflow-auto p-6 bg-background">
+        <main className="flex-1 overflow-auto p-3 md:p-6 bg-background pb-20 md:pb-6">
           <Outlet />
         </main>
       </div>
+      <MobileAdminNav />
     </div>
   );
 };

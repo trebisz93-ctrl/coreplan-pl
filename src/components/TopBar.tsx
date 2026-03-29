@@ -47,12 +47,12 @@ export const TopBar = () => {
 
   return (
     <>
-      <div className="bg-card border-b border-border px-6 py-3">
-        <div className="flex items-center gap-4">
+      <div className="bg-card border-b border-border px-3 md:px-6 py-3">
+        <div className="flex items-center gap-2 md:gap-4">
           {/* Left: client selector */}
-          <div className="flex items-center gap-3 shrink-0">
+          <div className="flex items-center gap-2 md:gap-3 shrink-0 min-w-0 flex-1">
             {isAdmin && (
-              <div className="flex items-center gap-2">
+              <div className="hidden md:flex items-center gap-2">
                 <Switch
                   id="multi-mode"
                   checked={multiClientMode}
@@ -66,7 +66,7 @@ export const TopBar = () => {
 
             {!multiClientMode ? (
               <Select value={selectedClientId} onValueChange={setSelectedClientId}>
-                <SelectTrigger className="w-48">
+                <SelectTrigger className="w-36 md:w-48">
                   <SelectValue placeholder="Wybierz klienta" />
                 </SelectTrigger>
                 <SelectContent>
@@ -78,7 +78,8 @@ export const TopBar = () => {
                 <PopoverTrigger asChild>
                   <Button variant="outline" className="gap-2">
                     <Users className="h-4 w-4" />
-                    {selectedClientIds.length === 0 ? 'Wybierz klientów' : `${selectedClientIds.length} klient(ów)`}
+                    <span className="hidden md:inline">{selectedClientIds.length === 0 ? 'Wybierz klientów' : `${selectedClientIds.length} klient(ów)`}</span>
+                    <span className="md:hidden">{selectedClientIds.length || '0'}</span>
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-64 p-3" align="start">
@@ -99,7 +100,7 @@ export const TopBar = () => {
             )}
 
             {multiClientMode && selectedClientIds.length > 0 && (
-              <div className="flex gap-1 flex-wrap">
+              <div className="hidden md:flex gap-1 flex-wrap">
                 {selectedClientIds.map(cid => {
                   const client = clients.find(c => c.id === cid);
                   return client ? (
@@ -115,8 +116,8 @@ export const TopBar = () => {
             )}
           </div>
 
-          {/* Center: dynamic title */}
-          <div className="flex-1 text-center">
+          {/* Center: dynamic title — hidden on mobile */}
+          <div className="hidden md:block flex-1 text-center">
             <h1 className="text-lg font-semibold text-foreground">{currentTitle}</h1>
           </div>
 

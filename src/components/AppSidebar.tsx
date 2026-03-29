@@ -32,7 +32,7 @@ export const AppSidebar = () => {
 
   const navItems = [...baseNavItems, ...(isAdmin ? adminNavItems : []), ...bottomNavItems];
   return (
-    <aside className="w-60 shrink-0 bg-sidebar text-sidebar-foreground flex flex-col border-r border-sidebar-border">
+    <aside className="hidden md:flex w-60 shrink-0 bg-sidebar text-sidebar-foreground flex-col border-r border-sidebar-border">
       <div className="p-5 border-b border-sidebar-border">
         <div className="flex items-center">
           <img src={corePlanLogo} alt="CorePlan logo" className="h-10 object-contain" />
