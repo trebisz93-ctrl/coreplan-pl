@@ -46,16 +46,15 @@ export const AppSidebar = () => {
       <nav className="flex-1 p-3 space-y-1">
         {navItems.map(item => {
           const isActive = pathname === item.path || (item.path !== '/' && pathname.startsWith(item.path));
-          const isExactActive = pathname === item.path;
           return (
             <Link
               key={item.path}
               to={item.path}
               className={cn(
-                'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors',
-                (isActive || isExactActive)
-                  ? 'bg-sidebar-accent text-sidebar-accent-foreground'
-                  : 'text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground'
+                'flex items-center gap-3 px-3 py-2.5 rounded-btn text-sm font-medium transition-all duration-150',
+                isActive
+                  ? 'bg-sidebar-accent text-sidebar-accent-foreground border-l-[3px] border-primary -ml-[3px]'
+                  : 'text-sidebar-foreground/70 hover:bg-secondary hover:text-sidebar-foreground'
               )}
             >
               <item.icon className="h-4 w-4" />
@@ -68,7 +67,7 @@ export const AppSidebar = () => {
         {isSuperAdmin && (
           <Link
             to="/admin"
-            className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-primary hover:bg-sidebar-accent/50 transition-colors"
+            className="flex items-center gap-3 px-3 py-2.5 rounded-btn text-sm font-medium text-primary hover:bg-sidebar-accent transition-all duration-150"
           >
             <Shield className="h-4 w-4" />
             Panel Super Admina
@@ -76,12 +75,12 @@ export const AppSidebar = () => {
         )}
         <button
           onClick={() => signOut()}
-          className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium w-full text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground transition-colors"
+          className="flex items-center gap-3 px-3 py-2.5 rounded-btn text-sm font-medium w-full text-sidebar-foreground/70 hover:bg-secondary hover:text-sidebar-foreground transition-all duration-150"
         >
           <LogOut className="h-4 w-4" />
           Wyloguj
         </button>
-        <div className="text-xs text-sidebar-foreground/40">CorePlan v1.0</div>
+        <div className="text-xs text-muted-foreground/50">CorePlan v1.0</div>
       </div>
     </aside>
   );

@@ -32,7 +32,15 @@ export const MobileAdminNav = () => {
   const isMoreActive = moreItems.some(i => pathname.startsWith(i.path));
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 z-50 md:hidden bg-card border-t border-border safe-area-bottom">
+    <div className="fixed bottom-0 left-0 right-0 z-50 md:hidden border-t safe-area-bottom"
+      style={{
+        background: 'rgba(248,248,248,0.97)',
+        backdropFilter: 'blur(20px)',
+        WebkitBackdropFilter: 'blur(20px)',
+        borderTopColor: 'rgba(0,0,0,0.1)',
+        borderTopWidth: '0.5px',
+      }}
+    >
       <nav className="flex items-stretch justify-around h-14">
         {mainTabs.map(tab => {
           const active = tab.path === '/admin'
@@ -43,8 +51,8 @@ export const MobileAdminNav = () => {
               key={tab.path}
               to={tab.path}
               className={cn(
-                'flex flex-col items-center justify-center flex-1 gap-0.5 text-[10px] font-medium transition-colors',
-                active ? 'text-primary' : 'text-muted-foreground'
+                'flex flex-col items-center justify-center flex-1 gap-0.5 text-[10px] font-medium transition-colors min-h-[44px]',
+                active ? 'text-primary' : 'text-muted-foreground/50'
               )}
             >
               <tab.icon className={cn('h-5 w-5', active && 'stroke-[2.5]')} />
@@ -57,8 +65,8 @@ export const MobileAdminNav = () => {
           <SheetTrigger asChild>
             <button
               className={cn(
-                'flex flex-col items-center justify-center flex-1 gap-0.5 text-[10px] font-medium transition-colors',
-                isMoreActive ? 'text-primary' : 'text-muted-foreground'
+                'flex flex-col items-center justify-center flex-1 gap-0.5 text-[10px] font-medium transition-colors min-h-[44px]',
+                isMoreActive ? 'text-primary' : 'text-muted-foreground/50'
               )}
             >
               <MoreHorizontal className={cn('h-5 w-5', isMoreActive && 'stroke-[2.5]')} />
@@ -78,8 +86,8 @@ export const MobileAdminNav = () => {
                     to={item.path}
                     onClick={() => setOpen(false)}
                     className={cn(
-                      'flex flex-col items-center gap-2 p-3 rounded-xl transition-colors',
-                      active ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:bg-muted'
+                      'flex flex-col items-center gap-2 p-3 rounded-card transition-colors min-h-[44px]',
+                      active ? 'bg-brand-bg text-primary' : 'text-muted-foreground hover:bg-muted'
                     )}
                   >
                     <item.icon className="h-6 w-6" />
@@ -89,7 +97,7 @@ export const MobileAdminNav = () => {
               })}
               <button
                 onClick={() => { setOpen(false); signOut(); }}
-                className="flex flex-col items-center gap-2 p-3 rounded-xl text-muted-foreground hover:bg-muted"
+                className="flex flex-col items-center gap-2 p-3 rounded-card text-muted-foreground hover:bg-muted min-h-[44px]"
               >
                 <LogOut className="h-6 w-6" />
                 <span className="text-xs font-medium">Wyloguj</span>
