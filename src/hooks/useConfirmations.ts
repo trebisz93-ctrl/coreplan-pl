@@ -65,8 +65,9 @@ export const useUploadConfirmation = () => {
         .upload(path, file);
       if (uploadError) throw uploadError;
 
+      // Store the path reference — signed URLs generated on read
       const { data: urlData } = supabase.storage.from('confirmations').getPublicUrl(path);
-      const imageUrl = urlData.publicUrl;
+      const imageUrl = urlData.publicUrl; // Store full URL but resolve via signed URL on fetch
 
       const { data, error } = await supabase
         .from('confirmations')
