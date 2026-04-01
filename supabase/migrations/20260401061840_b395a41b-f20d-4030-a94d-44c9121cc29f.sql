@@ -1,0 +1,1 @@
+ALTER FUNCTION send_notification_email() SET search_path = public;
