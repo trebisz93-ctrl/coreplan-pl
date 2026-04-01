@@ -40,22 +40,60 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: corsHeaders });
     }
 
-    // Only admins can export
+    // Check role — allow admin, org_admin, or super_admin
     const { data: roleData } = await supabaseAdmin
       .from('user_roles')
       .select('role')
       .eq('user_id', user.id)
       .single();
 
-    if (roleData?.role !== 'admin') {
-      return new Response(JSON.stringify({ error: 'Only admins can export data' }), { status: 403, headers: corsHeaders });
+    const isSuperAdmin = roleData?.role === 'super_admin';
+
+    if (!['admin', 'super_admin'].includes(roleData?.role || '')) {
+      // Also check if org_admin
+      const { data: orgMember } = await supabaseAdmin
+        .from('organization_members')
+        .select('org_role, organization_id')
+        .eq('user_id', user.id)
+        .eq('org_role', 'org_admin')
+        .limit(1)
+        .single();
+
+      if (!orgMember) {
+        return new Response(JSON.stringify({ error: 'Only admins can export data' }), { status: 403, headers: corsHeaders });
+      }
     }
 
-    const tables = ['clients', 'products', 'activities', 'media_plans', 'packages', 'confirmations', 'campaign_types', 'product_clients'];
+    // Get user's organization IDs (super_admin gets all)
+    let orgIds: string[] = [];
+    if (!isSuperAdmin) {
+      const { data: memberships } = await supabaseAdmin
+        .from('organization_members')
+        .select('organization_id')
+        .eq('user_id', user.id);
+      orgIds = (memberships || []).map(m => m.organization_id);
+    }
+
+    // Tables with organization_id column
+    const orgScopedTables = ['activities', 'media_plans', 'packages', 'products', 'campaign_types'];
+    // Tables scoped via organization_clients
+    const clientScopedTables = ['clients'];
+    // Tables scoped via activity relationship
+    const activityScopedTables = ['confirmations'];
+    // Tables scoped via product relationship
+    const productScopedTables = ['product_clients'];
+
     const backup: Record<string, any[]> = {};
 
-    for (const table of tables) {
-      const { data, error } = await supabaseAdmin.from(table).select('*');
+    for (const table of orgScopedTables) {
+      let query = supabaseAdmin.from(table).select('*');
+      if (!isSuperAdmin && orgIds.length > 0) {
+        query = query.in('organization_id', orgIds);
+      } else if (!isSuperAdmin) {
+        backup[table] = [];
+        continue;
+      }
+      const { data, error } = await query;
       if (error) {
         console.error(`Error exporting ${table}:`, error.message);
         backup[table] = [];
@@ -64,15 +102,64 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Generate checksum of table data
+    // Clients — scoped via organization_clients join
+    if (!isSuperAdmin && orgIds.length > 0) {
+      const { data: orgClients } = await supabaseAdmin
+        .from('organization_clients')
+        .select('client_id')
+        .in('organization_id', orgIds);
+      const clientIds = (orgClients || []).map(oc => oc.client_id);
+      if (clientIds.length > 0) {
+        const { data } = await supabaseAdmin.from('clients').select('*').in('id', clientIds);
+        backup['clients'] = data || [];
+      } else {
+        backup['clients'] = [];
+      }
+    } else if (isSuperAdmin) {
+      const { data } = await supabaseAdmin.from('clients').select('*');
+      backup['clients'] = data || [];
+    } else {
+      backup['clients'] = [];
+    }
+
+    // Confirmations — scoped via activities
+    const activityIds = (backup['activities'] || []).map((a: any) => a.id);
+    if (activityIds.length > 0) {
+      const { data } = await supabaseAdmin.from('confirmations').select('*').in('activity_id', activityIds);
+      backup['confirmations'] = data || [];
+    } else {
+      backup['confirmations'] = [];
+    }
+
+    // Product clients — scoped via products
+    const productIds = (backup['products'] || []).map((p: any) => p.id);
+    if (productIds.length > 0) {
+      const { data } = await supabaseAdmin.from('product_clients').select('*').in('product_id', productIds);
+      backup['product_clients'] = data || [];
+    } else {
+      backup['product_clients'] = [];
+    }
+
+    // Generate checksum
     const tablesJson = JSON.stringify(backup);
     const checksum = await sha256(tablesJson);
+
+    // Log export in audit_log
+    await supabaseAdmin.from('audit_log').insert({
+      user_id: user.id,
+      action: 'EXPORT',
+      table_name: 'system',
+      record_id: null,
+      new_data: { type: 'data_export', org_ids: isSuperAdmin ? 'all' : orgIds },
+    });
 
     const exportData = {
       version: '1.0',
       exported_at: new Date().toISOString(),
       user_id: user.id,
       user_email: user.email,
+      scope: isSuperAdmin ? 'global' : 'organization',
+      organization_ids: isSuperAdmin ? 'all' : orgIds,
       checksum,
       tables: backup,
     };
@@ -95,7 +182,6 @@ Deno.serve(async (req) => {
         });
 
       if (uploadError) {
-        // Log failure
         await supabaseAdmin.from('backup_history').insert({
           file_path: filePath,
           checksum,
@@ -106,26 +192,9 @@ Deno.serve(async (req) => {
           user_id: user.id,
         });
 
-        // Notify admins about failure
-        const { data: admins } = await supabaseAdmin
-          .from('user_roles')
-          .select('user_id')
-          .eq('role', 'admin');
-
-        for (const admin of admins || []) {
-          await supabaseAdmin.from('notifications').insert({
-            user_id: admin.user_id,
-            type: 'warning',
-            category: 'system',
-            title: 'Błąd automatycznego backupu',
-            description: `Backup nie powiódł się: ${uploadError.message}`,
-          });
-        }
-
         return new Response(JSON.stringify({ error: uploadError.message }), { status: 500, headers: corsHeaders });
       }
 
-      // Log success
       await supabaseAdmin.from('backup_history').insert({
         file_path: filePath,
         checksum,
@@ -140,7 +209,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Manual download - also log it
+    // Manual download
     await supabaseAdmin.from('backup_history').insert({
       file_path: 'manual-download',
       checksum,
