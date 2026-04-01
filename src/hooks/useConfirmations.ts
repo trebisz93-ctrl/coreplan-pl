@@ -23,7 +23,31 @@ export const useConfirmations = (activityId?: string) => {
         .eq('activity_id', activityId!)
         .order('created_at');
       if (error) throw error;
-      return data as DbConfirmation[];
+      const confirmations = data as DbConfirmation[];
+
+      // Generate signed URLs for private bucket
+      const withSignedUrls = await Promise.all(
+        confirmations.map(async (conf) => {
+          // Extract storage path from URL if it's a full URL
+          let storagePath = conf.image_url;
+          const storagePrefix = '/storage/v1/object/public/confirmations/';
+          const idx = storagePath.indexOf(storagePrefix);
+          if (idx !== -1) {
+            storagePath = storagePath.substring(idx + storagePrefix.length);
+          }
+
+          const { data: signedData } = await supabase.storage
+            .from('confirmations')
+            .createSignedUrl(storagePath, 3600); // 1 hour
+
+          return {
+            ...conf,
+            image_url: signedData?.signedUrl || conf.image_url,
+          };
+        })
+      );
+
+      return withSignedUrls;
     },
     enabled: !!user && !!activityId,
   });
