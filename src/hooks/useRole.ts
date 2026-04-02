@@ -28,6 +28,7 @@ export const useMyOrgRole = () => {
       return (data?.org_role as 'org_admin' | 'manager' | 'user' | 'viewer') || 'user';
     },
     enabled: !!user,
+    staleTime: 5 * 60 * 1000,
   });
 };
 

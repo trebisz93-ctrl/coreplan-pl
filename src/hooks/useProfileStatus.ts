@@ -21,6 +21,7 @@ export const useMyProfileStatus = () => {
       return data?.status as string;
     },
     enabled: !!user,
+    staleTime: 5 * 60 * 1000,
   });
 };
 
@@ -38,6 +39,7 @@ export const useMyProfile = () => {
       return data as MyProfile & Record<string, any>;
     },
     enabled: !!user,
+    staleTime: 5 * 60 * 1000,
   });
 };
 

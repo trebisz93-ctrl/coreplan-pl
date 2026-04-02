@@ -63,39 +63,41 @@ const App = () => (
       <BrowserRouter>
         <AuthProvider>
           <OrganizationProvider>
-            <Routes>
-              <Route path="/" element={<LandingPage />} />
-              <Route path="/auth" element={<Auth />} />
-              <Route path="/reset-password" element={<ResetPassword />} />
-              {/* Super Admin routes */}
-              <Route element={<SuperAdminRoute><SuperAdminLayout /></SuperAdminRoute>}>
-                <Route path="/admin" element={<SuperAdminDashboard />} />
-                <Route path="/admin/organizations" element={<OrganizationsView />} />
-                <Route path="/admin/users" element={<GlobalUsersView />} />
-                <Route path="/admin/activity" element={<ActivityMonitoringView />} />
-                <Route path="/admin/logs" element={<SystemLogsView />} />
-                <Route path="/admin/trash" element={<TrashView />} />
-                <Route path="/admin/backups" element={<AdminBackupsView />} />
-                <Route path="/admin/reports" element={<AdminReportsView />} />
-                <Route path="/admin/clients" element={<GlobalClientsView />} />
-                <Route path="/admin/roles" element={<RolesManagementView />} />
-                <Route path="/admin/security" element={<SecurityView />} />
-                <Route path="/admin/integrations" element={<IntegrationsView />} />
-                <Route path="/admin/settings" element={<SettingsView />} />
-              </Route>
-              {/* Org-scoped routes */}
-              <Route element={<ProtectedRoute><AppProvider><AppLayout /></AppProvider></ProtectedRoute>}>
-                <Route path="/app" element={<YearView />} />
-                <Route path="/dashboard" element={<DashboardView />} />
-                <Route path="/clients" element={<ClientsView />} />
-                <Route path="/products" element={<ProductsView />} />
-                <Route path="/packages" element={<PackagesView />} />
-                <Route path="/reports" element={<ReportsView />} />
-                <Route path="/users" element={<UsersView />} />
-                <Route path="/settings" element={<SettingsView />} />
-              </Route>
-              <Route path="*" element={<NotFound />} />
-            </Routes>
+            <Suspense fallback={<LazyFallback />}>
+              <Routes>
+                <Route path="/" element={<LandingPage />} />
+                <Route path="/auth" element={<Auth />} />
+                <Route path="/reset-password" element={<ResetPassword />} />
+                {/* Super Admin routes */}
+                <Route element={<SuperAdminRoute><SuperAdminLayout /></SuperAdminRoute>}>
+                  <Route path="/admin" element={<SuperAdminDashboard />} />
+                  <Route path="/admin/organizations" element={<OrganizationsView />} />
+                  <Route path="/admin/users" element={<GlobalUsersView />} />
+                  <Route path="/admin/activity" element={<ActivityMonitoringView />} />
+                  <Route path="/admin/logs" element={<SystemLogsView />} />
+                  <Route path="/admin/trash" element={<TrashView />} />
+                  <Route path="/admin/backups" element={<AdminBackupsView />} />
+                  <Route path="/admin/reports" element={<AdminReportsView />} />
+                  <Route path="/admin/clients" element={<GlobalClientsView />} />
+                  <Route path="/admin/roles" element={<RolesManagementView />} />
+                  <Route path="/admin/security" element={<SecurityView />} />
+                  <Route path="/admin/integrations" element={<IntegrationsView />} />
+                  <Route path="/admin/settings" element={<SettingsView />} />
+                </Route>
+                {/* Org-scoped routes */}
+                <Route element={<ProtectedRoute><AppProvider><AppLayout /></AppProvider></ProtectedRoute>}>
+                  <Route path="/app" element={<YearView />} />
+                  <Route path="/dashboard" element={<DashboardView />} />
+                  <Route path="/clients" element={<ClientsView />} />
+                  <Route path="/products" element={<ProductsView />} />
+                  <Route path="/packages" element={<PackagesView />} />
+                  <Route path="/reports" element={<ReportsView />} />
+                  <Route path="/users" element={<UsersView />} />
+                  <Route path="/settings" element={<SettingsView />} />
+                </Route>
+                <Route path="*" element={<NotFound />} />
+              </Routes>
+            </Suspense>
           </OrganizationProvider>
         </AuthProvider>
       </BrowserRouter>
