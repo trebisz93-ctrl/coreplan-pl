@@ -1,3 +1,4 @@
+import { lazy, Suspense } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -9,33 +10,50 @@ import { OrganizationProvider } from "./context/OrganizationContext";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import { SuperAdminRoute } from "./components/SuperAdminRoute";
 import { AppLayout } from "./components/AppLayout";
-import { SuperAdminLayout } from "./components/admin/SuperAdminLayout";
-import { SuperAdminDashboard } from "./components/admin/SuperAdminDashboard";
-import { OrganizationsView } from "./components/admin/OrganizationsView";
-import { GlobalUsersView } from "./components/admin/GlobalUsersView";
-import { SystemLogsView } from "./components/admin/SystemLogsView";
-import { ActivityMonitoringView } from "./components/admin/ActivityMonitoringView";
-import { TrashView } from "./components/admin/TrashView";
-import { SecurityView } from "./components/admin/SecurityView";
-import { AdminBackupsView } from "./components/admin/AdminBackupsView";
-import { AdminReportsView } from "./components/admin/AdminReportsView";
-import { GlobalClientsView } from "./components/admin/GlobalClientsView";
-import { RolesManagementView } from "./components/admin/RolesManagementView";
-import { IntegrationsView } from "./components/admin/IntegrationsView";
-import { YearView } from "./components/YearView";
-import { DashboardView } from "./components/DashboardView";
-import { PackagesView } from "./components/PackagesView";
-import { ReportsView } from "./components/ReportsView";
-import { ClientsView } from "./components/ClientsView";
-import { ProductsView } from "./components/ProductsView";
-import { SettingsView } from "./components/SettingsView";
-import { UsersView } from "./components/UsersView";
-import Auth from "./pages/Auth";
-import ResetPassword from "./pages/ResetPassword";
-import LandingPage from "./pages/LandingPage";
-import NotFound from "./pages/NotFound";
 
-const queryClient = new QueryClient();
+// Lazy-loaded route components
+const SuperAdminLayout = lazy(() => import("./components/admin/SuperAdminLayout").then(m => ({ default: m.SuperAdminLayout })));
+const SuperAdminDashboard = lazy(() => import("./components/admin/SuperAdminDashboard").then(m => ({ default: m.SuperAdminDashboard })));
+const OrganizationsView = lazy(() => import("./components/admin/OrganizationsView").then(m => ({ default: m.OrganizationsView })));
+const GlobalUsersView = lazy(() => import("./components/admin/GlobalUsersView").then(m => ({ default: m.GlobalUsersView })));
+const SystemLogsView = lazy(() => import("./components/admin/SystemLogsView").then(m => ({ default: m.SystemLogsView })));
+const ActivityMonitoringView = lazy(() => import("./components/admin/ActivityMonitoringView").then(m => ({ default: m.ActivityMonitoringView })));
+const TrashView = lazy(() => import("./components/admin/TrashView").then(m => ({ default: m.TrashView })));
+const SecurityView = lazy(() => import("./components/admin/SecurityView").then(m => ({ default: m.SecurityView })));
+const AdminBackupsView = lazy(() => import("./components/admin/AdminBackupsView").then(m => ({ default: m.AdminBackupsView })));
+const AdminReportsView = lazy(() => import("./components/admin/AdminReportsView").then(m => ({ default: m.AdminReportsView })));
+const GlobalClientsView = lazy(() => import("./components/admin/GlobalClientsView").then(m => ({ default: m.GlobalClientsView })));
+const RolesManagementView = lazy(() => import("./components/admin/RolesManagementView").then(m => ({ default: m.RolesManagementView })));
+const IntegrationsView = lazy(() => import("./components/admin/IntegrationsView").then(m => ({ default: m.IntegrationsView })));
+const YearView = lazy(() => import("./components/YearView").then(m => ({ default: m.YearView })));
+const DashboardView = lazy(() => import("./components/DashboardView").then(m => ({ default: m.DashboardView })));
+const PackagesView = lazy(() => import("./components/PackagesView").then(m => ({ default: m.PackagesView })));
+const ReportsView = lazy(() => import("./components/ReportsView").then(m => ({ default: m.ReportsView })));
+const ClientsView = lazy(() => import("./components/ClientsView").then(m => ({ default: m.ClientsView })));
+const ProductsView = lazy(() => import("./components/ProductsView").then(m => ({ default: m.ProductsView })));
+const SettingsView = lazy(() => import("./components/SettingsView").then(m => ({ default: m.SettingsView })));
+const UsersView = lazy(() => import("./components/UsersView").then(m => ({ default: m.UsersView })));
+const Auth = lazy(() => import("./pages/Auth"));
+const ResetPassword = lazy(() => import("./pages/ResetPassword"));
+const LandingPage = lazy(() => import("./pages/LandingPage"));
+const NotFound = lazy(() => import("./pages/NotFound"));
+
+const LazyFallback = () => (
+  <div className="flex items-center justify-center min-h-screen bg-background">
+    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+  </div>
+);
+
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 2 * 60 * 1000,      // 2 min — data considered fresh
+      gcTime: 10 * 60 * 1000,         // 10 min garbage collection
+      refetchOnWindowFocus: false,     // don't refetch on tab switch
+      retry: 1,
+    },
+  },
+});
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
@@ -45,39 +63,41 @@ const App = () => (
       <BrowserRouter>
         <AuthProvider>
           <OrganizationProvider>
-            <Routes>
-              <Route path="/" element={<LandingPage />} />
-              <Route path="/auth" element={<Auth />} />
-              <Route path="/reset-password" element={<ResetPassword />} />
-              {/* Super Admin routes */}
-              <Route element={<SuperAdminRoute><SuperAdminLayout /></SuperAdminRoute>}>
-                <Route path="/admin" element={<SuperAdminDashboard />} />
-                <Route path="/admin/organizations" element={<OrganizationsView />} />
-                <Route path="/admin/users" element={<GlobalUsersView />} />
-                <Route path="/admin/activity" element={<ActivityMonitoringView />} />
-                <Route path="/admin/logs" element={<SystemLogsView />} />
-                <Route path="/admin/trash" element={<TrashView />} />
-                <Route path="/admin/backups" element={<AdminBackupsView />} />
-                <Route path="/admin/reports" element={<AdminReportsView />} />
-                <Route path="/admin/clients" element={<GlobalClientsView />} />
-                <Route path="/admin/roles" element={<RolesManagementView />} />
-                <Route path="/admin/security" element={<SecurityView />} />
-                <Route path="/admin/integrations" element={<IntegrationsView />} />
-                <Route path="/admin/settings" element={<SettingsView />} />
-              </Route>
-              {/* Org-scoped routes */}
-              <Route element={<ProtectedRoute><AppProvider><AppLayout /></AppProvider></ProtectedRoute>}>
-                <Route path="/app" element={<YearView />} />
-                <Route path="/dashboard" element={<DashboardView />} />
-                <Route path="/clients" element={<ClientsView />} />
-                <Route path="/products" element={<ProductsView />} />
-                <Route path="/packages" element={<PackagesView />} />
-                <Route path="/reports" element={<ReportsView />} />
-                <Route path="/users" element={<UsersView />} />
-                <Route path="/settings" element={<SettingsView />} />
-              </Route>
-              <Route path="*" element={<NotFound />} />
-            </Routes>
+            <Suspense fallback={<LazyFallback />}>
+              <Routes>
+                <Route path="/" element={<LandingPage />} />
+                <Route path="/auth" element={<Auth />} />
+                <Route path="/reset-password" element={<ResetPassword />} />
+                {/* Super Admin routes */}
+                <Route element={<SuperAdminRoute><SuperAdminLayout /></SuperAdminRoute>}>
+                  <Route path="/admin" element={<SuperAdminDashboard />} />
+                  <Route path="/admin/organizations" element={<OrganizationsView />} />
+                  <Route path="/admin/users" element={<GlobalUsersView />} />
+                  <Route path="/admin/activity" element={<ActivityMonitoringView />} />
+                  <Route path="/admin/logs" element={<SystemLogsView />} />
+                  <Route path="/admin/trash" element={<TrashView />} />
+                  <Route path="/admin/backups" element={<AdminBackupsView />} />
+                  <Route path="/admin/reports" element={<AdminReportsView />} />
+                  <Route path="/admin/clients" element={<GlobalClientsView />} />
+                  <Route path="/admin/roles" element={<RolesManagementView />} />
+                  <Route path="/admin/security" element={<SecurityView />} />
+                  <Route path="/admin/integrations" element={<IntegrationsView />} />
+                  <Route path="/admin/settings" element={<SettingsView />} />
+                </Route>
+                {/* Org-scoped routes */}
+                <Route element={<ProtectedRoute><AppProvider><AppLayout /></AppProvider></ProtectedRoute>}>
+                  <Route path="/app" element={<YearView />} />
+                  <Route path="/dashboard" element={<DashboardView />} />
+                  <Route path="/clients" element={<ClientsView />} />
+                  <Route path="/products" element={<ProductsView />} />
+                  <Route path="/packages" element={<PackagesView />} />
+                  <Route path="/reports" element={<ReportsView />} />
+                  <Route path="/users" element={<UsersView />} />
+                  <Route path="/settings" element={<SettingsView />} />
+                </Route>
+                <Route path="*" element={<NotFound />} />
+              </Routes>
+            </Suspense>
           </OrganizationProvider>
         </AuthProvider>
       </BrowserRouter>
