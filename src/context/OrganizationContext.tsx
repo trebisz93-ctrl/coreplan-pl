@@ -1,4 +1,5 @@
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './AuthContext';
 
@@ -39,65 +40,62 @@ export const useOrganization = () => {
 export const OrganizationProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user } = useAuth();
   const [currentOrg, setCurrentOrgState] = useState<Organization | null>(null);
-  const [organizations, setOrganizations] = useState<Organization[]>([]);
-  const [isSuperAdmin, setIsSuperAdmin] = useState(false);
-  const [loading, setLoading] = useState(true);
   const [viewMode, setViewMode] = useState<ViewMode>('global');
   const [impersonatedUserId, setImpersonatedUserId] = useState<string | null>(null);
   const [impersonatedUserName, setImpersonatedUserName] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (!user) {
-      setCurrentOrgState(null);
-      setOrganizations([]);
-      setIsSuperAdmin(false);
-      setLoading(false);
-      return;
-    }
+  // Single cached query for user roles — shared queryKey with useSuperAdmin hook
+  const { data: roles } = useQuery({
+    queryKey: ['user_roles', user?.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('user_roles')
+        .select('role')
+        .eq('user_id', user!.id);
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!user,
+    staleTime: 5 * 60 * 1000,
+  });
 
-    const init = async () => {
-      try {
-        const { data: roles } = await supabase
-          .from('user_roles')
-          .select('role')
-          .eq('user_id', user.id);
+  const isSuperAdmin = useMemo(() => roles?.some(r => r.role === 'super_admin') ?? false, [roles]);
 
-        const superAdmin = roles?.some(r => r.role === 'super_admin') ?? false;
-        setIsSuperAdmin(superAdmin);
-
-        if (superAdmin) {
-          const { data: orgs } = await supabase
-            .from('organizations')
-            .select('*')
-            .is('deleted_at', null)
-            .order('name');
-          setOrganizations((orgs as Organization[]) || []);
-        } else {
-          const { data: memberships } = await supabase
-            .from('organization_members')
-            .select('organization_id')
-            .eq('user_id', user.id);
-
-          if (memberships && memberships.length > 0) {
-            const orgIds = memberships.map(m => m.organization_id);
-            const { data: orgs } = await supabase
-              .from('organizations')
-              .select('*')
-              .in('id', orgIds)
-              .is('deleted_at', null);
-            setOrganizations((orgs as Organization[]) || []);
-          }
-        }
-      } catch (err) {
-        console.error('OrganizationContext init error:', err);
-      } finally {
-        setLoading(false);
+  // Fetch orgs — super admin gets all, regular user gets their memberships
+  const { data: organizations = [], isLoading: orgsLoading } = useQuery({
+    queryKey: isSuperAdmin ? ['organizations'] : ['my_organizations', user?.id],
+    queryFn: async () => {
+      if (isSuperAdmin) {
+        const { data, error } = await supabase
+          .from('organizations')
+          .select('*')
+          .is('deleted_at', null)
+          .order('name');
+        if (error) throw error;
+        return (data as Organization[]) || [];
+      } else {
+        const { data: memberships } = await supabase
+          .from('organization_members')
+          .select('organization_id')
+          .eq('user_id', user!.id);
+        if (!memberships?.length) return [];
+        const orgIds = memberships.map(m => m.organization_id);
+        const { data: orgs, error } = await supabase
+          .from('organizations')
+          .select('*')
+          .in('id', orgIds)
+          .is('deleted_at', null);
+        if (error) throw error;
+        return (orgs as Organization[]) || [];
       }
-    };
+    },
+    enabled: !!user && roles !== undefined,
+    staleTime: 2 * 60 * 1000,
+  });
 
-    init();
-  }, [user]);
+  const loading = !user ? false : (roles === undefined || orgsLoading);
 
+  // Auto-select org for non-super-admins
   useEffect(() => {
     if (!currentOrg && organizations.length > 0 && !isSuperAdmin) {
       const saved = localStorage.getItem('coreplan_org_id');
