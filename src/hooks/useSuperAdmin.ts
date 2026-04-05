@@ -5,17 +5,18 @@ import { useAuth } from '@/context/AuthContext';
 export const useIsSuperAdmin = () => {
   const { user } = useAuth();
   return useQuery({
-    queryKey: ['is_super_admin', user?.id],
+    queryKey: ['user_roles', user?.id],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('user_roles')
         .select('role')
-        .eq('user_id', user!.id)
-        .eq('role', 'super_admin');
+        .eq('user_id', user!.id);
       if (error) throw error;
-      return (data?.length ?? 0) > 0;
+      return data || [];
     },
     enabled: !!user,
+    staleTime: 5 * 60 * 1000,
+    select: (data) => data.some(r => r.role === 'super_admin'),
   });
 };
 
@@ -48,6 +49,7 @@ export const useOrganizations = () => {
       return data as OrgSummary[];
     },
     enabled: !!user,
+    staleTime: 2 * 60 * 1000,
   });
 };
 
