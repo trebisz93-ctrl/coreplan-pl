@@ -21,6 +21,7 @@ interface EmailChangeEmailProps {
   email: string
   newEmail: string
   confirmationUrl: string
+  orgName?: string
 }
 
 export const EmailChangeEmail = ({
@@ -28,10 +29,11 @@ export const EmailChangeEmail = ({
   email,
   newEmail,
   confirmationUrl,
+  orgName,
 }: EmailChangeEmailProps) => (
   <Html lang="pl" dir="ltr">
     <Head />
-    <Preview>Potwierdź zmianę adresu e-mail — CorePlan</Preview>
+    <Preview>Potwierdź zmianę adresu e-mail — CorePlan{orgName ? ` · ${orgName}` : ''}</Preview>
     <Body style={main}>
       <Container style={wrapper}>
         <Section style={header}>
@@ -48,7 +50,13 @@ export const EmailChangeEmail = ({
 
           <Text style={text}>
             Poprosiłeś o zmianę adresu e-mail powiązanego z Twoim kontem
-            w CorePlan.
+            w CorePlan
+            {orgName && (
+              <>
+                {' '}(organizacja: <strong style={{ color: '#D97A3A' }}>{orgName}</strong>)
+              </>
+            )}
+            .
           </Text>
 
           <Section style={changeBox}>

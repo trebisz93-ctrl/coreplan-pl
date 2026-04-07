@@ -217,6 +217,38 @@ async function handleWebhook(req: Request): Promise<Response> {
     )
   }
 
+  // Lookup organization name for the user (skip for signup — user has no org yet)
+  const supabaseLookup = createClient(
+    Deno.env.get('SUPABASE_URL')!,
+    Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+  )
+
+  let orgName: string | undefined
+  if (emailType !== 'signup') {
+    try {
+      const { data: userData } = await supabaseLookup.auth.admin.listUsers()
+      const authUser = userData?.users?.find((u: any) => u.email === payload.data.email)
+      if (authUser) {
+        const { data: membership } = await supabaseLookup
+          .from('organization_members')
+          .select('organization_id')
+          .eq('user_id', authUser.id)
+          .limit(1)
+          .single()
+        if (membership) {
+          const { data: org } = await supabaseLookup
+            .from('organizations')
+            .select('name')
+            .eq('id', membership.organization_id)
+            .single()
+          if (org) orgName = org.name
+        }
+      }
+    } catch (err) {
+      console.warn('Could not resolve org name', { error: err, run_id })
+    }
+  }
+
   // Build template props from payload.data (HookData structure)
   const templateProps = {
     siteName: SITE_NAME,
@@ -226,6 +258,7 @@ async function handleWebhook(req: Request): Promise<Response> {
     token: payload.data.token,
     email: payload.data.email,
     newEmail: payload.data.new_email,
+    orgName,
   }
 
   // Render React Email to HTML and plain text

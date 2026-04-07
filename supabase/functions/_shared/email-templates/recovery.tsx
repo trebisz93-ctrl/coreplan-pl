@@ -19,15 +19,17 @@ import {
 interface RecoveryEmailProps {
   siteName: string
   confirmationUrl: string
+  orgName?: string
 }
 
 export const RecoveryEmail = ({
   siteName,
   confirmationUrl,
+  orgName,
 }: RecoveryEmailProps) => (
   <Html lang="pl" dir="ltr">
     <Head />
-    <Preview>Resetuj hasło — CorePlan</Preview>
+    <Preview>Resetuj hasło — CorePlan{orgName ? ` · ${orgName}` : ''}</Preview>
     <Body style={main}>
       <Container style={wrapper}>
         <Section style={header}>
@@ -43,8 +45,13 @@ export const RecoveryEmail = ({
           <Heading style={h1}>Resetuj swoje hasło</Heading>
 
           <Text style={text}>
-            Otrzymaliśmy prośbę o zmianę hasła do Twojego konta w CorePlan.
-            Kliknij przycisk poniżej, aby ustawić nowe hasło.
+            Otrzymaliśmy prośbę o zmianę hasła do Twojego konta w CorePlan
+            {orgName && (
+              <>
+                {' '}(organizacja: <strong style={{ color: '#D97A3A' }}>{orgName}</strong>)
+              </>
+            )}
+            . Kliknij przycisk poniżej, aby ustawić nowe hasło.
           </Text>
 
           <Section style={buttonContainer}>
