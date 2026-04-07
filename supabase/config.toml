@@ -1,22 +1,19 @@
 project_id = "aswmmhxyqafqsvnnspqj"
 
-[functions.data-export]
-verify_jwt = false
-
-[functions.data-import]
-verify_jwt = false
-
-[functions.scheduled-backup]
-verify_jwt = false
-
-[functions.setup-super-admin]
-verify_jwt = false
-
-[functions.create-org-user]
-verify_jwt = false
-
-[functions.purge-trash]
-verify_jwt = false
-
-[functions.process-email-queue]
-verify_jwt = true
+[functions]
+  [functions.auth-email-hook]
+    verify_jwt = false
+  [functions.create-org-user]
+    verify_jwt = false
+  [functions.data-export]
+    verify_jwt = false
+  [functions.data-import]
+    verify_jwt = false
+  [functions.process-email-queue]
+    verify_jwt = true
+  [functions.purge-trash]
+    verify_jwt = false
+  [functions.scheduled-backup]
+    verify_jwt = false
+  [functions.setup-super-admin]
+    verify_jwt = false
