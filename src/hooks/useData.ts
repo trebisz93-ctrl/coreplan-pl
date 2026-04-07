@@ -230,15 +230,4 @@ export const useMyRole = () => {
   });
 };
 
-export const useSetUserRole = () => {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: async ({ userId, role }: { userId: string; role: 'admin' | 'manager' | 'user' | 'viewer' }) => {
-      const { error: delError } = await supabase.from('user_roles').delete().eq('user_id', userId);
-      if (delError) throw delError;
-      const { error } = await supabase.from('user_roles').insert({ user_id: userId, role } as any);
-      if (error) throw error;
-    },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['user_roles'] }),
-  });
-};
+// useSetUserRole removed — role changes are managed server-side only (super_admin via edge functions)
