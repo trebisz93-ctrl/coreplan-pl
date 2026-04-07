@@ -63,6 +63,20 @@ export const AdminBackupsView = () => {
     }
   };
 
+  const sendToHostinger = async () => {
+    setSendingToHostinger(true);
+    try {
+      const res = await supabase.functions.invoke('backup-to-hostinger');
+      if (res.error) throw res.error;
+      toast.success('Backup wysłany na Hostinger');
+      setTimeout(() => refetch(), 3000);
+    } catch (err: any) {
+      toast.error('Błąd: ' + (err.message || 'Nieznany błąd'));
+    } finally {
+      setSendingToHostinger(false);
+    }
+  };
+
   const successCount = backups.filter((b: any) => b.status === 'success').length;
   const failedCount = backups.filter((b: any) => b.status !== 'success').length;
 
