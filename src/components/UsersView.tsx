@@ -183,7 +183,7 @@ export const UsersView = () => {
       toast.success('Zaproszenie wysłane');
       setShowCreateDialog(false);
       setNewEmail('');
-      setNewPassword('');
+      
       setNewFirstName('');
       setNewLastName('');
       setNewOrgRole('user');
