@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Database, Download, CheckCircle2, XCircle, Loader2 } from 'lucide-react';
+import { Database, Download, CheckCircle2, XCircle, Loader2, Upload } from 'lucide-react';
 import { toast } from 'sonner';
 import { useOrganizations } from '@/hooks/useSuperAdmin';
 import { useState } from 'react';
@@ -14,6 +14,7 @@ export const AdminBackupsView = () => {
   const { user } = useAuth();
   const { data: orgs = [] } = useOrganizations();
   const [creating, setCreating] = useState(false);
+  const [sendingToHostinger, setSendingToHostinger] = useState(false);
 
   const { data: backups = [], isLoading, refetch } = useQuery({
     queryKey: ['admin_backups'],
@@ -62,6 +63,20 @@ export const AdminBackupsView = () => {
     }
   };
 
+  const sendToHostinger = async () => {
+    setSendingToHostinger(true);
+    try {
+      const res = await supabase.functions.invoke('backup-to-hostinger');
+      if (res.error) throw res.error;
+      toast.success('Backup wysłany na Hostinger');
+      setTimeout(() => refetch(), 3000);
+    } catch (err: any) {
+      toast.error('Błąd: ' + (err.message || 'Nieznany błąd'));
+    } finally {
+      setSendingToHostinger(false);
+    }
+  };
+
   const successCount = backups.filter((b: any) => b.status === 'success').length;
   const failedCount = backups.filter((b: any) => b.status !== 'success').length;
 
@@ -72,10 +87,16 @@ export const AdminBackupsView = () => {
           <h1 className="text-2xl font-bold">Backupy</h1>
           <p className="text-muted-foreground">Historia kopii zapasowych wszystkich firm.</p>
         </div>
-        <Button onClick={triggerBackup} disabled={creating} className="gap-2">
-          {creating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Database className="h-4 w-4" />}
-          Uruchom backup
-        </Button>
+        <div className="flex gap-2">
+          <Button onClick={sendToHostinger} disabled={sendingToHostinger} variant="outline" className="gap-2">
+            {sendingToHostinger ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+            Wyślij na Hostinger
+          </Button>
+          <Button onClick={triggerBackup} disabled={creating} className="gap-2">
+            {creating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Database className="h-4 w-4" />}
+            Uruchom backup
+          </Button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
