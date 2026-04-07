@@ -14,6 +14,7 @@ export const AdminBackupsView = () => {
   const { user } = useAuth();
   const { data: orgs = [] } = useOrganizations();
   const [creating, setCreating] = useState(false);
+  const [sendingToHostinger, setSendingToHostinger] = useState(false);
 
   const { data: backups = [], isLoading, refetch } = useQuery({
     queryKey: ['admin_backups'],
