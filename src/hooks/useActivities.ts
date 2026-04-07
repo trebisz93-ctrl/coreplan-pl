@@ -100,10 +100,10 @@ export const useCreateActivity = () => {
       start_date: string;
       end_date: string;
       product_ids?: string[];
-      package_id?: string;
       price: number;
       status?: string;
       note?: string;
+      tags?: string[];
     }) => {
       const { data, error } = await supabase
         .from('activities')
@@ -112,7 +112,7 @@ export const useCreateActivity = () => {
           user_id: user!.id,
           organization_id: orgId,
           product_ids: input.product_ids || [],
-          package_id: input.package_id || null,
+          tags: input.tags || [],
           status: input.status || 'planned',
         } as any)
         .select()
