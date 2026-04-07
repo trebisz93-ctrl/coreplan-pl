@@ -56,7 +56,7 @@ export const UsersView = () => {
   // New user creation
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [newEmail, setNewEmail] = useState('');
-  const [newPassword, setNewPassword] = useState('');
+  const [newPassword] = useState(''); // No longer used — invite flow
   const [newFirstName, setNewFirstName] = useState('');
   const [newLastName, setNewLastName] = useState('');
   const [newOrgRole, setNewOrgRole] = useState('user');
@@ -165,13 +165,12 @@ export const UsersView = () => {
   };
 
   const handleCreateUser = async () => {
-    if (!newEmail || !newPassword || !orgId) return;
+    if (!newEmail || !orgId) return;
     setCreating(true);
     try {
       const { data, error } = await supabase.functions.invoke('create-org-member', {
         body: {
           email: newEmail,
-          password: newPassword,
           first_name: newFirstName,
           last_name: newLastName,
           organization_id: orgId,
@@ -181,10 +180,10 @@ export const UsersView = () => {
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
 
-      toast.success('Użytkownik utworzony');
+      toast.success('Zaproszenie wysłane');
       setShowCreateDialog(false);
       setNewEmail('');
-      setNewPassword('');
+      
       setNewFirstName('');
       setNewLastName('');
       setNewOrgRole('user');
@@ -503,8 +502,9 @@ export const UsersView = () => {
               <Input type="email" value={newEmail} onChange={e => setNewEmail(e.target.value)} placeholder="jan@firma.pl" />
             </div>
             <div>
-              <label className="text-sm font-medium">Hasło</label>
-              <Input type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)} placeholder="Min. 8 znaków" />
+              <label className="text-sm font-medium text-muted-foreground italic">
+                Użytkownik otrzyma e-mail z linkiem do ustawienia hasła
+              </label>
             </div>
             <div>
               <label className="text-sm font-medium">Rola w firmie</label>
@@ -520,8 +520,8 @@ export const UsersView = () => {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowCreateDialog(false)}>Anuluj</Button>
-            <Button onClick={handleCreateUser} disabled={creating || !newEmail || !newPassword}>
-              {creating ? 'Tworzenie...' : 'Utwórz użytkownika'}
+            <Button onClick={handleCreateUser} disabled={creating || !newEmail}>
+              {creating ? 'Wysyłanie...' : 'Wyślij zaproszenie'}
             </Button>
           </DialogFooter>
         </DialogContent>

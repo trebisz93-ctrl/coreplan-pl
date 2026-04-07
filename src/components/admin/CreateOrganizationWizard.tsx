@@ -39,7 +39,7 @@ export const CreateOrganizationWizard = ({ open, onOpenChange }: Props) => {
   const [userFirstName, setUserFirstName] = useState('');
   const [userLastName, setUserLastName] = useState('');
   const [userEmail, setUserEmail] = useState('');
-  const [userPassword, setUserPassword] = useState('');
+  const [userPassword] = useState(''); // No longer used — invite flow
 
   // Step 3 - Quick add
   const [clients, setClients] = useState<QuickClient[]>([]);
@@ -58,7 +58,7 @@ export const CreateOrganizationWizard = ({ open, onOpenChange }: Props) => {
     setStep(1);
     setOrgName(''); setOrgSlug(''); setOrgEmail(''); setOrgPhone('');
     setOrgNip(''); setOrgAddress(''); setOrgNote('');
-    setUserFirstName(''); setUserLastName(''); setUserEmail(''); setUserPassword('');
+    setUserFirstName(''); setUserLastName(''); setUserEmail('');
     setClients([]); setProducts([]);
     setNewClientName(''); setNewClientBudget(''); setNewProductName(''); setNewProductBrand('');
     setCreatedOrgId(null); setCreatedUserId(null); setCreatedUserEmail('');
@@ -83,12 +83,12 @@ export const CreateOrganizationWizard = ({ open, onOpenChange }: Props) => {
   };
 
   const handleCreateUser = async () => {
-    if (!userEmail.trim() || !userPassword.trim() || !createdOrgId) return;
+    if (!userEmail.trim() || !createdOrgId) return;
     setLoading(true);
     try {
       const res = await supabase.functions.invoke('create-org-user', {
         body: {
-          email: userEmail.trim(), password: userPassword,
+          email: userEmail.trim(),
           first_name: userFirstName.trim(), last_name: userLastName.trim(),
           organization_id: createdOrgId, org_role: 'org_admin',
         },
@@ -198,20 +198,20 @@ export const CreateOrganizationWizard = ({ open, onOpenChange }: Props) => {
         {step === 2 && (
           <div className="space-y-4">
             <p className="text-sm text-muted-foreground">
-              Utwórz pierwszego administratora firmy <strong>{orgName}</strong>.
+              Wyślij zaproszenie do pierwszego administratora firmy <strong>{orgName}</strong>.
+              Otrzyma maila z linkiem do ustawienia hasła.
             </p>
             <div className="grid grid-cols-2 gap-3">
-              <div><Label>Imię *</Label><Input value={userFirstName} onChange={e => setUserFirstName(e.target.value)} placeholder="Jan" /></div>
-              <div><Label>Nazwisko *</Label><Input value={userLastName} onChange={e => setUserLastName(e.target.value)} placeholder="Kowalski" /></div>
+              <div><Label>Imię</Label><Input value={userFirstName} onChange={e => setUserFirstName(e.target.value)} placeholder="Jan" /></div>
+              <div><Label>Nazwisko</Label><Input value={userLastName} onChange={e => setUserLastName(e.target.value)} placeholder="Kowalski" /></div>
             </div>
             <div><Label>E-mail *</Label><Input value={userEmail} onChange={e => setUserEmail(e.target.value)} placeholder="admin@firma.pl" type="email" /></div>
-            <div><Label>Hasło *</Label><Input value={userPassword} onChange={e => setUserPassword(e.target.value)} placeholder="Min. 6 znaków" type="password" /></div>
             <Badge variant="outline">Rola: Admin Firmy</Badge>
             <div className="flex gap-2">
               <Button variant="outline" onClick={() => setStep(1)} className="gap-1"><ArrowLeft className="h-4 w-4" /> Wróć</Button>
-              <Button onClick={handleCreateUser} disabled={loading || !userEmail.trim() || !userPassword.trim() || !userFirstName.trim() || !userLastName.trim()} className="flex-1 gap-2">
+              <Button onClick={handleCreateUser} disabled={loading || !userEmail.trim()} className="flex-1 gap-2">
                 {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowRight className="h-4 w-4" />}
-                Utwórz administratora
+                Wyślij zaproszenie
               </Button>
             </div>
           </div>

@@ -70,6 +70,7 @@ const SAMPLE_DATA: Record<string, object> = {
     siteUrl: SAMPLE_PROJECT_URL,
     confirmationUrl: SAMPLE_PROJECT_URL,
     orgName: 'Danone',
+    invitedBy: 'super_admin',
   },
   email_change: {
     siteName: SITE_NAME,
@@ -222,37 +223,62 @@ async function handleWebhook(req: Request): Promise<Response> {
     )
   }
 
-  // Lookup organization name for the user (skip for signup — user has no org yet)
+  // Lookup organization name and invite context for the user
   const supabaseLookup = createClient(
     Deno.env.get('SUPABASE_URL')!,
     Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
   )
 
   let orgName: string | undefined
+  let invitedBy: string | undefined
+
   if (emailType !== 'signup') {
     try {
-      // Look up user by email via profiles (display_name is set to email on signup)
-      const { data: profile } = await supabaseLookup
-        .from('profiles')
-        .select('user_id')
-        .eq('display_name', payload.data.email)
-        .limit(1)
-        .single()
-      const userId = profile?.user_id
-      if (userId) {
-        const { data: membership } = await supabaseLookup
-          .from('organization_members')
-          .select('organization_id')
-          .eq('user_id', userId)
+      // For invite emails, check user metadata first (set by create-org-member/create-org-user)
+      if (emailType === 'invite') {
+        const { data: { users } } = await supabaseLookup.auth.admin.listUsers({
+          filter: { email: payload.data.email },
+          page: 1,
+          perPage: 1,
+        } as any)
+        const authUser = users?.[0]
+        if (authUser?.user_metadata) {
+          orgName = authUser.user_metadata.org_name
+          invitedBy = authUser.user_metadata.invited_by
+        }
+      }
+
+      // Fallback: look up org from profiles → organization_members → organizations
+      if (!orgName) {
+        const { data: profile } = await supabaseLookup
+          .from('profiles')
+          .select('user_id, organization_id')
+          .eq('display_name', payload.data.email)
           .limit(1)
           .single()
-        if (membership) {
+
+        if (profile?.organization_id) {
           const { data: org } = await supabaseLookup
             .from('organizations')
             .select('name')
-            .eq('id', membership.organization_id)
+            .eq('id', profile.organization_id)
             .single()
           if (org) orgName = org.name
+        } else if (profile?.user_id) {
+          const { data: membership } = await supabaseLookup
+            .from('organization_members')
+            .select('organization_id')
+            .eq('user_id', profile.user_id)
+            .limit(1)
+            .single()
+          if (membership) {
+            const { data: org } = await supabaseLookup
+              .from('organizations')
+              .select('name')
+              .eq('id', membership.organization_id)
+              .single()
+            if (org) orgName = org.name
+          }
         }
       }
     } catch (err) {
@@ -270,6 +296,7 @@ async function handleWebhook(req: Request): Promise<Response> {
     email: payload.data.email,
     newEmail: payload.data.new_email,
     orgName,
+    invitedBy,
   }
 
   // Render React Email to HTML and plain text
