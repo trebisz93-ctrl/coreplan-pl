@@ -19,6 +19,7 @@ export interface DbActivity {
   price: number;
   status: ActivityStatus;
   note: string | null;
+  tags: string[];
   created_at: string;
   updated_at: string;
 }
@@ -45,7 +46,7 @@ export const dbToActivity = (row: DbActivity) => ({
   startDate: row.start_date,
   endDate: row.end_date,
   productIds: row.product_ids || [],
-  packageId: row.package_id || undefined,
+  tags: row.tags || [],
   price: Number(row.price),
   status: row.status,
   note: row.note || undefined,

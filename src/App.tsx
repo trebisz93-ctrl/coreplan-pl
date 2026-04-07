@@ -27,7 +27,7 @@ const RolesManagementView = lazy(() => import("./components/admin/RolesManagemen
 const IntegrationsView = lazy(() => import("./components/admin/IntegrationsView").then(m => ({ default: m.IntegrationsView })));
 const YearView = lazy(() => import("./components/YearView").then(m => ({ default: m.YearView })));
 const DashboardView = lazy(() => import("./components/DashboardView").then(m => ({ default: m.DashboardView })));
-const PackagesView = lazy(() => import("./components/PackagesView").then(m => ({ default: m.PackagesView })));
+
 const ReportsView = lazy(() => import("./components/ReportsView").then(m => ({ default: m.ReportsView })));
 const ClientsView = lazy(() => import("./components/ClientsView").then(m => ({ default: m.ClientsView })));
 const ProductsView = lazy(() => import("./components/ProductsView").then(m => ({ default: m.ProductsView })));
@@ -90,7 +90,7 @@ const App = () => (
                   <Route path="/dashboard" element={<DashboardView />} />
                   <Route path="/clients" element={<ClientsView />} />
                   <Route path="/products" element={<ProductsView />} />
-                  <Route path="/packages" element={<PackagesView />} />
+                  
                   <Route path="/reports" element={<ReportsView />} />
                   <Route path="/users" element={<UsersView />} />
                   <Route path="/settings" element={<SettingsView />} />
