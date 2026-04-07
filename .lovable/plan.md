@@ -1,179 +1,158 @@
 
 
-# Redesign UX — iOS/Android/Web Style
+# Security Hardening — 5 Critical Fixes
 
-This is a large visual overhaul. I'll split it into 3 implementation rounds.
+## Current Vulnerabilities Found
+
+### 1. Profile UPDATE not column-restricted
+- RLS policy `org_admin_update_profiles` allows updating ANY column on profiles within the org
+- No database-level restriction on which columns can be changed (user_id, id, created_at all editable)
+
+### 2. Role escalation possible
+- `useSetUserRole` in `useData.ts` does DELETE + INSERT on `user_roles` from client side
+- RLS on `user_roles` has no INSERT/DELETE policy for non-super_admin — but `useSetOrgRole` in `useOrgMembers.ts` updates `org_role` without server-side validation that the caller has higher privileges
+- `RolesManagementView` allows changing `org_role` via direct Supabase update — no trigger prevents setting `org_admin` by a `manager`
+
+### 3. SELECT isolation — mostly good
+- All major tables use `get_user_org_ids()` for RLS — correct pattern
+- `system_logs` SELECT is super_admin only — correct
+- `profiles` allows org members to see each other — correct
+- No gaps found in existing tables
+
+### 4. Audit logging — partial coverage
+- Triggers exist on: `activities`, `clients`, `media_plans`, `packages`, `products`
+- Missing triggers on: `profiles`, `organization_members`, `user_roles`, `organizations`
+- Critical gap: role changes and user modifications are NOT audited
+
+### 5. Backup security
+- Backups stored in Supabase Storage bucket `backups` (private) — this is fine
+- External Hostinger backup is outside scope of code changes but documented as recommendation
 
 ---
 
-## Round 1: Color System + Global Styles + Sidebar + Bottom Nav
+## Implementation Plan
 
-### 1A. New CSS Variables (`src/index.css`)
+### Migration 1: Column-restricted profile updates
 
-Replace current color tokens with the new palette:
+Create a trigger `BEFORE UPDATE ON profiles` that prevents non-super_admin users from changing protected columns:
 
-```
---brand: 24 60% 54%        (≈ #D97A3A)
---brand-light: 30 85% 78%  (≈ #F5C49A)
---brand-bg: 28 100% 95%    (≈ #FFF3E8)
---brand-dark: 20 70% 32%   (≈ #8B4A1A)
+```sql
+CREATE OR REPLACE FUNCTION protect_profile_columns()
+RETURNS TRIGGER
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+BEGIN
+  -- Only super_admin can change these columns
+  IF NOT is_super_admin(auth.uid()) THEN
+    NEW.id := OLD.id;
+    NEW.user_id := OLD.user_id;
+    NEW.created_at := OLD.created_at;
+  END IF;
+  RETURN NEW;
+END;
+$$;
 
---bg-screen: 240 5% 96%    (≈ #F2F2F7)
---border: 240 6% 90%       (≈ #E5E5EA)
---text-primary: 0 0% 0%
---text-secondary: 240 5% 26%
---text-tertiary: 240 4% 56%
-```
-
-Map these to existing Tailwind tokens:
-- `--background` → `--bg-screen` (#F2F2F7)
-- `--card` → white
-- `--primary` → `--brand` (#D97A3A)
-- `--border` → #E5E5EA
-- `--muted-foreground` → `--text-tertiary`
-
-Dark mode: adjust accordingly (darker brand bg, lighter text).
-
-### 1B. Global Border Radius
-
-Update `--radius: 1.125rem` (18px for cards). Add custom classes:
-- `.rounded-card` = 18px (main cards)
-- `.rounded-btn` = 12px (buttons)
-- `.rounded-chip` = 8px (chips/tags)
-
-### 1C. Sidebar Redesign (`AppSidebar.tsx`, `SuperAdminLayout.tsx`)
-
-- Background: white (#FFFFFF) with right border `1px solid #E5E5EA`
-- Active item: `bg-[#FFF3E8] text-[#D97A3A]` + `border-left: 3px solid #D97A3A`
-- Hover: `bg-[#F5F5F5]`
-- Width stays 240px (desktop)
-
-### 1D. Bottom Nav iOS-style (`MobileBottomNav.tsx`, `MobileAdminNav.tsx`)
-
-- Background: `rgba(248,248,248,0.97)` with `backdrop-blur-[20px]`
-- Border top: `0.5px solid rgba(0,0,0,0.1)`
-- Active tab: icon + label in brand color (#D97A3A)
-- Inactive: opacity 0.35
-- Touch targets: min 44px
-
-### 1E. Remove AdminContextBar Banner
-
-- Delete `<AdminContextBar />` from `AppLayout.tsx`
-- Replace with breadcrumb-style context in `TopBar.tsx`:
-  - `[Logo] [System › Firma X ▾] ........... [🔔] [Avatar]`
-  - Clickable dropdown for org switching
-  - "Widok globalny" as option in dropdown, not separate button
-
-### 1F. Hover States (global CSS in `index.css`)
-
-```css
-.card-hover:hover {
-  background: #FFFAF6;
-  border-color: rgba(217,122,58,0.3);
-  transition: all 0.15s ease;
-}
-tr.row-hover:hover {
-  background: #FFFAF6;
-}
+CREATE TRIGGER protect_profile_cols
+BEFORE UPDATE ON profiles
+FOR EACH ROW EXECUTE FUNCTION protect_profile_columns();
 ```
 
+### Migration 2: Role escalation prevention
+
+Create a trigger on `organization_members` that prevents setting `org_admin` unless the caller is already `org_admin` or `super_admin`:
+
+```sql
+CREATE OR REPLACE FUNCTION validate_org_role_change()
+RETURNS TRIGGER
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+BEGIN
+  -- If role is being changed
+  IF OLD.org_role IS DISTINCT FROM NEW.org_role THEN
+    -- Only super_admin or org_admin of that org can change roles
+    IF NOT is_super_admin(auth.uid()) 
+       AND get_org_role(auth.uid(), NEW.organization_id) != 'org_admin' THEN
+      RAISE EXCEPTION 'Insufficient privileges to change org_role';
+    END IF;
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+CREATE TRIGGER validate_org_role
+BEFORE UPDATE ON organization_members
+FOR EACH ROW EXECUTE FUNCTION validate_org_role_change();
+```
+
+Also add a trigger on `user_roles` to prevent non-super_admin from inserting/updating `super_admin` role:
+
+```sql
+CREATE OR REPLACE FUNCTION validate_super_admin_role()
+RETURNS TRIGGER
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+BEGIN
+  IF NEW.role = 'super_admin' AND NOT is_super_admin(auth.uid()) THEN
+    RAISE EXCEPTION 'Only super_admin can grant super_admin role';
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+CREATE TRIGGER validate_super_role
+BEFORE INSERT OR UPDATE ON user_roles
+FOR EACH ROW EXECUTE FUNCTION validate_super_admin_role();
+```
+
+### Migration 3: Audit triggers on missing tables
+
+Add audit triggers to `profiles`, `organization_members`, `user_roles`, and `organizations`:
+
+```sql
+CREATE TRIGGER audit_profiles
+AFTER INSERT OR UPDATE OR DELETE ON profiles
+FOR EACH ROW EXECUTE FUNCTION audit_trigger_fn();
+
+CREATE TRIGGER audit_org_members
+AFTER INSERT OR UPDATE OR DELETE ON organization_members
+FOR EACH ROW EXECUTE FUNCTION audit_trigger_fn();
+
+CREATE TRIGGER audit_user_roles
+AFTER INSERT OR UPDATE OR DELETE ON user_roles
+FOR EACH ROW EXECUTE FUNCTION audit_trigger_fn();
+
+CREATE TRIGGER audit_organizations
+AFTER INSERT OR UPDATE OR DELETE ON organizations
+FOR EACH ROW EXECUTE FUNCTION audit_trigger_fn();
+```
+
+Note: `audit_trigger_fn` references `NEW.user_id` — for tables like `organizations` that don't have `user_id`, the trigger function needs a small update to handle that gracefully (use `coalesce` or conditional check).
+
+### Migration 4: Fix audit_trigger_fn for tables without user_id
+
+Update the function to handle tables that may not have a `user_id` column:
+
+```sql
+CREATE OR REPLACE FUNCTION audit_trigger_fn() ...
+  -- Use auth.uid() as fallback when table has no user_id column
+  _user_id := coalesce(
+    CASE WHEN TG_OP = 'DELETE' THEN OLD.user_id ELSE NEW.user_id END,
+    auth.uid()
+  );
+```
+
+### Code change: Remove useSetUserRole from client
+
+The `useSetUserRole` hook in `useData.ts` does DELETE+INSERT on `user_roles` from the client. This is dangerous — it should be removed or restricted to super_admin only in the UI. The trigger will block escalation at DB level, but the client code should also not offer this path.
+
 ---
 
-## Round 2: Component Redesigns
-
-### 2A. Card Styling (all Card components)
-
-- `border-radius: 18px`
-- No heavy shadows, rely on white-on-#F2F2F7 contrast
-- Stat cards: icon in colored box (30x30, rounded-lg) → big number → small label
-
-### 2B. RolesManagementView Redesign
-
-- Stat cards: 2x2 grid with icon boxes, big numbers, labels
-- Super Admin card: brand background with decorative circle, white text
-- Filter: chip-style instead of Select dropdown
-- User list: avatar circles (38px) + name + org + role badge (`bg-[#FFF3E8] text-[#D97A3A]`)
-- Separator: `0.5px` between rows
-- Empty states: "+" CTA button instead of "0"
-
-### 2C. TopBar Breadcrumb + Context Switcher
-
-Web-only top bar:
-- Sticky, white bg, bottom border
-- Left: logo + breadcrumb (`System › Firma X ▾`)
-- Right: bell + user avatar
-- Mobile: simplified (logo + bell only)
-
-### 2D. Typography Scale
-
-Web typography using Plus Jakarta Sans:
-- H1: 24px/700, H2: 20px/600, H3: 16px/600
-- Body: 14px/400, Small: 12px/400, Micro: 11px/500
-- Mobile: slightly larger touch-friendly sizes
-
----
-
-## Round 3: Animations + Gantt Polish + Final Details
-
-### 3A. Animations (`tailwind.config.ts` + `index.css`)
-
-Add keyframes:
-- `fade-in`: opacity 0→1, translateY(10→0), 300ms
-- `scale-in`: scale 0.95→1, 200ms
-- `slide-in-right`: translateX(100%→0), 300ms
-- Card hover: `translateY(-1px)`, 150ms
-- Sidebar collapse: width transition 250ms
-- Tab bar icon: scale pulse on selection
-
-### 3B. Gantt Table Polish (`YearView.tsx`)
-
-- Container: white card, rounded-[14px], overflow hidden
-- Sticky left column (freeze on horizontal scroll)
-- Right edge gradient fade indicating scrollable content
-- Row hover: full-row highlight
-- Gantt bar hover: tooltip with dates + value
-- Left color bar: 4px, full height, rounded
-
-### 3C. Segmented Controls
-
-Replace current tab/toggle patterns with iOS-style segmented controls:
-- Container: `bg-[rgba(118,118,128,0.12)]`, rounded-[9px], padding 2px
-- Active: white bg, black text, rounded-[7px], shadow-sm
-- Inactive: transparent, text-secondary
-
-### 3D. Empty States
-
-Anywhere a count is 0, replace with CTA button:
-- Ghost button: `+ Dodaj managera` in brand color
-- Consistent across all stat cards and list views
-
----
-
-## Files Modified (all rounds)
+## Files to modify
 
 | File | Change |
 |------|--------|
-| `src/index.css` | New color variables, hover classes, animations, 0.5px separators |
-| `tailwind.config.ts` | New keyframes, animation utilities, border-radius tokens |
-| `src/components/AppSidebar.tsx` | White bg, brand active state with left border |
-| `src/components/admin/SuperAdminLayout.tsx` | Same sidebar treatment |
-| `src/components/MobileBottomNav.tsx` | Blur bg, brand active color, 44pt targets |
-| `src/components/MobileAdminNav.tsx` | Same mobile treatment |
-| `src/components/TopBar.tsx` | Breadcrumb + context switcher replacing banner |
-| `src/components/admin/AdminContextBar.tsx` | Removed from layouts (or gutted) |
-| `src/components/AppLayout.tsx` | Remove AdminContextBar import |
-| `src/components/admin/RolesManagementView.tsx` | Full redesign with icon cards, chips, avatars |
-| `src/components/DashboardView.tsx` | Card styling, hover states, empty CTAs |
-| `src/components/YearView.tsx` | Gantt sticky column, gradient, hover, rounded container |
-| `src/components/ui/card.tsx` | Default rounded-[18px] |
-| Multiple view components | Apply card-hover, row-hover, new typography |
+| 1 SQL migration | 4 triggers + 3 functions + audit_trigger_fn fix |
+| `src/hooks/useData.ts` | Remove or guard `useSetUserRole` |
+| `src/components/admin/RolesManagementView.tsx` | No code change needed (already super_admin only view, DB triggers protect) |
 
----
+## Backup recommendation (documentation only)
 
-## Technical Notes
-
-- This is a **web application** (React/Tailwind). iOS/Android-specific features (SF Pro font, native ripple, Container Transform) are adapted as CSS equivalents (backdrop-blur, transition effects, hover states).
-- Font stays Plus Jakarta Sans (already configured). No SF Pro or Roboto needed since this runs in browser.
-- All colors use CSS custom properties for dark mode compatibility.
-- Brand color (#D97A3A) rule enforced: max 3 brand-colored elements per screen (1 CTA, 1 active nav, 1 active chip).
+For Hostinger: store `.sql` dumps above `public_html` (e.g., `/home/user/backups/`) and access only via SSH/SFTP. This is a server config change, not a code change.
 
