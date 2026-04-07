@@ -226,9 +226,15 @@ async function handleWebhook(req: Request): Promise<Response> {
   let orgName: string | undefined
   if (emailType !== 'signup') {
     try {
-      const { data: userData } = await supabaseLookup.auth.admin.listUsers()
-      const authUser = userData?.users?.find((u: any) => u.email === payload.data.email)
-      if (authUser) {
+      // Look up user by email via profiles (display_name is set to email on signup)
+      const { data: profile } = await supabaseLookup
+        .from('profiles')
+        .select('user_id')
+        .eq('display_name', payload.data.email)
+        .limit(1)
+        .single()
+      const userId = profile?.user_id
+      if (userId) {
         const { data: membership } = await supabaseLookup
           .from('organization_members')
           .select('organization_id')
