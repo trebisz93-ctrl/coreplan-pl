@@ -87,10 +87,16 @@ export const AdminBackupsView = () => {
           <h1 className="text-2xl font-bold">Backupy</h1>
           <p className="text-muted-foreground">Historia kopii zapasowych wszystkich firm.</p>
         </div>
-        <Button onClick={triggerBackup} disabled={creating} className="gap-2">
-          {creating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Database className="h-4 w-4" />}
-          Uruchom backup
-        </Button>
+        <div className="flex gap-2">
+          <Button onClick={sendToHostinger} disabled={sendingToHostinger} variant="outline" className="gap-2">
+            {sendingToHostinger ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+            Wyślij na Hostinger
+          </Button>
+          <Button onClick={triggerBackup} disabled={creating} className="gap-2">
+            {creating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Database className="h-4 w-4" />}
+            Uruchom backup
+          </Button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
