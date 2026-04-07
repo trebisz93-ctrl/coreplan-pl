@@ -58,24 +58,29 @@ const SAMPLE_DATA: Record<string, object> = {
   magiclink: {
     siteName: SITE_NAME,
     confirmationUrl: SAMPLE_PROJECT_URL,
+    orgName: 'Danone',
   },
   recovery: {
     siteName: SITE_NAME,
     confirmationUrl: SAMPLE_PROJECT_URL,
+    orgName: 'Danone',
   },
   invite: {
     siteName: SITE_NAME,
     siteUrl: SAMPLE_PROJECT_URL,
     confirmationUrl: SAMPLE_PROJECT_URL,
+    orgName: 'Danone',
   },
   email_change: {
     siteName: SITE_NAME,
     email: SAMPLE_EMAIL,
     newEmail: SAMPLE_EMAIL,
     confirmationUrl: SAMPLE_PROJECT_URL,
+    orgName: 'Danone',
   },
   reauthentication: {
     token: '123456',
+    orgName: 'Danone',
   },
 }
 
