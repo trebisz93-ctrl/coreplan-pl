@@ -32,6 +32,7 @@ export type Database = {
           product_ids: string[]
           start_date: string
           status: string
+          tags: string[] | null
           updated_at: string
           user_id: string
         }
@@ -52,6 +53,7 @@ export type Database = {
           product_ids?: string[]
           start_date?: string
           status?: string
+          tags?: string[] | null
           updated_at?: string
           user_id: string
         }
@@ -72,6 +74,7 @@ export type Database = {
           product_ids?: string[]
           start_date?: string
           status?: string
+          tags?: string[] | null
           updated_at?: string
           user_id?: string
         }
