@@ -32,6 +32,7 @@ export const RecoveryEmail = ({
       <Container style={wrapper}>
         <Section style={header}>
           <Text style={logoText}>CorePlan</Text>
+          <Text style={tagline}>Platforma do zarządzania mediaplanami i budżetami</Text>
         </Section>
 
         <Section style={content}>
@@ -82,7 +83,14 @@ export default RecoveryEmail
 const main = {
   backgroundColor: '#ffffff',
   fontFamily:
-    "'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif",
+    "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif",
+}
+
+const tagline = {
+  color: 'rgba(255,255,255,0.75)',
+  fontSize: '12px',
+  margin: '4px 0 0',
+  fontWeight: '400' as const,
 }
 
 const wrapper = { maxWidth: '520px', margin: '0 auto', padding: '0' }
