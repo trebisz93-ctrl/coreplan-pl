@@ -26,7 +26,167 @@ export interface DbProduct {
   updated_at: string;
 }
 
-// ── (Packages removed – simplified model: Client → Activity → Elements) ──
+export interface DbProfile {
+  id: string;
+  user_id: string;
+  display_name: string | null;
+  first_name: string | null;
+  last_name: string | null;
+  job_role: string | null;
+  onboarding_completed: boolean;
+  status: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface DbUserRole {
+  id: string;
+  user_id: string;
+  role: 'super_admin' | 'org_admin' | 'admin' | 'manager' | 'user' | 'viewer';
+}
+
+// ── Clients ──
+
+export const useClients = () => {
+  const { user } = useAuth();
+  return useQuery({
+    queryKey: ['clients', user?.id],
+    queryFn: async () => {
+      const { data, error } = await supabase.from('clients').select('*').is('deleted_at', null).order('name');
+      if (error) throw error;
+      return data as DbClient[];
+    },
+    enabled: !!user,
+  });
+};
+
+export const useCreateClient = () => {
+  const qc = useQueryClient();
+  const { user } = useAuth();
+  const { orgId } = useOrganization();
+  return useMutation({
+    mutationFn: async (name: string) => {
+      const { data, error } = await supabase
+        .from('clients').insert({ name, user_id: user!.id }).select().single();
+      if (error) throw error;
+      if (orgId) {
+        const { error: linkErr } = await supabase
+          .from('organization_clients')
+          .insert({ organization_id: orgId, client_id: data.id });
+        if (linkErr) throw linkErr;
+      }
+      return data as DbClient;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['clients'] });
+      qc.invalidateQueries({ queryKey: ['organization_clients'] });
+    },
+  });
+};
+
+export const useUpdateClient = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, name }: { id: string; name: string }) => {
+      const { error } = await supabase.from('clients').update({ name }).eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['clients'] }),
+  });
+};
+
+export const useUpdateClientBudget = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, annual_budget }: { id: string; annual_budget: number }) => {
+      const { error } = await supabase.from('clients').update({ annual_budget } as any).eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['clients'] }),
+  });
+};
+
+export const useDeleteClient = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from('clients').update({ deleted_at: new Date().toISOString() } as any).eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['clients'] });
+      qc.invalidateQueries({ queryKey: ['products'] });
+    },
+  });
+};
+
+// ── Products ──
+
+export const useProducts = (clientId?: string) => {
+  const { user } = useAuth();
+  return useQuery({
+    queryKey: ['products', user?.id, clientId],
+    queryFn: async () => {
+      let query = supabase.from('products').select('*').is('deleted_at', null).order('name');
+      if (clientId) query = query.eq('client_id', clientId);
+      const { data, error } = await query;
+      if (error) throw error;
+      return data as DbProduct[];
+    },
+    enabled: !!user,
+  });
+};
+
+export const useCreateProduct = () => {
+  const qc = useQueryClient();
+  const { user } = useAuth();
+  const { orgId } = useOrganization();
+  return useMutation({
+    mutationFn: async ({ name, clientId, ean, category, subcategory, brand }: { name: string; clientId?: string; ean?: string; category?: string; subcategory?: string; brand?: string }) => {
+      const { data, error } = await supabase
+        .from('products').insert({ name, client_id: clientId || null, user_id: user!.id, organization_id: orgId, ean: ean || null, category: category || null, subcategory: subcategory || null, brand: brand || null } as any).select().single();
+      if (error) throw error;
+      return data as DbProduct;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['products'] }),
+  });
+};
+
+export const useUpdateProduct = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, name, ean, category, subcategory, brand }: { id: string; name: string; ean?: string; category?: string; subcategory?: string; brand?: string }) => {
+      const { error } = await supabase.from('products').update({ name, ean: ean || null, category: category || null, subcategory: subcategory || null, brand: brand || null } as any).eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['products'] }),
+  });
+};
+
+export const useDeleteProduct = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from('products').update({ deleted_at: new Date().toISOString() } as any).eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['products'] }),
+  });
+};
+
+export const useSeedProducts = () => {
+  const qc = useQueryClient();
+  const { user } = useAuth();
+  const { orgId } = useOrganization();
+  return useMutation({
+    mutationFn: async ({ clientId, products }: { clientId: string; products: SeedProduct[] }) => {
+      const rows = products.map(p => ({ name: p.name, ean: p.ean, client_id: clientId, user_id: user!.id, organization_id: orgId }));
+      const { error } = await supabase.from('products').insert(rows as any);
+      if (error) throw error;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['products'] }),
+  });
+};
 
 // ── Profiles & Roles (admin) ──
 
@@ -74,7 +234,6 @@ export const useSetUserRole = () => {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async ({ userId, role }: { userId: string; role: 'admin' | 'manager' | 'user' | 'viewer' }) => {
-      // Upsert role
       const { error: delError } = await supabase.from('user_roles').delete().eq('user_id', userId);
       if (delError) throw delError;
       const { error } = await supabase.from('user_roles').insert({ user_id: userId, role } as any);
