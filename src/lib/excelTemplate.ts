@@ -1,4 +1,4 @@
-import * as XLSX from 'xlsx';
+import * as XLSX from 'xlsx/xlsx.mjs';
 import type { DbProduct } from '@/hooks/useData';
 
 const TEMPLATE_COLUMNS = [
