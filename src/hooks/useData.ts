@@ -128,7 +128,7 @@ export const useProducts = (clientId?: string) => {
     queryKey: ['products', user?.id, clientId],
     queryFn: async () => {
       let query = supabase.from('products').select('*').is('deleted_at', null).order('name');
-      if (clientId) query = query.eq('client_id', clientId);
+      if (clientId) query = query.or(`client_id.eq.${clientId},client_id.is.null`);
       const { data, error } = await query;
       if (error) throw error;
       return data as DbProduct[];
