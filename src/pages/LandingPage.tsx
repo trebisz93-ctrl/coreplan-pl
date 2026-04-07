@@ -352,9 +352,17 @@ const LandingPage = () => {
             <div className="flex items-center gap-3">
               <img src={corePlanLogo} alt="CorePlan" className="h-10 object-contain" />
             </div>
-            <p className="text-primary-foreground/40 text-sm">
-              © {new Date().getFullYear()} CorePlan
-            </p>
+            <div className="flex items-center gap-6">
+              <Link to="/polityka-prywatnosci" className="text-primary-foreground/40 hover:text-primary-foreground/70 text-sm transition-colors">
+                Polityka prywatności
+              </Link>
+              <Link to="/regulamin" className="text-primary-foreground/40 hover:text-primary-foreground/70 text-sm transition-colors">
+                Regulamin
+              </Link>
+              <p className="text-primary-foreground/40 text-sm">
+                © {new Date().getFullYear()} CorePlan
+              </p>
+            </div>
           </div>
         </div>
       </footer>

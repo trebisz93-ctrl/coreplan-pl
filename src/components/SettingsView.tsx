@@ -288,9 +288,17 @@ export const SettingsView = forwardRef<HTMLDivElement>((_, ref) => {
           <CardTitle className="text-base">Aplikacja</CardTitle>
           <CardDescription>Informacje o aplikacji</CardDescription>
         </CardHeader>
-        <CardContent className="space-y-2 text-sm text-muted-foreground">
+        <CardContent className="space-y-3 text-sm text-muted-foreground">
           <p>CorePlan v1.0</p>
           <p>© 2026 CorePlan. Wszelkie prawa zastrzeżone.</p>
+          <div className="flex gap-4 pt-2">
+            <a href="/polityka-prywatnosci" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">
+              Polityka prywatności
+            </a>
+            <a href="/regulamin" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">
+              Regulamin
+            </a>
+          </div>
         </CardContent>
       </Card>
     </div>

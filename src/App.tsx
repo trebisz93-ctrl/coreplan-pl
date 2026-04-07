@@ -37,6 +37,8 @@ const Auth = lazy(() => import("./pages/Auth"));
 const ResetPassword = lazy(() => import("./pages/ResetPassword"));
 const LandingPage = lazy(() => import("./pages/LandingPage"));
 const NotFound = lazy(() => import("./pages/NotFound"));
+const PrivacyPolicy = lazy(() => import("./pages/PrivacyPolicy"));
+const Terms = lazy(() => import("./pages/Terms"));
 
 const LazyFallback = () => (
   <div className="flex items-center justify-center min-h-screen bg-background">
@@ -68,6 +70,8 @@ const App = () => (
                 <Route path="/" element={<LandingPage />} />
                 <Route path="/auth" element={<Auth />} />
                 <Route path="/reset-password" element={<ResetPassword />} />
+                <Route path="/polityka-prywatnosci" element={<PrivacyPolicy />} />
+                <Route path="/regulamin" element={<Terms />} />
                 {/* Super Admin routes */}
                 <Route element={<SuperAdminRoute><SuperAdminLayout /></SuperAdminRoute>}>
                   <Route path="/admin" element={<SuperAdminDashboard />} />
