@@ -6,12 +6,13 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Textarea } from '@/components/ui/textarea';
+import { Badge } from '@/components/ui/badge';
 import { useApp } from '@/context/AppContext';
-import { useProducts, useClients, usePackages } from '@/hooks/useData';
+import { useProducts, useClients } from '@/hooks/useData';
 import { useCreateActivity } from '@/hooks/useActivities';
 import { useCampaignTypes } from '@/hooks/useCampaignTypes';
 import { Channel, CampaignType, ActivityStatus, campaignTypeLabels } from '@/types/mediaplan';
-import { AlertTriangle, Search } from 'lucide-react';
+import { AlertTriangle, Search, X } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface Props {
@@ -28,11 +29,8 @@ export const ActivityDialog = ({ open, onOpenChange }: Props) => {
   const createActivity = useCreateActivity();
   const [dialogClientId, setDialogClientId] = useState<string>('');
   const effectiveClientId = dialogClientId || selectedClientId;
-  // Fetch ALL products so user can pick from full catalog
   const { data: allProducts = [] } = useProducts();
-  const { data: packages = [] } = usePackages();
 
-  // Merge default + custom campaign types
   const allCampaignTypes = [
     ...Object.entries(campaignTypeLabels).map(([k, v]) => ({ name: k, label: v })),
     ...campaignTypes.filter(ct => !campaignTypeLabels[ct.name as CampaignType]).map(ct => ({ name: ct.name, label: ct.label })),
@@ -46,22 +44,23 @@ export const ActivityDialog = ({ open, onOpenChange }: Props) => {
   const [endDate, setEndDate] = useState(today);
   const [selectedProducts, setSelectedProducts] = useState<string[]>([]);
   const [productSearch, setProductSearch] = useState('');
-  const [packageId, setPackageId] = useState<string>('');
   const [price, setPrice] = useState('');
   const [status, setStatus] = useState<ActivityStatus>('planned');
   const [note, setNote] = useState('');
   const [confirmed, setConfirmed] = useState(false);
+  const [tags, setTags] = useState<string[]>([]);
+  const [tagInput, setTagInput] = useState('');
 
   const priceNum = parseFloat(price) || 0;
   const annualBudget = selectedClient?.annual_budget || 0;
   const wouldExceed = annualBudget > 0 && (budgetUsed + priceNum > annualBudget);
 
-  const handlePackageChange = (pkgId: string) => {
-    setPackageId(pkgId);
-    if (pkgId && pkgId !== 'none') {
-      const pkg = packages.find(p => p.id === pkgId);
-      if (pkg) setPrice(String(pkg.default_price));
+  const addTag = () => {
+    const t = tagInput.trim();
+    if (t && !tags.includes(t)) {
+      setTags(prev => [...prev, t]);
     }
+    setTagInput('');
   };
 
   const validate = (): string | null => {
@@ -89,10 +88,10 @@ export const ActivityDialog = ({ open, onOpenChange }: Props) => {
         start_date: startDate,
         end_date: endDate,
         product_ids: selectedProducts,
-        package_id: packageId && packageId !== 'none' ? packageId : undefined,
         price: priceNum,
         status,
         note: note || undefined,
+        tags,
       });
       toast.success('Aktywność dodana');
       onOpenChange(false);
@@ -106,8 +105,8 @@ export const ActivityDialog = ({ open, onOpenChange }: Props) => {
     const t = new Date().toISOString().slice(0, 10);
     setName(''); setChannel('online'); setCampaignType('display');
     setStartDate(t); setEndDate(t); setSelectedProducts([]); setProductSearch('');
-    setPackageId(''); setPrice(''); setStatus('planned'); setNote('');
-    setConfirmed(false); setDialogClientId('');
+    setPrice(''); setStatus('planned'); setNote('');
+    setConfirmed(false); setDialogClientId(''); setTags([]); setTagInput('');
   };
 
   return (
@@ -209,18 +208,33 @@ export const ActivityDialog = ({ open, onOpenChange }: Props) => {
             )}
           </div>
 
+          {/* Tags */}
           <div>
-            <Label>Pakiet (opcjonalnie)</Label>
-            <Select value={packageId} onValueChange={handlePackageChange}>
-              <SelectTrigger><SelectValue placeholder="Wybierz pakiet" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="none">Brak pakietu</SelectItem>
-                {packages.map(p => (
-                  <SelectItem key={p.id} value={p.id}>{p.name} ({formatPLN(p.default_price)})</SelectItem>
+            <Label>Tagi (opcjonalnie)</Label>
+            <div className="flex gap-2 mt-1">
+              <Input
+                placeholder="np. Promocja, Test..."
+                value={tagInput}
+                onChange={e => setTagInput(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addTag(); } }}
+                className="h-8 text-xs"
+              />
+              <Button type="button" size="sm" variant="outline" onClick={addTag} className="h-8 text-xs">Dodaj</Button>
+            </div>
+            {tags.length > 0 && (
+              <div className="flex flex-wrap gap-1 mt-2">
+                {tags.map(tag => (
+                  <Badge key={tag} variant="secondary" className="text-xs gap-1">
+                    {tag}
+                    <button onClick={() => setTags(prev => prev.filter(t => t !== tag))} className="ml-0.5">
+                      <X className="h-2.5 w-2.5" />
+                    </button>
+                  </Badge>
                 ))}
-              </SelectContent>
-            </Select>
+              </div>
+            )}
           </div>
+
           <div className="grid grid-cols-2 gap-4">
             <div>
               <Label>Cena (PLN)</Label>

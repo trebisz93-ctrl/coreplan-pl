@@ -1,5 +1,5 @@
 import { Link, useLocation } from 'react-router-dom';
-import { CalendarDays, BarChart3, Package, FileText, Settings, LogOut, Building2, ShoppingBag, Users, Shield } from 'lucide-react';
+import { CalendarDays, BarChart3, FileText, Settings, LogOut, Building2, ShoppingBag, Users, Shield } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/context/AuthContext';
 import { useIsAdmin, useIsSuperAdminRole } from '@/hooks/useRole';
@@ -11,7 +11,6 @@ const baseNavItems = [
   { label: 'Dashboard', icon: BarChart3, path: '/dashboard' },
   { label: 'Klienci', icon: Building2, path: '/clients' },
   { label: 'Produkty', icon: ShoppingBag, path: '/products' },
-  { label: 'Pakiety', icon: Package, path: '/packages' },
   { label: 'Raporty', icon: FileText, path: '/reports' },
 ];
 

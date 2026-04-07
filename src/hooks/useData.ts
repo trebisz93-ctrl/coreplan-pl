@@ -26,17 +26,6 @@ export interface DbProduct {
   updated_at: string;
 }
 
-export interface DbPackage {
-  id: string;
-  user_id: string;
-  name: string;
-  description: string;
-  default_price: number;
-  items: { id: string; name: string; quantity: number; unitPrice: number }[];
-  created_at: string;
-  updated_at: string;
-}
-
 export interface DbProfile {
   id: string;
   user_id: string;
@@ -77,11 +66,9 @@ export const useCreateClient = () => {
   const { orgId } = useOrganization();
   return useMutation({
     mutationFn: async (name: string) => {
-      // 1. Create client
       const { data, error } = await supabase
         .from('clients').insert({ name, user_id: user!.id }).select().single();
       if (error) throw error;
-      // 2. Link to current organization
       if (orgId) {
         const { error: linkErr } = await supabase
           .from('organization_clients')
@@ -201,58 +188,6 @@ export const useSeedProducts = () => {
   });
 };
 
-// ── Packages ──
-
-export const usePackages = () => {
-  const { user } = useAuth();
-  return useQuery({
-    queryKey: ['packages', user?.id],
-    queryFn: async () => {
-      const { data, error } = await supabase.from('packages').select('*').is('deleted_at', null).order('name');
-      if (error) throw error;
-      return (data as any[]) as DbPackage[];
-    },
-    enabled: !!user,
-  });
-};
-
-export const useCreatePackage = () => {
-  const qc = useQueryClient();
-  const { user } = useAuth();
-  const { orgId } = useOrganization();
-  return useMutation({
-    mutationFn: async (pkg: { name: string; description: string; default_price: number; items: any[] }) => {
-      const { data, error } = await supabase
-        .from('packages').insert({ ...pkg, user_id: user!.id, organization_id: orgId } as any).select().single();
-      if (error) throw error;
-      return data as unknown as DbPackage;
-    },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['packages'] }),
-  });
-};
-
-export const useUpdatePackage = () => {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: async ({ id, ...pkg }: { id: string; name?: string; description?: string; default_price?: number; items?: any[] }) => {
-      const { error } = await supabase.from('packages').update(pkg as any).eq('id', id);
-      if (error) throw error;
-    },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['packages'] }),
-  });
-};
-
-export const useDeletePackage = () => {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: async (id: string) => {
-      const { error } = await supabase.from('packages').update({ deleted_at: new Date().toISOString() } as any).eq('id', id);
-      if (error) throw error;
-    },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['packages'] }),
-  });
-};
-
 // ── Profiles & Roles (admin) ──
 
 export const useProfiles = () => {
@@ -299,7 +234,6 @@ export const useSetUserRole = () => {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async ({ userId, role }: { userId: string; role: 'admin' | 'manager' | 'user' | 'viewer' }) => {
-      // Upsert role
       const { error: delError } = await supabase.from('user_roles').delete().eq('user_id', userId);
       if (delError) throw delError;
       const { error } = await supabase.from('user_roles').insert({ user_id: userId, role } as any);

@@ -13,21 +13,6 @@ export interface Product {
   clientId: string;
 }
 
-export interface PackageItem {
-  id: string;
-  name: string;
-  quantity: number;
-  unitPrice: number;
-}
-
-export interface MediaPackage {
-  id: string;
-  name: string;
-  description: string;
-  defaultPrice: number;
-  items: PackageItem[];
-}
-
 export interface Confirmation {
   id: string;
   imageUrl: string;
@@ -45,7 +30,7 @@ export interface Activity {
   startDate: string;
   endDate: string;
   productIds: string[];
-  packageId?: string;
+  tags: string[];
   price: number;
   status: ActivityStatus;
   note?: string;

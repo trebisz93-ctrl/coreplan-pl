@@ -25,7 +25,6 @@ const typeLabels: Record<string, string> = {
   user: 'Użytkownik',
   client: 'Klient',
   product: 'Produkt',
-  package: 'Pakiet',
 };
 
 const typeColors: Record<string, string> = {
@@ -33,7 +32,6 @@ const typeColors: Record<string, string> = {
   user: 'secondary',
   client: 'outline',
   product: 'outline',
-  package: 'outline',
 };
 
 export const TrashView = () => {
@@ -71,8 +69,6 @@ export const TrashView = () => {
         await supabase.from('clients').update({ deleted_at: null, deleted_by: null, purge_at: null } as any).eq('id', item.record_id);
       } else if (item.record_type === 'product') {
         await supabase.from('products').update({ deleted_at: null, deleted_by: null, purge_at: null } as any).eq('id', item.record_id);
-      } else if (item.record_type === 'package') {
-        await supabase.from('packages').update({ deleted_at: null, deleted_by: null, purge_at: null } as any).eq('id', item.record_id);
       }
 
       // Mark as restored in trash_registry
@@ -98,8 +94,6 @@ export const TrashView = () => {
         await supabase.from('clients').delete().eq('id', item.record_id);
       } else if (item.record_type === 'product') {
         await supabase.from('products').delete().eq('id', item.record_id);
-      } else if (item.record_type === 'package') {
-        await supabase.from('packages').delete().eq('id', item.record_id);
       }
 
       await supabase.from('trash_registry').delete().eq('id', item.id);
@@ -130,7 +124,6 @@ export const TrashView = () => {
           <TabsTrigger value="user">Użytkownicy</TabsTrigger>
           <TabsTrigger value="client">Klienci</TabsTrigger>
           <TabsTrigger value="product">Produkty</TabsTrigger>
-          <TabsTrigger value="package">Pakiety</TabsTrigger>
         </TabsList>
       </Tabs>
 

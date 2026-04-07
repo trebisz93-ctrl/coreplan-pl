@@ -2,8 +2,7 @@ import { useMemo, useState, useCallback, useRef } from 'react';
 import { OrgOnboarding } from '@/components/OrgOnboarding';
 import { useApp } from '@/context/AppContext';
 import { useCanEdit } from '@/hooks/useRole';
-import { useProducts, DbProduct, usePackages, DbPackage } from '@/hooks/useData';
-import { useSeedDefaultPackages } from '@/hooks/useSeedDefaultPackages';
+import { useProducts, DbProduct } from '@/hooks/useData';
 import { Activity, statusLabels, campaignTypeLabels } from '@/types/mediaplan';
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '@/components/ui/tooltip';
 import { Badge } from '@/components/ui/badge';
@@ -12,7 +11,7 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
   ChevronDown, ChevronRight, Plus, Search, FileDown,
-  Calendar, LayoutGrid, List, Package, Layers, EyeOff, Eye
+  Calendar, LayoutGrid, List, EyeOff, Eye, Tag
 } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
@@ -39,7 +38,6 @@ const statusBadgeClass: Record<string, string> = {
   cancelled: 'bg-status-cancelled text-primary-foreground',
 };
 
-// Base colors for activities – each activity gets a unique one within its package
 const BASE_COLORS = [
   'hsl(221, 83%, 53%)', 'hsl(271, 81%, 56%)', 'hsl(142, 71%, 45%)',
   'hsl(0, 84%, 60%)', 'hsl(25, 95%, 53%)', 'hsl(38, 92%, 50%)',
@@ -47,10 +45,9 @@ const BASE_COLORS = [
   'hsl(200, 80%, 50%)', 'hsl(50, 90%, 45%)', 'hsl(290, 60%, 55%)',
 ];
 
-// Package accent colors (left border of group header)
-const PACKAGE_ACCENTS = [
-  'hsl(221, 70%, 55%)', 'hsl(142, 60%, 45%)', 'hsl(271, 65%, 55%)',
-  'hsl(25, 80%, 50%)', 'hsl(0, 70%, 55%)', 'hsl(38, 80%, 48%)',
+const TAG_COLORS = [
+  'hsl(24, 60%, 54%)', 'hsl(142, 60%, 45%)', 'hsl(221, 70%, 55%)',
+  'hsl(271, 65%, 55%)', 'hsl(0, 70%, 55%)', 'hsl(38, 80%, 48%)',
   'hsl(173, 50%, 42%)', 'hsl(330, 65%, 55%)',
 ];
 
@@ -61,7 +58,6 @@ const quarterRanges: Record<string, [string, string]> = {
   year: ['01-01', '12-31'],
 };
 
-/** Lighten an HSL color string by mixing with white */
 function lightenHsl(hsl: string, amount: number): string {
   const match = hsl.match(/hsl\((\d+),\s*(\d+)%,\s*(\d+)%\)/);
   if (!match) return hsl;
@@ -71,7 +67,6 @@ function lightenHsl(hsl: string, amount: number): string {
   return `hsl(${h}, ${Math.round(s)}%, ${Math.round(l)}%)`;
 }
 
-/** Darken an HSL color string */
 function darkenHsl(hsl: string, amount: number): string {
   const match = hsl.match(/hsl\((\d+),\s*(\d+)%,\s*(\d+)%\)/);
   if (!match) return hsl;
@@ -105,9 +100,8 @@ export const YearView = () => {
   const [activePeriod, setActivePeriod] = useState<string>('year');
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const [subcategoryFilter, setSubcategoryFilter] = useState<string>('all');
+  const [tagFilter, setTagFilter] = useState<string>('all');
 
-  useSeedDefaultPackages();
-  const { data: packages = [] } = usePackages();
   const { data: fetchedProducts = [] } = useProducts(multiClientMode ? undefined : (selectedClientId || undefined));
   const effectiveProducts = useMemo(() => {
     if (!multiClientMode) return fetchedProducts;
@@ -145,8 +139,11 @@ export const YearView = () => {
         return p && p.subcategory === subcategoryFilter;
       }));
     }
+    if (tagFilter !== 'all') {
+      acts = acts.filter(a => a.tags?.includes(tagFilter));
+    }
     return acts;
-  }, [allFilteredActivities, dateFrom, dateTo, categoryFilter, subcategoryFilter, productMap]);
+  }, [allFilteredActivities, dateFrom, dateTo, categoryFilter, subcategoryFilter, productMap, tagFilter]);
 
   const visibleMonths = useMemo(() => {
     const s = parseInt(dateFrom.slice(5, 7)) - 1;
@@ -154,7 +151,6 @@ export const YearView = () => {
     return months.slice(s, e + 1);
   }, [dateFrom, dateTo]);
 
-  /** Get ISO week number */
   const getISOWeek = useCallback((date: Date) => {
     const d = new Date(date);
     d.setHours(0, 0, 0, 0);
@@ -174,7 +170,6 @@ export const YearView = () => {
       const ws = new Date(d);
       const we = new Date(d); we.setDate(we.getDate() + 6);
       const weekNum = getISOWeek(ws);
-      // monthIdx relative to visible range start month
       const midWeek = new Date(ws.getTime() + 3 * 86400000);
       weeks.push({ label: `W${weekNum}`, start: ws, end: we, monthIdx: midWeek.getMonth() });
       d.setDate(d.getDate() + 7);
@@ -182,7 +177,6 @@ export const YearView = () => {
     return weeks;
   }, [dateFrom, dateTo, getISOWeek]);
 
-  /** Weeks grouped by visible month for the sub-header */
   const weeksPerMonth = useMemo(() => {
     const startMonth = parseInt(dateFrom.slice(5, 7)) - 1;
     const endMonth = parseInt(dateTo.slice(5, 7)) - 1;
@@ -197,14 +191,7 @@ export const YearView = () => {
   const gridColumns = viewMode === 'weekly' ? visibleWeeks.length : visibleMonths.length;
   const gridHeaders = viewMode === 'weekly' ? visibleWeeks.map(w => w.label) : visibleMonths;
 
-
-  const packageMap = useMemo(() => {
-    const m = new Map<string, DbPackage>();
-    packages.forEach(p => m.set(p.id, p));
-    return m;
-  }, [packages]);
-
-  // ── Available categories & subcategories for filters ──
+  // ── Available categories, subcategories, tags for filters ──
   const availableCategories = useMemo(() => {
     const cats = new Set<string>();
     effectiveProducts.forEach(p => { if (p.category) cats.add(p.category); });
@@ -217,12 +204,15 @@ export const YearView = () => {
     return [...subs].sort();
   }, [effectiveProducts]);
 
+  const availableTags = useMemo(() => {
+    const tags = new Set<string>();
+    allFilteredActivities.forEach(a => a.tags?.forEach(t => tags.add(t)));
+    return [...tags].sort();
+  }, [allFilteredActivities]);
+
   // ── Expand/collapse state ──
-  const [expandedPackages, setExpandedPackages] = useState<Set<string>>(new Set());
   const [expandedActivities, setExpandedActivities] = useState<Set<string>>(new Set());
 
-  const togglePackage = (id: string) =>
-    setExpandedPackages(p => { const n = new Set(p); n.has(id) ? n.delete(id) : n.add(id); return n; });
   const toggleActivity = (id: string) =>
     setExpandedActivities(p => { const n = new Set(p); n.has(id) ? n.delete(id) : n.add(id); return n; });
 
@@ -247,43 +237,28 @@ export const YearView = () => {
     return `${brands[0]} +${brands.length - 1}`;
   }, [productMap]);
 
-  // ── Sub-activities from package items ──
-  const getSubActivities = useCallback((activity: Activity) => {
-    if (!activity.packageId) return [];
-    const pkg = packageMap.get(activity.packageId);
-    if (!pkg) return [];
-    const items = (pkg.items as any[]) || [];
-    return items.map((item: any, i: number) => ({
-      id: `${activity.id}__sub__${i}`,
-      name: item.name || `Element ${i + 1}`,
-      startDate: activity.startDate,
-      endDate: activity.endDate,
-    }));
-  }, [packageMap]);
+  // ── Sub-rows: products assigned to activity ──
+  const getSubRows = useCallback((activity: Activity) => {
+    return activity.productIds
+      .map(pid => productMap.get(pid))
+      .filter(Boolean)
+      .map((p, i) => ({
+        id: `${activity.id}__prod__${i}`,
+        name: p!.name,
+        brand: p!.brand,
+        startDate: activity.startDate,
+        endDate: activity.endDate,
+      }));
+  }, [productMap]);
 
-  // ── Package groups ──
-  const packageGroups = useMemo(() => {
-    const NO_PKG = '__no_package__';
-    const groups = new Map<string, Activity[]>();
-    filteredActivities.forEach(a => {
-      const key = a.packageId || NO_PKG;
-      if (!groups.has(key)) groups.set(key, []);
-      groups.get(key)!.push(a);
-    });
-    const sorted: { packageId: string; packageName: string; activities: Activity[]; pkg?: DbPackage }[] = [];
-    groups.forEach((acts, key) => {
-      if (key !== NO_PKG) {
-        const pkg = packageMap.get(key);
-        sorted.push({ packageId: key, packageName: pkg?.name || 'Nieznany pakiet', activities: acts, pkg });
-      }
-    });
-    sorted.sort((a, b) => a.packageName.localeCompare(b.packageName));
-    const noPkg = groups.get(NO_PKG);
-    if (noPkg?.length) sorted.push({ packageId: NO_PKG, packageName: 'Bez pakietu', activities: noPkg });
+  // ── Flat activity groups (by tag or ungrouped) ──
+  const activityGroups = useMemo(() => {
+    // Sort activities by start date
+    const sorted = [...filteredActivities].sort((a, b) => a.startDate.localeCompare(b.startDate));
     return sorted;
-  }, [filteredActivities, packageMap]);
+  }, [filteredActivities]);
 
-  // ── PDF Export (vector) ──
+  // ── PDF Export ──
   const handleExportPDF = async () => {
     setExporting(true);
     try {
@@ -296,6 +271,13 @@ export const YearView = () => {
 
       const prodInfo = new Map<string, { id: string; name: string; brand: string | null }>();
       effectiveProducts.forEach(p => prodInfo.set(p.id, { id: p.id, name: p.name, brand: p.brand }));
+
+      // Convert to flat groups for PDF
+      const packageGroups = [{
+        packageId: '__all__',
+        packageName: 'Aktywności',
+        activities: activityGroups,
+      }];
 
       await exportMediaPlanPDF({
         dateFrom,
@@ -322,13 +304,11 @@ export const YearView = () => {
     </div>
   );
 
-  /** PRIMARY bar – main activity (height 14px, strong color, shadow) */
   const renderPrimaryBar = (activity: Activity, baseColor: string) => {
     const pos = getBarStyle(activity.startDate, activity.endDate);
     const brandLabel = getActivityBrandLabel(activity);
     const isHovered = hoveredBarId === activity.id;
     const isSelected = selectedBarId === activity.id;
-    const subCount = getSubActivities(activity).length;
 
     return (
       <TooltipProvider key={activity.id} delayDuration={120}>
@@ -371,12 +351,13 @@ export const YearView = () => {
               <Badge variant="outline" className={activity.channel === 'online' ? 'border-online text-online' : 'border-offline text-offline'}>
                 {activity.channel}
               </Badge>
+              {activity.tags?.map(tag => (
+                <Badge key={tag} variant="outline" className="border-primary/40 text-primary text-[9px]">🏷 {tag}</Badge>
+              ))}
             </div>
             <div className="text-xs text-muted-foreground space-y-0.5">
               <div>📅 {activity.startDate} → {activity.endDate}</div>
               {showPrices && <div>💰 {formatPLN(activity.price)}</div>}
-              {subCount > 0 && <div>📋 Pod-aktywności: {subCount}</div>}
-              <div>📦 Typ: {activity.channel === 'online' ? 'Online' : activity.channel === 'offline' ? 'Offline' : 'Mix'}</div>
               {activity.note && <div>📝 {activity.note}</div>}
             </div>
           </TooltipContent>
@@ -385,7 +366,6 @@ export const YearView = () => {
     );
   };
 
-  /** SECONDARY bar – sub-activity (height 8px, lighter color, no shadow) */
   const renderSecondaryBar = (subId: string, startDate: string, endDate: string, name: string, baseColor: string) => {
     const pos = getBarStyle(startDate, endDate);
     const lightColor = lightenHsl(baseColor, 30);
@@ -426,6 +406,7 @@ export const YearView = () => {
   };
 
   const hasContent = filteredActivities.length > 0;
+  const totalBudget = filteredActivities.reduce((s, a) => s + a.price, 0);
 
   return (
     <div className="space-y-4">
@@ -479,7 +460,6 @@ export const YearView = () => {
           ))}
         </div>
 
-        {/* Search & Filters – like ProductsView */}
         <div className="relative flex-1 min-w-48">
           <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
@@ -504,6 +484,18 @@ export const YearView = () => {
             <SelectContent>
               <SelectItem value="all">Wszystkie subkategorie</SelectItem>
               {availableSubcategories.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        )}
+        {availableTags.length > 0 && (
+          <Select value={tagFilter} onValueChange={setTagFilter}>
+            <SelectTrigger className="w-40 h-8 text-xs">
+              <Tag className="h-3 w-3 mr-1" />
+              <SelectValue placeholder="Tag" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Wszystkie tagi</SelectItem>
+              {availableTags.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
             </SelectContent>
           </Select>
         )}
@@ -532,12 +524,11 @@ export const YearView = () => {
 
       {/* ── Gantt Chart ── */}
       <div ref={chartRef} className="bg-card rounded-xl border border-border shadow-sm overflow-hidden">
-        {/* Header row – months + week sub-row */}
+        {/* Header row */}
         <div className="border-b border-border sticky top-0 z-20 bg-card">
-          {/* Month row */}
           <div className="flex">
-            <div className="w-64 shrink-0 px-4 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-              Pakiet / Aktywność
+            <div className="w-72 shrink-0 px-4 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+              Aktywność
             </div>
             <div className="flex-1 grid" style={{ gridTemplateColumns: `repeat(${gridColumns}, 1fr)` }}>
               {gridHeaders.map((label, i) => (
@@ -547,10 +538,9 @@ export const YearView = () => {
               ))}
             </div>
           </div>
-          {/* Week sub-row (always visible) */}
           {viewMode === 'monthly' && (
             <div className="flex border-t border-border/40">
-              <div className="w-64 shrink-0" />
+              <div className="w-72 shrink-0" />
               <div className="flex-1 flex">
                 {weeksPerMonth.map((mp, mIdx) => (
                   <div key={mIdx} className="flex-1 flex" style={{ borderLeft: mIdx > 0 ? '1px solid hsl(var(--border) / 0.5)' : 'none' }}>
@@ -567,169 +557,81 @@ export const YearView = () => {
           )}
         </div>
 
-        {/* ── Rows ── */}
-        {packageGroups.map((group, gIdx) => {
-          const isExpanded = expandedPackages.has(group.packageId);
-          const accentColor = PACKAGE_ACCENTS[gIdx % PACKAGE_ACCENTS.length];
-          const totalPrice = group.activities.reduce((s, a) => s + a.price, 0);
-          const totalActivities = group.activities.length;
-
-          // Unique client names in this package group
-          const groupClientIds = [...new Set(group.activities.map(a => a.clientId).filter(Boolean))] as string[];
-          const groupClientNames = groupClientIds.map(id => clientMap.get(id)).filter(Boolean) as string[];
-
-          // Package date range
-          const allStarts = group.activities.map(a => a.startDate).sort();
-          const allEnds = group.activities.map(a => a.endDate).sort();
-          const pkgDateRange = allStarts.length ? `${allStarts[0]} → ${allEnds[allEnds.length - 1]}` : '';
-          const onlineCount = group.activities.filter(a => a.channel === 'online').length;
-          const offlineCount = group.activities.filter(a => a.channel === 'offline').length;
+        {/* ── Activity Rows ── */}
+        {activityGroups.map((activity, aIdx) => {
+          const baseColor = BASE_COLORS[aIdx % BASE_COLORS.length];
+          const isActExpanded = expandedActivities.has(activity.id);
+          const subRows = getSubRows(activity);
+          const hasSubs = subRows.length > 0;
+          const isActSelected = selectedBarId === activity.id;
 
           return (
-            <div key={group.packageId}>
-              {/* ── PACKAGE GROUP HEADER (with aggregate bar on timeline) ── */}
-              <TooltipProvider delayDuration={200}>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <div className="flex border-b border-border bg-muted/30 hover:bg-muted/50 transition-colors">
-                      <div className="w-64 shrink-0 flex items-center gap-2 relative">
-                        {/* Colored left accent bar */}
-                        <div className="absolute left-0 top-0 bottom-0 w-1.5 rounded-r" style={{ backgroundColor: accentColor }} />
-                        <button
-                          onClick={() => togglePackage(group.packageId)}
-                          className="flex items-center gap-2 pl-4 pr-2 py-2.5 w-full text-left group"
-                        >
-                          {isExpanded
-                            ? <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground group-hover:text-foreground transition-colors" />
-                            : <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground group-hover:text-foreground transition-colors" />
-                          }
-                          <Package className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                          <span className="text-sm font-bold truncate">{group.packageName}</span>
-                          {groupClientNames.length > 0 && groupClientNames.map((cn, ci) => (
-                            <Badge key={ci} variant="outline" className="text-[9px] px-1.5 py-0 h-4 shrink-0 border-muted-foreground/30">
-                              {cn}
-                            </Badge>
-                          ))}
-                          <span className="text-[10px] text-muted-foreground ml-auto whitespace-nowrap shrink-0">
-                            {totalActivities} akt.{showPrices ? ` • ${formatPLN(totalPrice)}` : ''}
-                          </span>
-                        </button>
-                      </div>
-                      {/* Package aggregate bar on timeline */}
-                      <div className="flex-1 relative" style={{ minHeight: 40 }}>
-                        {renderGridLines()}
-                        {allStarts.length > 0 && (() => {
-                          const pos = getBarStyle(allStarts[0], allEnds[allEnds.length - 1]);
-                          return (
-                            <div
-                              className="absolute z-[8] transition-all duration-150"
-                              style={{
-                                ...pos,
-                                top: 10,
-                                height: 20,
-                                borderRadius: 8,
-                                background: `linear-gradient(135deg, ${accentColor}, ${lightenHsl(accentColor, 12)})`,
-                                boxShadow: `0 2px 6px ${accentColor}30`,
-                                border: `1px solid ${accentColor}`,
-                              }}
-                            >
-                              <span className="text-[10px] leading-[20px] px-2 font-bold truncate block text-white drop-shadow-sm">
-                                {group.packageName}{showPrices ? ` • ${formatPLN(totalPrice)}` : ''}
-                              </span>
-                            </div>
-                          );
-                        })()}
-                      </div>
-                    </div>
-                  </TooltipTrigger>
-                  <TooltipContent side="right" className="max-w-xs p-3 space-y-1.5">
-                    <div className="font-semibold text-sm">{group.packageName}</div>
-                    <div className="text-xs text-muted-foreground space-y-0.5">
-                      {groupClientNames.length > 0 && <div>👤 Klienci: {groupClientNames.join(', ')}</div>}
-                      {showPrices && <div>💰 Budżet: {formatPLN(totalPrice)}</div>}
-                      <div>📋 Aktywności: {totalActivities}</div>
-                      {pkgDateRange && <div>📅 Zakres: {pkgDateRange}</div>}
-                      <div>🌐 Online: {onlineCount} / Offline: {offlineCount}</div>
-                    </div>
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
+            <div key={activity.id}>
+              {/* ── ACTIVITY ROW ── */}
+              <div
+                className="flex border-b border-border/60 transition-colors hover:bg-muted/30"
+                style={{
+                  backgroundColor: isActSelected ? `${baseColor}08` : aIdx % 2 === 0 ? 'transparent' : 'hsl(var(--secondary) / 0.06)',
+                }}
+              >
+                <div className="w-72 shrink-0 flex items-center gap-1.5 relative">
+                  {/* Status indicator */}
+                  <div
+                    className="absolute left-0 top-1 bottom-1 w-[3px] rounded-r"
+                    style={{ backgroundColor: STATUS_LEFT_COLORS[activity.status] || STATUS_LEFT_COLORS.planned }}
+                  />
 
-              {/* ── Expanded activities ── */}
-              {isExpanded && group.activities.map((activity, aIdx) => {
-                const baseColor = BASE_COLORS[aIdx % BASE_COLORS.length];
-                const isActExpanded = expandedActivities.has(activity.id);
-                const subActivities = getSubActivities(activity);
-                const hasSubs = subActivities.length > 0;
-                const isActSelected = selectedBarId === activity.id;
-
-                return (
-                  <div key={activity.id}>
-                    {/* ── ACTIVITY ROW (PRIMARY bar) ── */}
-                    <div
-                      className="flex border-b border-border/60 transition-colors"
-                      style={{
-                        backgroundColor: isActSelected ? `${baseColor}08` : aIdx % 2 === 0 ? 'transparent' : 'hsl(var(--secondary) / 0.06)',
-                      }}
-                    >
-                      <div className="w-64 shrink-0 flex items-center gap-1.5 relative">
-                        {/* Status indicator (3px left bar) */}
-                        <div
-                          className="absolute left-0 top-1 bottom-1 w-[3px] rounded-r"
-                          style={{ backgroundColor: STATUS_LEFT_COLORS[activity.status] || STATUS_LEFT_COLORS.planned }}
-                        />
-                        {/* Connector line from package accent */}
-                        <div className="absolute left-1.5 top-0 bottom-0 w-px" style={{ backgroundColor: `${accentColor}30` }} />
-
-                        <button
-                          onClick={() => hasSubs && toggleActivity(activity.id)}
-                          className="flex items-center gap-1.5 pl-7 pr-2 py-2 w-full text-left group"
-                        >
-                          {hasSubs ? (
-                            isActExpanded
-                              ? <ChevronDown className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                              : <ChevronRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                          ) : (
-                            <span className="w-3.5 shrink-0" />
-                          )}
-                          <div className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: baseColor }} />
-                          <span className="text-xs font-semibold truncate">{activity.name}</span>
-                          {activity.clientId && clientMap.get(activity.clientId) && (
-                            <Badge variant="outline" className="text-[8px] px-1 py-0 h-3.5 shrink-0 border-muted-foreground/20 text-muted-foreground">
-                              {clientMap.get(activity.clientId)}
-                            </Badge>
-                          )}
-                          {hasSubs && !isActExpanded && (
-                            <span className="text-[9px] text-muted-foreground ml-auto shrink-0 bg-secondary/60 px-1.5 py-0.5 rounded-full">
-                              {subActivities.length}
-                            </span>
-                          )}
-                        </button>
-                      </div>
-                      <div className="flex-1 relative" style={{ minHeight: 36 }}>
-                        {renderGridLines()}
-                        {renderPrimaryBar(activity, baseColor)}
-                      </div>
-                    </div>
-
-                    {/* ── SUB-ACTIVITIES (SECONDARY bars) ── */}
-                    {isActExpanded && subActivities.map((sub) => (
-                      <div key={sub.id} className="flex border-b border-border/30">
-                        <div className="w-64 shrink-0 flex items-center relative">
-                          {/* Vertical connector */}
-                          <div className="absolute left-1.5 top-0 bottom-0 w-px" style={{ backgroundColor: `${accentColor}20` }} />
-                          <div className="absolute left-[26px] top-0 bottom-0 w-px" style={{ backgroundColor: `${baseColor}20` }} />
-                          <span className="text-[11px] text-muted-foreground truncate pl-11 pr-2 py-1.5">{sub.name}</span>
-                        </div>
-                        <div className="flex-1 relative" style={{ minHeight: 34 }}>
-                          {renderGridLines()}
-                          {renderSecondaryBar(sub.id, sub.startDate, sub.endDate, sub.name, baseColor)}
-                        </div>
-                      </div>
+                  <button
+                    onClick={() => hasSubs && toggleActivity(activity.id)}
+                    className="flex items-center gap-1.5 pl-4 pr-2 py-2.5 w-full text-left group"
+                  >
+                    {hasSubs ? (
+                      isActExpanded
+                        ? <ChevronDown className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                        : <ChevronRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                    ) : (
+                      <span className="w-3.5 shrink-0" />
+                    )}
+                    <div className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: baseColor }} />
+                    <span className="text-xs font-semibold truncate">{activity.name}</span>
+                    {activity.tags?.map((tag, ti) => (
+                      <Badge key={tag} variant="outline" className="text-[8px] px-1 py-0 h-3.5 shrink-0" style={{ borderColor: TAG_COLORS[ti % TAG_COLORS.length] + '60', color: TAG_COLORS[ti % TAG_COLORS.length] }}>
+                        {tag}
+                      </Badge>
                     ))}
+                    {activity.clientId && clientMap.get(activity.clientId) && (
+                      <Badge variant="outline" className="text-[8px] px-1 py-0 h-3.5 shrink-0 border-muted-foreground/20 text-muted-foreground">
+                        {clientMap.get(activity.clientId)}
+                      </Badge>
+                    )}
+                    <span className="text-[9px] text-muted-foreground ml-auto whitespace-nowrap shrink-0">
+                      {activity.startDate.slice(5)}
+                      {showPrices ? ` • ${formatPLN(activity.price)}` : ''}
+                    </span>
+                  </button>
+                </div>
+                <div className="flex-1 relative" style={{ minHeight: 36 }}>
+                  {renderGridLines()}
+                  {renderPrimaryBar(activity, baseColor)}
+                </div>
+              </div>
+
+              {/* ── SUB-ROWS (Products) ── */}
+              {isActExpanded && subRows.map((sub) => (
+                <div key={sub.id} className="flex border-b border-border/30">
+                  <div className="w-72 shrink-0 flex items-center relative">
+                    <div className="absolute left-[14px] top-0 bottom-0 w-px" style={{ backgroundColor: `${baseColor}20` }} />
+                    <span className="text-[11px] text-muted-foreground truncate pl-8 pr-2 py-1.5">
+                      {sub.name}
+                      {sub.brand && <span className="text-muted-foreground/50 ml-1">({sub.brand})</span>}
+                    </span>
                   </div>
-                );
-              })}
+                  <div className="flex-1 relative" style={{ minHeight: 34 }}>
+                    {renderGridLines()}
+                    {renderSecondaryBar(sub.id, sub.startDate, sub.endDate, sub.name, baseColor)}
+                  </div>
+                </div>
+              ))}
             </div>
           );
         })}
@@ -741,9 +643,22 @@ export const YearView = () => {
               : (selectedClientId ? 'Brak aktywności. Dodaj aktywność przyciskiem powyżej.' : 'Wybierz klienta na górze.')}
           </div>
         )}
+
+        {/* Summary bar */}
+        {hasContent && (
+          <div className="flex items-center justify-between px-4 py-2 border-t border-border bg-muted/30">
+            <span className="text-xs text-muted-foreground">
+              {filteredActivities.length} aktywności
+            </span>
+            {showPrices && (
+              <span className="text-xs font-semibold">
+                Łączny budżet: {formatPLN(totalBudget)}
+              </span>
+            )}
+          </div>
+        )}
       </div>
 
-      {/* ── Drawers / Dialogs ── */}
       <ActivityDetailDrawer activity={selectedActivity} open={drawerOpen} onOpenChange={setDrawerOpen} clientId={selectedClientId} />
       <ActivityDialog open={dialogOpen} onOpenChange={setDialogOpen} />
     </div>

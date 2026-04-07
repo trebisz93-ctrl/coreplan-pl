@@ -19,6 +19,7 @@ export interface DbActivity {
   price: number;
   status: ActivityStatus;
   note: string | null;
+  tags: string[];
   created_at: string;
   updated_at: string;
 }
@@ -45,7 +46,7 @@ export const dbToActivity = (row: DbActivity) => ({
   startDate: row.start_date,
   endDate: row.end_date,
   productIds: row.product_ids || [],
-  packageId: row.package_id || undefined,
+  tags: row.tags || [],
   price: Number(row.price),
   status: row.status,
   note: row.note || undefined,
@@ -99,10 +100,10 @@ export const useCreateActivity = () => {
       start_date: string;
       end_date: string;
       product_ids?: string[];
-      package_id?: string;
       price: number;
       status?: string;
       note?: string;
+      tags?: string[];
     }) => {
       const { data, error } = await supabase
         .from('activities')
@@ -111,7 +112,7 @@ export const useCreateActivity = () => {
           user_id: user!.id,
           organization_id: orgId,
           product_ids: input.product_ids || [],
-          package_id: input.package_id || null,
+          tags: input.tags || [],
           status: input.status || 'planned',
         } as any)
         .select()
