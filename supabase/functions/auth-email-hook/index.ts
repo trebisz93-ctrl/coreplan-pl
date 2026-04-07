@@ -238,7 +238,7 @@ async function handleWebhook(req: Request): Promise<Response> {
         const { data: membership } = await supabaseLookup
           .from('organization_members')
           .select('organization_id')
-          .eq('user_id', authUser.id)
+          .eq('user_id', userId)
           .limit(1)
           .single()
         if (membership) {
