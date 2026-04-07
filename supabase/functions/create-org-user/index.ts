@@ -32,23 +32,41 @@ Deno.serve(async (req) => {
 
     if (!roles || roles.length === 0) throw new Error('Brak uprawnień');
 
-    const { email, password, first_name, last_name, organization_id, org_role } = await req.json();
+    const { email, first_name, last_name, organization_id, org_role } = await req.json();
 
-    if (!email || !password || !organization_id) {
-      throw new Error('Wymagane pola: email, password, organization_id');
+    if (!email || !organization_id) {
+      throw new Error('Wymagane pola: email, organization_id');
     }
 
-    // Create auth user
-    const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
+    // Get org name for invite context
+    const { data: org } = await supabaseAdmin
+      .from('organizations')
+      .select('name')
+      .eq('id', organization_id)
+      .single();
+
+    const orgName = org?.name || '';
+
+    // Invite user by email (user sets their own password via invite link)
+    const { data: authData, error: authError } = await supabaseAdmin.auth.admin.inviteUserByEmail(
       email,
-      password,
-      email_confirm: true,
-    });
+      {
+        data: {
+          first_name: first_name || null,
+          last_name: last_name || null,
+          organization_id,
+          org_role: org_role || 'org_admin',
+          org_name: orgName,
+          invited_by: 'super_admin',
+        },
+        redirectTo: `https://coreplan.pl/auth?type=invite`,
+      }
+    );
 
     if (authError) throw authError;
     const userId = authData.user.id;
 
-    // Update profile (created by trigger)
+    // Update profile (created by handle_new_user trigger)
     await supabaseAdmin
       .from('profiles')
       .update({
@@ -56,13 +74,13 @@ Deno.serve(async (req) => {
         last_name: last_name || null,
         display_name: `${first_name || ''} ${last_name || ''}`.trim() || email,
         organization_id,
-        status: 'active',
-        onboarding_completed: true,
+        status: 'pending',
+        onboarding_completed: false,
       })
       .eq('user_id', userId);
 
     // Add to organization_members with org_role
-    const role = org_role || 'user';
+    const role = org_role || 'org_admin';
     await supabaseAdmin.from('organization_members').insert({
       organization_id,
       user_id: userId,
@@ -72,10 +90,10 @@ Deno.serve(async (req) => {
     // Log action
     await supabaseAdmin.from('system_logs').insert({
       user_id: caller.id,
-      event_type: 'user_created',
-      description: `Utworzono użytkownika ${email} dla organizacji ${organization_id}`,
+      event_type: 'user_invited',
+      description: `Zaproszono ${email} jako ${role} do organizacji ${orgName}`,
       organization_id,
-      metadata: { created_user_id: userId, role },
+      metadata: { invited_user_id: userId, role, org_name: orgName },
     });
 
     return new Response(JSON.stringify({ success: true, user_id: userId }), {

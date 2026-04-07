@@ -24,10 +24,10 @@ Deno.serve(async (req) => {
     const { data: { user: caller } } = await supabaseAdmin.auth.getUser(token);
     if (!caller) throw new Error('Nieprawidłowy token');
 
-    const { email, password, first_name, last_name, organization_id, org_role } = await req.json();
+    const { email, first_name, last_name, organization_id, org_role } = await req.json();
 
-    if (!email || !password || !organization_id) {
-      throw new Error('Wymagane pola: email, password, organization_id');
+    if (!email || !organization_id) {
+      throw new Error('Wymagane pola: email, organization_id');
     }
 
     // Check if caller is super_admin OR org_admin of the target organization
@@ -59,17 +59,35 @@ Deno.serve(async (req) => {
       throw new Error('Tylko Super Admin może nadawać rolę administratora firmy');
     }
 
-    // Create auth user
-    const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
+    // Get org name for invite context
+    const { data: org } = await supabaseAdmin
+      .from('organizations')
+      .select('name')
+      .eq('id', organization_id)
+      .single();
+
+    const orgName = org?.name || '';
+
+    // Invite user by email (user sets their own password via invite link)
+    const { data: authData, error: authError } = await supabaseAdmin.auth.admin.inviteUserByEmail(
       email,
-      password,
-      email_confirm: true,
-    });
+      {
+        data: {
+          first_name: first_name || null,
+          last_name: last_name || null,
+          organization_id,
+          org_role: targetRole,
+          org_name: orgName,
+          invited_by: isSuperAdmin ? 'super_admin' : 'org_admin',
+        },
+        redirectTo: `https://coreplan.pl/auth?type=invite`,
+      }
+    );
 
     if (authError) throw authError;
     const userId = authData.user.id;
 
-    // Update profile (created by trigger)
+    // Update profile (created by handle_new_user trigger)
     await supabaseAdmin
       .from('profiles')
       .update({
@@ -77,8 +95,8 @@ Deno.serve(async (req) => {
         last_name: last_name || null,
         display_name: `${first_name || ''} ${last_name || ''}`.trim() || email,
         organization_id,
-        status: 'active',
-        onboarding_completed: true,
+        status: 'pending',
+        onboarding_completed: false,
       })
       .eq('user_id', userId);
 
@@ -92,10 +110,10 @@ Deno.serve(async (req) => {
     // Log action
     await supabaseAdmin.from('system_logs').insert({
       user_id: caller.id,
-      event_type: 'user_created',
-      description: `Utworzono użytkownika ${email} w organizacji`,
+      event_type: 'user_invited',
+      description: `Zaproszono ${email} jako ${targetRole} do organizacji ${orgName}`,
       organization_id,
-      metadata: { created_user_id: userId, role: targetRole },
+      metadata: { invited_user_id: userId, role: targetRole, org_name: orgName },
     });
 
     return new Response(JSON.stringify({ success: true, user_id: userId }), {
