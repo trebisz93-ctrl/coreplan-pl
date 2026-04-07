@@ -280,10 +280,10 @@ export const ImportExportView = () => {
 
             {/* Success */}
             {importSuccess && (
-              <Alert className="border-green-500 bg-green-50 dark:bg-green-950/20">
-                <CheckCircle2 className="h-4 w-4 text-green-600" />
-                <AlertTitle className="text-green-700 dark:text-green-400">Import zakończony pomyślnie</AlertTitle>
-                <AlertDescription className="text-green-600 dark:text-green-300">
+              <Alert className="border-primary/30 bg-primary/5">
+                <CheckCircle2 className="h-4 w-4 text-primary" />
+                <AlertTitle className="text-primary">Import zakończony pomyślnie</AlertTitle>
+                <AlertDescription className="text-primary/80">
                   Zaimportowano {importSuccess.count} aktywności. Dane są widoczne w widoku klienta.
                 </AlertDescription>
               </Alert>

@@ -33,6 +33,7 @@ const ClientsView = lazy(() => import("./components/ClientsView").then(m => ({ d
 const ProductsView = lazy(() => import("./components/ProductsView").then(m => ({ default: m.ProductsView })));
 const SettingsView = lazy(() => import("./components/SettingsView").then(m => ({ default: m.SettingsView })));
 const UsersView = lazy(() => import("./components/UsersView").then(m => ({ default: m.UsersView })));
+const ImportExportView = lazy(() => import("./components/ImportExportView").then(m => ({ default: m.ImportExportView })));
 const Auth = lazy(() => import("./pages/Auth"));
 const ResetPassword = lazy(() => import("./pages/ResetPassword"));
 const LandingPage = lazy(() => import("./pages/LandingPage"));
@@ -96,6 +97,7 @@ const App = () => (
                   <Route path="/products" element={<ProductsView />} />
                   
                   <Route path="/reports" element={<ReportsView />} />
+                  <Route path="/import-export" element={<ImportExportView />} />
                   <Route path="/users" element={<UsersView />} />
                   <Route path="/settings" element={<SettingsView />} />
                 </Route>
