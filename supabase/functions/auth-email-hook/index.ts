@@ -58,24 +58,29 @@ const SAMPLE_DATA: Record<string, object> = {
   magiclink: {
     siteName: SITE_NAME,
     confirmationUrl: SAMPLE_PROJECT_URL,
+    orgName: 'Danone',
   },
   recovery: {
     siteName: SITE_NAME,
     confirmationUrl: SAMPLE_PROJECT_URL,
+    orgName: 'Danone',
   },
   invite: {
     siteName: SITE_NAME,
     siteUrl: SAMPLE_PROJECT_URL,
     confirmationUrl: SAMPLE_PROJECT_URL,
+    orgName: 'Danone',
   },
   email_change: {
     siteName: SITE_NAME,
     email: SAMPLE_EMAIL,
     newEmail: SAMPLE_EMAIL,
     confirmationUrl: SAMPLE_PROJECT_URL,
+    orgName: 'Danone',
   },
   reauthentication: {
     token: '123456',
+    orgName: 'Danone',
   },
 }
 
@@ -217,6 +222,44 @@ async function handleWebhook(req: Request): Promise<Response> {
     )
   }
 
+  // Lookup organization name for the user (skip for signup — user has no org yet)
+  const supabaseLookup = createClient(
+    Deno.env.get('SUPABASE_URL')!,
+    Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+  )
+
+  let orgName: string | undefined
+  if (emailType !== 'signup') {
+    try {
+      // Look up user by email via profiles (display_name is set to email on signup)
+      const { data: profile } = await supabaseLookup
+        .from('profiles')
+        .select('user_id')
+        .eq('display_name', payload.data.email)
+        .limit(1)
+        .single()
+      const userId = profile?.user_id
+      if (userId) {
+        const { data: membership } = await supabaseLookup
+          .from('organization_members')
+          .select('organization_id')
+          .eq('user_id', userId)
+          .limit(1)
+          .single()
+        if (membership) {
+          const { data: org } = await supabaseLookup
+            .from('organizations')
+            .select('name')
+            .eq('id', membership.organization_id)
+            .single()
+          if (org) orgName = org.name
+        }
+      }
+    } catch (err) {
+      console.warn('Could not resolve org name', { error: err, run_id })
+    }
+  }
+
   // Build template props from payload.data (HookData structure)
   const templateProps = {
     siteName: SITE_NAME,
@@ -226,6 +269,7 @@ async function handleWebhook(req: Request): Promise<Response> {
     token: payload.data.token,
     email: payload.data.email,
     newEmail: payload.data.new_email,
+    orgName,
   }
 
   // Render React Email to HTML and plain text

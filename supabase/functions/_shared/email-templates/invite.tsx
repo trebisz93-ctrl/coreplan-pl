@@ -20,16 +20,22 @@ interface InviteEmailProps {
   siteName: string
   siteUrl: string
   confirmationUrl: string
+  orgName?: string
 }
 
 export const InviteEmail = ({
   siteName,
   siteUrl,
   confirmationUrl,
+  orgName,
 }: InviteEmailProps) => (
   <Html lang="pl" dir="ltr">
     <Head />
-    <Preview>Zaproszenie do CorePlan — dołącz do zespołu</Preview>
+    <Preview>
+      {orgName
+        ? `Zaproszenie do CorePlan od zespołu ${orgName}`
+        : 'Zaproszenie do CorePlan — dołącz do zespołu'}
+    </Preview>
     <Body style={main}>
       <Container style={wrapper}>
         <Section style={header}>
@@ -45,13 +51,34 @@ export const InviteEmail = ({
           <Heading style={h1}>Zostałeś zaproszony!</Heading>
 
           <Text style={text}>
-            Ktoś z Twojego zespołu zaprosił Cię do{' '}
-            <Link href={siteUrl} style={link}>
-              <strong>CorePlan</strong>
-            </Link>
-            . Kliknij przycisk poniżej, aby zaakceptować zaproszenie
-            i utworzyć konto.
+            {orgName ? (
+              <>
+                Zespół <strong style={{ color: '#D97A3A' }}>{orgName}</strong> zaprasza
+                Cię do{' '}
+                <Link href={siteUrl} style={link}>
+                  <strong>CorePlan</strong>
+                </Link>
+                . Kliknij przycisk poniżej, aby zaakceptować zaproszenie
+                i dołączyć do organizacji.
+              </>
+            ) : (
+              <>
+                Ktoś z Twojego zespołu zaprosił Cię do{' '}
+                <Link href={siteUrl} style={link}>
+                  <strong>CorePlan</strong>
+                </Link>
+                . Kliknij przycisk poniżej, aby zaakceptować zaproszenie
+                i utworzyć konto.
+              </>
+            )}
           </Text>
+
+          {orgName && (
+            <Section style={orgBadge}>
+              <Text style={orgBadgeLabel}>ORGANIZACJA</Text>
+              <Text style={orgBadgeName}>{orgName}</Text>
+            </Section>
+          )}
 
           <Section style={buttonContainer}>
             <Button style={button} href={confirmationUrl}>
@@ -130,11 +157,36 @@ const text = {
   fontSize: '15px',
   color: '#52525b',
   lineHeight: '1.65',
-  margin: '0 0 28px',
+  margin: '0 0 24px',
   textAlign: 'center' as const,
 }
 
 const link = { color: '#D97A3A', textDecoration: 'none' }
+
+const orgBadge = {
+  backgroundColor: '#FFF3E8',
+  border: '1px solid #F5DCC8',
+  borderRadius: '10px',
+  padding: '16px 20px',
+  textAlign: 'center' as const,
+  marginBottom: '28px',
+}
+
+const orgBadgeLabel = {
+  fontSize: '11px',
+  color: '#a1a1aa',
+  textTransform: 'uppercase' as const,
+  letterSpacing: '1px',
+  margin: '0 0 4px',
+  fontWeight: '600' as const,
+}
+
+const orgBadgeName = {
+  fontSize: '18px',
+  color: '#D97A3A',
+  fontWeight: '700' as const,
+  margin: '0',
+}
 
 const buttonContainer = { textAlign: 'center' as const, margin: '0 0 28px' }
 

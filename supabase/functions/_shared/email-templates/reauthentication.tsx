@@ -17,12 +17,13 @@ import {
 
 interface ReauthenticationEmailProps {
   token: string
+  orgName?: string
 }
 
-export const ReauthenticationEmail = ({ token }: ReauthenticationEmailProps) => (
+export const ReauthenticationEmail = ({ token, orgName }: ReauthenticationEmailProps) => (
   <Html lang="pl" dir="ltr">
     <Head />
-    <Preview>Twój kod weryfikacyjny — CorePlan</Preview>
+    <Preview>Twój kod weryfikacyjny — CorePlan{orgName ? ` · ${orgName}` : ''}</Preview>
     <Body style={main}>
       <Container style={wrapper}>
         <Section style={header}>
@@ -38,7 +39,13 @@ export const ReauthenticationEmail = ({ token }: ReauthenticationEmailProps) => 
           <Heading style={h1}>Kod weryfikacyjny</Heading>
 
           <Text style={text}>
-            Użyj poniższego kodu, aby potwierdzić swoją tożsamość:
+            Użyj poniższego kodu, aby potwierdzić swoją tożsamość
+            {orgName && (
+              <>
+                {' '}w organizacji <strong style={{ color: '#D97A3A' }}>{orgName}</strong>
+              </>
+            )}
+            :
           </Text>
 
           <Section style={codeBox}>

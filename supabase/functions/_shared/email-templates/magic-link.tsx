@@ -19,15 +19,17 @@ import {
 interface MagicLinkEmailProps {
   siteName: string
   confirmationUrl: string
+  orgName?: string
 }
 
 export const MagicLinkEmail = ({
   siteName,
   confirmationUrl,
+  orgName,
 }: MagicLinkEmailProps) => (
   <Html lang="pl" dir="ltr">
     <Head />
-    <Preview>Twój link do logowania — CorePlan</Preview>
+    <Preview>Twój link do logowania — CorePlan{orgName ? ` · ${orgName}` : ''}</Preview>
     <Body style={main}>
       <Container style={wrapper}>
         <Section style={header}>
@@ -43,8 +45,13 @@ export const MagicLinkEmail = ({
           <Heading style={h1}>Twój link do logowania</Heading>
 
           <Text style={text}>
-            Kliknij przycisk poniżej, aby zalogować się do CorePlan.
-            Link wygaśnie za kilka minut.
+            Kliknij przycisk poniżej, aby zalogować się do CorePlan
+            {orgName && (
+              <>
+                {' '}(organizacja: <strong style={{ color: '#D97A3A' }}>{orgName}</strong>)
+              </>
+            )}
+            . Link wygaśnie za kilka minut.
           </Text>
 
           <Section style={buttonContainer}>
