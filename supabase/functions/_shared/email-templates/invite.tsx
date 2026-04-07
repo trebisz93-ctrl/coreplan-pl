@@ -21,6 +21,7 @@ interface InviteEmailProps {
   siteUrl: string
   confirmationUrl: string
   orgName?: string
+  invitedBy?: string // 'super_admin' | 'org_admin'
 }
 
 export const InviteEmail = ({
@@ -28,85 +29,107 @@ export const InviteEmail = ({
   siteUrl,
   confirmationUrl,
   orgName,
-}: InviteEmailProps) => (
-  <Html lang="pl" dir="ltr">
-    <Head />
-    <Preview>
-      {orgName
-        ? `Zaproszenie do CorePlan od zespołu ${orgName}`
-        : 'Zaproszenie do CorePlan — dołącz do zespołu'}
-    </Preview>
-    <Body style={main}>
-      <Container style={wrapper}>
-        <Section style={header}>
-          <Text style={logoText}>CorePlan</Text>
-          <Text style={tagline}>Platforma do zarządzania mediaplanami i budżetami</Text>
-        </Section>
+  invitedBy,
+}: InviteEmailProps) => {
+  const isSuperAdminInvite = invitedBy === 'super_admin'
 
-        <Section style={content}>
-          <Section style={iconCircle}>
-            <Text style={iconEmoji}>🤝</Text>
+  const previewText = isSuperAdminInvite && orgName
+    ? `CorePlan zaprasza Cię do zarządzania firmą ${orgName}`
+    : orgName
+      ? `Zespół ${orgName} zaprasza Cię do CorePlan`
+      : 'Zaproszenie do CorePlan — dołącz do zespołu'
+
+  return (
+    <Html lang="pl" dir="ltr">
+      <Head />
+      <Preview>{previewText}</Preview>
+      <Body style={main}>
+        <Container style={wrapper}>
+          <Section style={header}>
+            <Text style={logoText}>CorePlan</Text>
+            <Text style={tagline}>Platforma do zarządzania mediaplanami i budżetami</Text>
           </Section>
 
-          <Heading style={h1}>Zostałeś zaproszony!</Heading>
-
-          <Text style={text}>
-            {orgName ? (
-              <>
-                Zespół <strong style={{ color: '#D97A3A' }}>{orgName}</strong> zaprasza
-                Cię do{' '}
-                <Link href={siteUrl} style={link}>
-                  <strong>CorePlan</strong>
-                </Link>
-                . Kliknij przycisk poniżej, aby zaakceptować zaproszenie
-                i dołączyć do organizacji.
-              </>
-            ) : (
-              <>
-                Ktoś z Twojego zespołu zaprosił Cię do{' '}
-                <Link href={siteUrl} style={link}>
-                  <strong>CorePlan</strong>
-                </Link>
-                . Kliknij przycisk poniżej, aby zaakceptować zaproszenie
-                i utworzyć konto.
-              </>
-            )}
-          </Text>
-
-          {orgName && (
-            <Section style={orgBadge}>
-              <Text style={orgBadgeLabel}>ORGANIZACJA</Text>
-              <Text style={orgBadgeName}>{orgName}</Text>
+          <Section style={content}>
+            <Section style={iconCircle}>
+              <Text style={iconEmoji}>{isSuperAdminInvite ? '🏢' : '🤝'}</Text>
             </Section>
-          )}
 
-          <Section style={buttonContainer}>
-            <Button style={button} href={confirmationUrl}>
-              Dołącz do zespołu
-            </Button>
+            <Heading style={h1}>
+              {isSuperAdminInvite ? 'Zaproszenie do zarządzania firmą' : 'Zostałeś zaproszony!'}
+            </Heading>
+
+            <Text style={text}>
+              {isSuperAdminInvite && orgName ? (
+                <>
+                  <Link href={siteUrl} style={link}>
+                    <strong>CorePlan</strong>
+                  </Link>
+                  {' '}zaprasza Cię do zarządzania firmą{' '}
+                  <strong style={{ color: '#D97A3A' }}>{orgName}</strong>.
+                  Kliknij przycisk poniżej, aby ustawić hasło i rozpocząć konfigurację organizacji.
+                </>
+              ) : orgName ? (
+                <>
+                  Zespół <strong style={{ color: '#D97A3A' }}>{orgName}</strong> zaprasza
+                  Cię do{' '}
+                  <Link href={siteUrl} style={link}>
+                    <strong>CorePlan</strong>
+                  </Link>
+                  . Kliknij przycisk poniżej, aby ustawić hasło i dołączyć do organizacji.
+                </>
+              ) : (
+                <>
+                  Ktoś z Twojego zespołu zaprosił Cię do{' '}
+                  <Link href={siteUrl} style={link}>
+                    <strong>CorePlan</strong>
+                  </Link>
+                  . Kliknij przycisk poniżej, aby zaakceptować zaproszenie.
+                </>
+              )}
+            </Text>
+
+            {orgName && (
+              <Section style={orgBadge}>
+                <Text style={orgBadgeLabel}>
+                  {isSuperAdminInvite ? 'TWOJA FIRMA' : 'ORGANIZACJA'}
+                </Text>
+                <Text style={orgBadgeName}>{orgName}</Text>
+                {isSuperAdminInvite && (
+                  <Text style={orgBadgeRole}>Administrator firmy</Text>
+                )}
+              </Section>
+            )}
+
+            <Section style={buttonContainer}>
+              <Button style={button} href={confirmationUrl}>
+                {isSuperAdminInvite ? 'Ustaw hasło i zacznij' : 'Dołącz do zespołu'}
+              </Button>
+            </Section>
+
+            <Text style={hint}>
+              {isSuperAdminInvite
+                ? 'Po kliknięciu ustawisz swoje hasło i będziesz mógł skonfigurować firmę w CorePlan.'
+                : 'Jeśli nie spodziewałeś się tego zaproszenia, możesz bezpiecznie zignorować tę wiadomość.'}
+            </Text>
           </Section>
 
-          <Text style={hint}>
-            Jeśli nie spodziewałeś się tego zaproszenia, możesz bezpiecznie
-            zignorować tę wiadomość.
-          </Text>
-        </Section>
-
-        <Section style={footer}>
-          <Hr style={divider} />
-          <Text style={footerText}>
-            © 2025 CorePlan · Platforma do zarządzania mediaplanami i budżetami
-          </Text>
-          <Text style={footerLinkWrap}>
-            <Link href="https://coreplan.pl" style={footerAnchor}>
-              coreplan.pl
-            </Link>
-          </Text>
-        </Section>
-      </Container>
-    </Body>
-  </Html>
-)
+          <Section style={footer}>
+            <Hr style={divider} />
+            <Text style={footerText}>
+              © 2025 CorePlan · Platforma do zarządzania mediaplanami i budżetami
+            </Text>
+            <Text style={footerLinkWrap}>
+              <Link href="https://coreplan.pl" style={footerAnchor}>
+                coreplan.pl
+              </Link>
+            </Text>
+          </Section>
+        </Container>
+      </Body>
+    </Html>
+  )
+}
 
 export default InviteEmail
 
@@ -186,6 +209,13 @@ const orgBadgeName = {
   color: '#D97A3A',
   fontWeight: '700' as const,
   margin: '0',
+}
+
+const orgBadgeRole = {
+  fontSize: '12px',
+  color: '#92400E',
+  fontWeight: '500' as const,
+  margin: '6px 0 0',
 }
 
 const buttonContainer = { textAlign: 'center' as const, margin: '0 0 28px' }
