@@ -1,5 +1,5 @@
 import { Link, useLocation } from 'react-router-dom';
-import { CalendarDays, BarChart3, FileText, Settings, LogOut, Building2, ShoppingBag, Users, Shield } from 'lucide-react';
+import { CalendarDays, BarChart3, FileText, Settings, LogOut, Building2, ShoppingBag, Users, Shield, FileSpreadsheet } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/context/AuthContext';
 import { useIsAdmin, useIsSuperAdminRole } from '@/hooks/useRole';
@@ -12,6 +12,7 @@ const baseNavItems = [
   { label: 'Klienci', icon: Building2, path: '/clients' },
   { label: 'Produkty', icon: ShoppingBag, path: '/products' },
   { label: 'Raporty', icon: FileText, path: '/reports' },
+  { label: 'Import / Export', icon: FileSpreadsheet, path: '/import-export' },
 ];
 
 const adminNavItems = [

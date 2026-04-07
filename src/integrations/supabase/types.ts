@@ -500,6 +500,66 @@ export type Database = {
         }
         Relationships: []
       }
+      import_history: {
+        Row: {
+          client_id: string | null
+          client_name: string
+          created_at: string
+          error_count: number
+          errors: Json | null
+          file_name: string
+          id: string
+          imported_rows: number
+          organization_id: string | null
+          status: string
+          total_rows: number
+          user_id: string
+        }
+        Insert: {
+          client_id?: string | null
+          client_name: string
+          created_at?: string
+          error_count?: number
+          errors?: Json | null
+          file_name: string
+          id?: string
+          imported_rows?: number
+          organization_id?: string | null
+          status?: string
+          total_rows?: number
+          user_id: string
+        }
+        Update: {
+          client_id?: string | null
+          client_name?: string
+          created_at?: string
+          error_count?: number
+          errors?: Json | null
+          file_name?: string
+          id?: string
+          imported_rows?: number
+          organization_id?: string | null
+          status?: string
+          total_rows?: number
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "import_history_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "import_history_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       media_plans: {
         Row: {
           client_id: string

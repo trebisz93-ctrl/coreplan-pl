@@ -1,5 +1,5 @@
 import { Link, useLocation } from 'react-router-dom';
-import { CalendarDays, BarChart3, Building2, MoreHorizontal, ShoppingBag, FileText, Settings, LogOut, Users, Shield } from 'lucide-react';
+import { CalendarDays, BarChart3, Building2, MoreHorizontal, ShoppingBag, FileText, FileSpreadsheet, Settings, LogOut, Users, Shield } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/context/AuthContext';
 import { useIsAdmin, useIsSuperAdminRole } from '@/hooks/useRole';
@@ -15,6 +15,7 @@ const mainTabs = [
 const moreItems = [
   { label: 'Produkty', icon: ShoppingBag, path: '/products' },
   { label: 'Raporty', icon: FileText, path: '/reports' },
+  { label: 'Import/Export', icon: FileSpreadsheet, path: '/import-export' },
   { label: 'Ustawienia', icon: Settings, path: '/settings' },
 ];
 
