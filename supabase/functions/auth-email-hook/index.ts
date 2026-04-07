@@ -70,6 +70,7 @@ const SAMPLE_DATA: Record<string, object> = {
     siteUrl: SAMPLE_PROJECT_URL,
     confirmationUrl: SAMPLE_PROJECT_URL,
     orgName: 'Danone',
+    invitedBy: 'super_admin',
   },
   email_change: {
     siteName: SITE_NAME,
