@@ -15,7 +15,7 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { useCampaignTypes } from '@/hooks/useCampaignTypes';
-import { useProducts, usePackages } from '@/hooks/useData';
+import { useProducts } from '@/hooks/useData';
 import { useCanEdit } from '@/hooks/useRole';
 import { Upload, Star, StarOff, Trash2, Image as ImageIcon, ExternalLink, Pencil, Save, X, Search } from 'lucide-react';
 import { toast } from 'sonner';
@@ -38,7 +38,6 @@ export const ActivityDetailDrawer = ({ activity, open, onOpenChange, clientId }:
   const updateActivity = useUpdateActivity();
   const deleteActivity = useDeleteActivity();
   const { data: allProducts = [] } = useProducts();
-  const { data: packages = [] } = usePackages();
   const { data: campaignTypes = [] } = useCampaignTypes();
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -53,7 +52,8 @@ export const ActivityDetailDrawer = ({ activity, open, onOpenChange, clientId }:
   const [editNote, setEditNote] = useState('');
   const [editProductIds, setEditProductIds] = useState<string[]>([]);
   const [editProductSearch, setEditProductSearch] = useState('');
-  const [editPackageId, setEditPackageId] = useState<string>('');
+  const [editTags, setEditTags] = useState<string[]>([]);
+  const [editTagInput, setEditTagInput] = useState('');
 
   const allCampaignTypes = [
     ...Object.entries(campaignTypeLabels).map(([k, v]) => ({ name: k, label: v })),
@@ -88,17 +88,15 @@ export const ActivityDetailDrawer = ({ activity, open, onOpenChange, clientId }:
     setEditStatus(activity.status);
     setEditNote(activity.note || '');
     setEditProductIds(activity.productIds || []);
-    setEditPackageId(activity.packageId || '');
+    setEditTags(activity.tags || []);
   }, [editing, activity]);
 
   if (!activity) return null;
 
-  const handlePackageChange = (pkgId: string) => {
-    setEditPackageId(pkgId);
-    if (pkgId && pkgId !== 'none') {
-      const pkg = packages.find(p => p.id === pkgId);
-      if (pkg) setEditPrice(String(pkg.default_price));
-    }
+  const addEditTag = () => {
+    const t = editTagInput.trim();
+    if (t && !editTags.includes(t)) setEditTags(prev => [...prev, t]);
+    setEditTagInput('');
   };
 
   const handleSaveEdit = async () => {
@@ -115,7 +113,7 @@ export const ActivityDetailDrawer = ({ activity, open, onOpenChange, clientId }:
         status: editStatus,
         note: editNote || null,
         product_ids: editProductIds,
-        package_id: editPackageId && editPackageId !== 'none' ? editPackageId : null,
+        tags: editTags,
       });
       toast.success('Aktywność zaktualizowana');
       setEditing(false);
@@ -171,8 +169,6 @@ export const ActivityDetailDrawer = ({ activity, open, onOpenChange, clientId }:
   const productNames = activity.productIds
     .map(pid => allProducts.find(p => p.id === pid)?.name)
     .filter(Boolean);
-
-  const packageName = activity.packageId ? packages.find(p => p.id === activity.packageId)?.name : null;
 
   return (
     <Sheet open={open} onOpenChange={v => { onOpenChange(v); if (!v) setEditing(false); }}>
@@ -261,20 +257,6 @@ export const ActivityDetailDrawer = ({ activity, open, onOpenChange, clientId }:
                 </div>
               </div>
 
-              {/* Package selection */}
-              <div>
-                <Label>Pakiet</Label>
-                <Select value={editPackageId || 'none'} onValueChange={handlePackageChange}>
-                  <SelectTrigger><SelectValue placeholder="Wybierz pakiet" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">Brak pakietu</SelectItem>
-                    {packages.map(p => (
-                      <SelectItem key={p.id} value={p.id}>{p.name} ({formatPLN(p.default_price)})</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
               {/* Product selection */}
               <div>
                 <Label>Produkty</Label>
@@ -307,6 +289,33 @@ export const ActivityDetailDrawer = ({ activity, open, onOpenChange, clientId }:
                 </div>
                 {editProductIds.length > 0 && (
                   <div className="text-xs text-muted-foreground mt-1">Wybrano: {editProductIds.length}</div>
+                )}
+              </div>
+
+              {/* Tags */}
+              <div>
+                <Label>Tagi</Label>
+                <div className="flex gap-2 mt-1">
+                  <Input
+                    placeholder="np. Promocja, Test..."
+                    value={editTagInput}
+                    onChange={e => setEditTagInput(e.target.value)}
+                    onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addEditTag(); } }}
+                    className="h-8 text-xs"
+                  />
+                  <Button type="button" size="sm" variant="outline" onClick={addEditTag} className="h-8 text-xs">Dodaj</Button>
+                </div>
+                {editTags.length > 0 && (
+                  <div className="flex flex-wrap gap-1 mt-2">
+                    {editTags.map(tag => (
+                      <Badge key={tag} variant="secondary" className="text-xs gap-1">
+                        {tag}
+                        <button onClick={() => setEditTags(prev => prev.filter(t => t !== tag))} className="ml-0.5">
+                          <X className="h-2.5 w-2.5" />
+                        </button>
+                      </Badge>
+                    ))}
+                  </div>
                 )}
               </div>
 
@@ -349,7 +358,9 @@ export const ActivityDetailDrawer = ({ activity, open, onOpenChange, clientId }:
                 <Badge variant="outline" className={activity.channel === 'online' ? 'border-online text-online' : 'border-offline text-offline'}>
                   {activity.channel}
                 </Badge>
-                {packageName && <Badge variant="outline">📦 {packageName}</Badge>}
+                {activity.tags?.map(tag => (
+                  <Badge key={tag} variant="outline" className="border-primary/40 text-primary">🏷 {tag}</Badge>
+                ))}
               </div>
 
               <div className="space-y-2 text-sm">
@@ -400,60 +411,44 @@ export const ActivityDetailDrawer = ({ activity, open, onOpenChange, clientId }:
                 </Button>
               )}
             </div>
-            <input
-              ref={fileRef}
-              type="file"
-              accept="image/*"
-              multiple
-              className="hidden"
-              onChange={e => e.target.files && handleUpload(e.target.files)}
-            />
-
-            {confirmations.length === 0 && (
-              <p className="text-xs text-muted-foreground italic">Brak potwierdzeń. Dodaj zdjęcia, aby udokumentować realizację.</p>
-            )}
-
+            <input ref={fileRef} type="file" multiple accept="image/*" className="hidden"
+              onChange={e => e.target.files && handleUpload(e.target.files)} />
             <div className="grid grid-cols-2 gap-2">
               {confirmations.map(conf => (
                 <div key={conf.id} className="relative group rounded-lg overflow-hidden border border-border">
-                  <img
-                    src={conf.image_url}
-                    alt="Potwierdzenie"
-                    className="w-full h-28 object-cover"
-                  />
+                  <img src={conf.image_url} alt="" className="w-full h-32 object-cover" />
+                  <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-colors flex items-center justify-center gap-1 opacity-0 group-hover:opacity-100">
+                    {canEdit && (
+                      <>
+                        <Button size="icon" variant="secondary" className="h-7 w-7"
+                          onClick={() => handleSetCover(conf.id)}>
+                          {conf.is_cover ? <StarOff className="h-3 w-3" /> : <Star className="h-3 w-3" />}
+                        </Button>
+                        <Button size="icon" variant="secondary" className="h-7 w-7"
+                          onClick={() => handleDeleteConfirmation(conf.id)}>
+                          <Trash2 className="h-3 w-3" />
+                        </Button>
+                      </>
+                    )}
+                    {conf.link && (
+                      <a href={conf.link} target="_blank" rel="noopener noreferrer">
+                        <Button size="icon" variant="secondary" className="h-7 w-7">
+                          <ExternalLink className="h-3 w-3" />
+                        </Button>
+                      </a>
+                    )}
+                  </div>
                   {conf.is_cover && (
-                    <Badge className="absolute top-1 left-1 text-[10px]" variant="default">Cover</Badge>
-                  )}
-                  {canEdit && (
-                    <div className="absolute top-1 right-1 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <Button
-                        size="icon"
-                        variant="secondary"
-                        className="h-6 w-6"
-                        onClick={() => handleSetCover(conf.id)}
-                        title={conf.is_cover ? 'Jest cover' : 'Ustaw jako cover'}
-                      >
-                        {conf.is_cover ? <StarOff className="h-3 w-3" /> : <Star className="h-3 w-3" />}
-                      </Button>
-                      <Button
-                        size="icon"
-                        variant="destructive"
-                        className="h-6 w-6"
-                        onClick={() => handleDeleteConfirmation(conf.id)}
-                      >
-                        <Trash2 className="h-3 w-3" />
-                      </Button>
-                    </div>
-                  )}
-                  {conf.link && (
-                    <a href={conf.link} target="_blank" rel="noopener noreferrer"
-                      className="absolute bottom-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <ExternalLink className="h-3 w-3 text-foreground" />
-                    </a>
+                    <Badge className="absolute top-1 left-1 text-[9px] px-1 py-0">Cover</Badge>
                   )}
                 </div>
               ))}
             </div>
+            {confirmations.length === 0 && (
+              <div className="text-xs text-muted-foreground text-center py-4">
+                Brak potwierdzeń. Dodaj zdjęcia lub screenshoty.
+              </div>
+            )}
           </div>
         </div>
       </SheetContent>

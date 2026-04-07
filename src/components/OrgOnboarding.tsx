@@ -1,10 +1,9 @@
 import { useOrganization } from '@/context/OrganizationContext';
 import { useClients } from '@/hooks/useData';
 import { useProducts } from '@/hooks/useData';
-import { usePackages } from '@/hooks/useData';
 import { supabase } from '@/integrations/supabase/client';
 import { useQueryClient, useQuery } from '@tanstack/react-query';
-import { Users, Building2, Package, Layers, CheckCircle2, ArrowRight, Rocket } from 'lucide-react';
+import { Users, Building2, Package, CheckCircle2, ArrowRight, Rocket } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -29,7 +28,7 @@ export const OrgOnboarding = () => {
 
   const { data: clients = [] } = useClients();
   const { data: products = [] } = useProducts();
-  const { data: packages = [] } = usePackages();
+  
 
   const { data: memberCount = 0 } = useQuery({
     queryKey: ['org_members_count', orgId],
@@ -78,20 +77,10 @@ export const OrgOnboarding = () => {
       path: '/products',
       cta: 'Dodaj produkt',
     },
-    {
-      id: 'packages',
-      label: 'Pakiety',
-      description: 'Skonfiguruj pakiety usług (opcjonalnie)',
-      icon: Layers,
-      count: packages.length,
-      done: packages.length > 0,
-      path: '/packages',
-      cta: 'Dodaj pakiet',
-    },
   ];
 
   const completedCount = steps.filter(s => s.done).length;
-  const allDone = completedCount >= 3; // packages optional
+  const allDone = completedCount >= 2;
   const progress = Math.round((completedCount / steps.length) * 100);
 
   const handleFinish = async () => {
