@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Database, Download, CheckCircle2, XCircle, Loader2 } from 'lucide-react';
+import { Database, Download, CheckCircle2, XCircle, Loader2, Upload } from 'lucide-react';
 import { toast } from 'sonner';
 import { useOrganizations } from '@/hooks/useSuperAdmin';
 import { useState } from 'react';
