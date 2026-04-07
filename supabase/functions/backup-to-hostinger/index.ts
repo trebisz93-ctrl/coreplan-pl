@@ -80,8 +80,13 @@ Deno.serve(async (req) => {
     const sizeBytes = new TextEncoder().encode(exportJson).length;
 
     // Send to Hostinger
-    const hostingerUrl = Deno.env.get('HOSTINGER_BACKUP_URL');
-    const hostingerKey = Deno.env.get('HOSTINGER_BACKUP_KEY');
+    let hostingerUrl = (Deno.env.get('HOSTINGER_BACKUP_URL') || '').trim();
+    const hostingerKey = (Deno.env.get('HOSTINGER_BACKUP_KEY') || '').trim();
+
+    // Clean up URL if it contains KEY=VALUE format
+    if (hostingerUrl.includes('=') && !hostingerUrl.startsWith('http')) {
+      hostingerUrl = hostingerUrl.split('=').slice(1).join('=').trim();
+    }
 
     if (!hostingerUrl || !hostingerKey) {
       // Log failure
