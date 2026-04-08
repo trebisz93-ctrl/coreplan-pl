@@ -103,7 +103,7 @@ serve(async (req) => {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        from: 'CorePlan <noreply@neovir.pl>',
+        from: 'CorePlan <noreply@notify.coreplan.pl>',
         to: [email],
         subject: `${(typeConfig[type] || typeConfig.info).emoji} ${title}`,
         html,
