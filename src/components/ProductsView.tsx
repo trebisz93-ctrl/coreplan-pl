@@ -32,7 +32,8 @@ export const ProductsView = () => {
 
   // Create form
   const [newName, setNewName] = useState('');
-  const [newEan, setNewEan] = useState('');
+  const [newGrammage, setNewGrammage] = useState('');
+  const [newBrand, setNewBrand] = useState('');
   const [newCategory, setNewCategory] = useState('');
   const [newSubcategory, setNewSubcategory] = useState('');
 
@@ -70,10 +71,9 @@ export const ProductsView = () => {
     if (!newName.trim()) { toast.error('Podaj nazwę produktu'); return; }
     if (!newCategory.trim()) { toast.error('Podaj kategorię'); return; }
     if (!newSubcategory.trim()) { toast.error('Podaj subkategorię'); return; }
-    if (!newEan.trim()) { toast.error('Podaj EAN'); return; }
     try {
-      await createProduct.mutateAsync({ name: newName.trim(), ean: newEan.trim(), category: newCategory.trim(), subcategory: newSubcategory.trim() });
-      setNewName(''); setNewEan(''); setNewCategory(''); setNewSubcategory('');
+      await createProduct.mutateAsync({ name: newName.trim(), ean: newGrammage.trim() || undefined, category: newCategory.trim(), subcategory: newSubcategory.trim(), brand: newBrand.trim() || undefined });
+      setNewName(''); setNewGrammage(''); setNewBrand(''); setNewCategory(''); setNewSubcategory('');
       toast.success('Produkt dodany');
     } catch (e: any) { toast.error('Nie udało się zapisać: ' + (e.message || 'Nieznany błąd')); }
   };
@@ -123,7 +123,7 @@ export const ProductsView = () => {
         <div className="relative flex-1 min-w-64">
           <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="Szukaj po nazwie, EAN, kategorii, marce..."
+            placeholder="Szukaj po nazwie, gramaturze, kategorii, marce..."
             value={searchQuery}
             onChange={e => setSearchQuery(e.target.value)}
             className="pl-9"
@@ -155,7 +155,8 @@ export const ProductsView = () => {
           <Input placeholder="Nazwa*" value={newName} onChange={e => setNewName(e.target.value)} className="max-w-40" />
           <Input placeholder="Kategoria*" value={newCategory} onChange={e => setNewCategory(e.target.value)} className="w-32" />
           <Input placeholder="Subkategoria*" value={newSubcategory} onChange={e => setNewSubcategory(e.target.value)} className="w-36" />
-          <Input placeholder="EAN*" value={newEan} onChange={e => setNewEan(e.target.value)} className="w-32" />
+          <Input placeholder="Gramatura" value={newGrammage} onChange={e => setNewGrammage(e.target.value)} className="w-28" />
+          <Input placeholder="Marka" value={newBrand} onChange={e => setNewBrand(e.target.value)} className="w-28" />
           <Button onClick={handleCreate} disabled={createProduct.isPending} className="gap-2">
             <Plus className="h-4 w-4" /> Dodaj
           </Button>
@@ -169,7 +170,7 @@ export const ProductsView = () => {
             <TableHeader>
               <TableRow className="bg-secondary/50">
                 <TableHead className="font-semibold">Nazwa</TableHead>
-                <TableHead className="font-semibold">SKU/EAN</TableHead>
+                <TableHead className="font-semibold">Gramatura</TableHead>
                 <TableHead className="font-semibold">Kategoria</TableHead>
                 <TableHead className="font-semibold">Subkategoria</TableHead>
                 <TableHead className="font-semibold">Marka</TableHead>
@@ -191,7 +192,7 @@ export const ProductsView = () => {
                     </TableCell>
                     <TableCell>
                       {isEditing ? (
-                        <Input value={editEan} onChange={e => setEditEan(e.target.value)} className="h-8 text-sm w-28" />
+                        <Input value={editEan} onChange={e => setEditEan(e.target.value)} placeholder="Gramatura" className="h-8 text-sm w-28" />
                       ) : (
                         <span className="text-xs font-mono text-muted-foreground">{product.ean || '—'}</span>
                       )}
