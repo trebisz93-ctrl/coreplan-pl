@@ -123,7 +123,7 @@ export const ProductsView = () => {
         <div className="relative flex-1 min-w-64">
           <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="Szukaj po nazwie, EAN, kategorii, marce..."
+            placeholder="Szukaj po nazwie, gramaturze, kategorii, marce..."
             value={searchQuery}
             onChange={e => setSearchQuery(e.target.value)}
             className="pl-9"
@@ -155,7 +155,8 @@ export const ProductsView = () => {
           <Input placeholder="Nazwa*" value={newName} onChange={e => setNewName(e.target.value)} className="max-w-40" />
           <Input placeholder="Kategoria*" value={newCategory} onChange={e => setNewCategory(e.target.value)} className="w-32" />
           <Input placeholder="Subkategoria*" value={newSubcategory} onChange={e => setNewSubcategory(e.target.value)} className="w-36" />
-          <Input placeholder="EAN*" value={newEan} onChange={e => setNewEan(e.target.value)} className="w-32" />
+          <Input placeholder="Gramatura" value={newGrammage} onChange={e => setNewGrammage(e.target.value)} className="w-28" />
+          <Input placeholder="Marka" value={newBrand} onChange={e => setNewBrand(e.target.value)} className="w-28" />
           <Button onClick={handleCreate} disabled={createProduct.isPending} className="gap-2">
             <Plus className="h-4 w-4" /> Dodaj
           </Button>
