@@ -192,7 +192,7 @@ export const ProductsView = () => {
                     </TableCell>
                     <TableCell>
                       {isEditing ? (
-                        <Input value={editEan} onChange={e => setEditEan(e.target.value)} className="h-8 text-sm w-28" />
+                        <Input value={editEan} onChange={e => setEditEan(e.target.value)} placeholder="Gramatura" className="h-8 text-sm w-28" />
                       ) : (
                         <span className="text-xs font-mono text-muted-foreground">{product.ean || '—'}</span>
                       )}
