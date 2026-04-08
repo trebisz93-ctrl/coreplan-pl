@@ -27,6 +27,7 @@ const roleLabels: Record<string, string> = {
 export const SettingsView = forwardRef<HTMLDivElement>((_, ref) => {
   const { user } = useAuth();
   const isAdmin = useIsAdmin();
+  const isSuperAdmin = useIsSuperAdminRole();
 
   // Campaign types
   const { data: campaignTypes = [] } = useCampaignTypes();
