@@ -170,7 +170,7 @@ export const ProductsView = () => {
             <TableHeader>
               <TableRow className="bg-secondary/50">
                 <TableHead className="font-semibold">Nazwa</TableHead>
-                <TableHead className="font-semibold">SKU/EAN</TableHead>
+                <TableHead className="font-semibold">Gramatura</TableHead>
                 <TableHead className="font-semibold">Kategoria</TableHead>
                 <TableHead className="font-semibold">Subkategoria</TableHead>
                 <TableHead className="font-semibold">Marka</TableHead>
