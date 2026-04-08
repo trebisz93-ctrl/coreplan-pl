@@ -1,4 +1,17 @@
 import * as XLSX from 'xlsx/xlsx.mjs';
+
+function downloadWorkbook(wb: XLSX.WorkBook, fileName: string) {
+  const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+  const blob = new Blob([wbout], { type: 'application/octet-stream' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = fileName;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
 import type { DbProduct } from '@/hooks/useData';
 
 const TEMPLATE_COLUMNS = [
@@ -98,7 +111,7 @@ export function generateTemplate(clientName: string, products: DbProduct[]) {
   XLSX.utils.book_append_sheet(wb, wsDict, 'Słownik');
 
   const fileName = `Szablon_Import_${clientName.replace(/\s+/g, '_')}.xlsx`;
-  XLSX.writeFile(wb, fileName);
+  downloadWorkbook(wb, fileName);
   return fileName;
 }
 
@@ -347,6 +360,6 @@ export function exportActivitiesToExcel(
   XLSX.utils.book_append_sheet(wb, ws, 'Aktywności');
 
   const fileName = `Eksport_${clientName.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.xlsx`;
-  XLSX.writeFile(wb, fileName);
+  downloadWorkbook(wb, fileName);
   return fileName;
 }
