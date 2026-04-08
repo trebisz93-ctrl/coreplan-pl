@@ -32,7 +32,8 @@ export const ProductsView = () => {
 
   // Create form
   const [newName, setNewName] = useState('');
-  const [newEan, setNewEan] = useState('');
+  const [newGrammage, setNewGrammage] = useState('');
+  const [newBrand, setNewBrand] = useState('');
   const [newCategory, setNewCategory] = useState('');
   const [newSubcategory, setNewSubcategory] = useState('');
 
