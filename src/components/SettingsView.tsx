@@ -183,10 +183,10 @@ export const SettingsView = forwardRef<HTMLDivElement>((_, ref) => {
         </CardContent>
       </Card>
 
-      <BackupSection />
+      {isSuperAdmin && <BackupSection />}
 
       {/* Demo form settings - admin only */}
-      {isAdmin && (
+      {isSuperAdmin && (
         <>
           <Card>
             <CardHeader>
