@@ -14,9 +14,19 @@ Deno.serve(async (req) => {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 
-    // Auth check — only super_admin or admin can trigger
-    const authHeader = req.headers.get('Authorization');
-    if (authHeader) {
+    // Auth check — require valid admin/super_admin or internal cron secret
+    const cronSecret = req.headers.get('x-workflow-secret');
+    const internalCronKey = Deno.env.get('WORKFLOW_SECRET');
+    const isCronCall = internalCronKey && cronSecret === internalCronKey;
+
+    if (!isCronCall) {
+      const authHeader = req.headers.get('Authorization');
+      if (!authHeader) {
+        return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+          status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
       const supabaseUser = createClient(supabaseUrl, Deno.env.get('SUPABASE_ANON_KEY')!, {
         global: { headers: { Authorization: authHeader } },
       });
@@ -40,7 +50,6 @@ Deno.serve(async (req) => {
         });
       }
     }
-    // If no auth header, allow — this supports cron/internal invocation
 
     const supabase = createClient(supabaseUrl, serviceRoleKey);
 
