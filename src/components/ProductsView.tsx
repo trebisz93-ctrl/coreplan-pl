@@ -71,10 +71,9 @@ export const ProductsView = () => {
     if (!newName.trim()) { toast.error('Podaj nazwę produktu'); return; }
     if (!newCategory.trim()) { toast.error('Podaj kategorię'); return; }
     if (!newSubcategory.trim()) { toast.error('Podaj subkategorię'); return; }
-    if (!newEan.trim()) { toast.error('Podaj EAN'); return; }
     try {
-      await createProduct.mutateAsync({ name: newName.trim(), ean: newEan.trim(), category: newCategory.trim(), subcategory: newSubcategory.trim() });
-      setNewName(''); setNewEan(''); setNewCategory(''); setNewSubcategory('');
+      await createProduct.mutateAsync({ name: newName.trim(), ean: newGrammage.trim() || undefined, category: newCategory.trim(), subcategory: newSubcategory.trim(), brand: newBrand.trim() || undefined });
+      setNewName(''); setNewGrammage(''); setNewBrand(''); setNewCategory(''); setNewSubcategory('');
       toast.success('Produkt dodany');
     } catch (e: any) { toast.error('Nie udało się zapisać: ' + (e.message || 'Nieznany błąd')); }
   };
