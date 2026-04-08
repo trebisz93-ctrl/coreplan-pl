@@ -1,6 +1,6 @@
 import { useState, forwardRef } from 'react';
 import { useAuth } from '@/context/AuthContext';
-import { useIsAdmin } from '@/hooks/useRole';
+import { useIsAdmin, useIsSuperAdminRole } from '@/hooks/useRole';
 import { useCampaignTypes, useCreateCampaignType, useUpdateCampaignType, useDeleteCampaignType } from '@/hooks/useCampaignTypes';
 import { useAppSetting, useUpdateAppSetting, useDemoRequests, useMarkDemoRead } from '@/hooks/useAppSettings';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -27,6 +27,7 @@ const roleLabels: Record<string, string> = {
 export const SettingsView = forwardRef<HTMLDivElement>((_, ref) => {
   const { user } = useAuth();
   const isAdmin = useIsAdmin();
+  const isSuperAdmin = useIsSuperAdminRole();
 
   // Campaign types
   const { data: campaignTypes = [] } = useCampaignTypes();
@@ -182,10 +183,10 @@ export const SettingsView = forwardRef<HTMLDivElement>((_, ref) => {
         </CardContent>
       </Card>
 
-      <BackupSection />
+      {isSuperAdmin && <BackupSection />}
 
       {/* Demo form settings - admin only */}
-      {isAdmin && (
+      {isSuperAdmin && (
         <>
           <Card>
             <CardHeader>
