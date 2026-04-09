@@ -117,7 +117,7 @@ export const InviteEmail = ({
           <Section style={footer}>
             <Hr style={divider} />
             <Text style={footerText}>
-              © 2025 CorePlan · Platforma do zarządzania mediaplanami i budżetami
+              © 2026 CorePlan · Platforma do zarządzania mediaplanami i budżetami
             </Text>
             <Text style={footerLinkWrap}>
               <Link href="https://coreplan.pl" style={footerAnchor}>
