@@ -144,10 +144,12 @@ export const useDeleteClient = () => {
 
 export const useProducts = (clientId?: string) => {
   const { user } = useAuth();
+  const { orgId } = useOrganization();
   return useQuery({
-    queryKey: ['products', user?.id, clientId],
+    queryKey: ['products', user?.id, clientId, orgId],
     queryFn: async () => {
       let query = supabase.from('products').select('*').is('deleted_at', null).order('name');
+      if (orgId) query = query.eq('organization_id', orgId);
       if (clientId) query = query.or(`client_id.eq.${clientId},client_id.is.null`);
       const { data, error } = await query;
       if (error) throw error;

@@ -155,11 +155,13 @@ export const useDeleteActivity = () => {
 
 export const useMediaPlans = (clientId?: string) => {
   const { user } = useAuth();
+  const { orgId } = useOrganization();
   return useQuery({
-    queryKey: ['media_plans', user?.id, clientId],
+    queryKey: ['media_plans', user?.id, clientId, orgId],
     queryFn: async () => {
       let query = supabase.from('media_plans').select('*').is('deleted_at', null).order('year', { ascending: false });
       if (clientId) query = query.eq('client_id', clientId);
+      if (orgId) query = query.eq('organization_id', orgId);
       const { data, error } = await query;
       if (error) throw error;
       return (data as any[]) as DbMediaPlan[];
