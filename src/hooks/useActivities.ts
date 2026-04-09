@@ -57,11 +57,13 @@ export const dbToActivity = (row: DbActivity) => ({
 
 export const useActivities = (clientId?: string, queryEnabled = true) => {
   const { user } = useAuth();
+  const { orgId } = useOrganization();
   return useQuery({
-    queryKey: ['activities', user?.id, clientId],
+    queryKey: ['activities', user?.id, clientId, orgId],
     queryFn: async () => {
       let query = supabase.from('activities').select('*').is('deleted_at', null).order('start_date');
       if (clientId) query = query.eq('client_id', clientId);
+      if (orgId) query = query.eq('organization_id', orgId);
       const { data, error } = await query;
       if (error) throw error;
       return (data as any[]) as DbActivity[];
@@ -72,13 +74,16 @@ export const useActivities = (clientId?: string, queryEnabled = true) => {
 
 export const useActivitiesMulti = (clientIds: string[]) => {
   const { user } = useAuth();
+  const { orgId } = useOrganization();
   const key = JSON.stringify([...clientIds].sort());
   return useQuery({
-    queryKey: ['activities', user?.id, 'multi', key],
+    queryKey: ['activities', user?.id, 'multi', key, orgId],
     queryFn: async () => {
       if (clientIds.length === 0) return [];
-      const { data, error } = await supabase
+      let query = supabase
         .from('activities').select('*').in('client_id', clientIds).is('deleted_at', null).order('start_date');
+      if (orgId) query = query.eq('organization_id', orgId);
+      const { data, error } = await query;
       if (error) throw error;
       return (data as any[]) as DbActivity[];
     },
@@ -150,11 +155,13 @@ export const useDeleteActivity = () => {
 
 export const useMediaPlans = (clientId?: string) => {
   const { user } = useAuth();
+  const { orgId } = useOrganization();
   return useQuery({
-    queryKey: ['media_plans', user?.id, clientId],
+    queryKey: ['media_plans', user?.id, clientId, orgId],
     queryFn: async () => {
       let query = supabase.from('media_plans').select('*').is('deleted_at', null).order('year', { ascending: false });
       if (clientId) query = query.eq('client_id', clientId);
+      if (orgId) query = query.eq('organization_id', orgId);
       const { data, error } = await query;
       if (error) throw error;
       return (data as any[]) as DbMediaPlan[];

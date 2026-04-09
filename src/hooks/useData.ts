@@ -49,10 +49,30 @@ export interface DbUserRole {
 
 export const useClients = () => {
   const { user } = useAuth();
+  const { orgId } = useOrganization();
   return useQuery({
-    queryKey: ['clients', user?.id],
+    queryKey: ['clients', user?.id, orgId],
     queryFn: async () => {
-      const { data, error } = await supabase.from('clients').select('*').is('deleted_at', null).order('name');
+      if (!orgId) {
+        // No org context — return empty (super_admin should pick an org first)
+        const { data, error } = await supabase.from('clients').select('*').is('deleted_at', null).order('name');
+        if (error) throw error;
+        return data as DbClient[];
+      }
+      // Fetch only clients linked to current organization
+      const { data: orgClients, error: ocError } = await supabase
+        .from('organization_clients')
+        .select('client_id')
+        .eq('organization_id', orgId);
+      if (ocError) throw ocError;
+      if (!orgClients || orgClients.length === 0) return [];
+      const clientIds = orgClients.map(oc => oc.client_id);
+      const { data, error } = await supabase
+        .from('clients')
+        .select('*')
+        .in('id', clientIds)
+        .is('deleted_at', null)
+        .order('name');
       if (error) throw error;
       return data as DbClient[];
     },
@@ -124,10 +144,12 @@ export const useDeleteClient = () => {
 
 export const useProducts = (clientId?: string) => {
   const { user } = useAuth();
+  const { orgId } = useOrganization();
   return useQuery({
-    queryKey: ['products', user?.id, clientId],
+    queryKey: ['products', user?.id, clientId, orgId],
     queryFn: async () => {
       let query = supabase.from('products').select('*').is('deleted_at', null).order('name');
+      if (orgId) query = query.eq('organization_id', orgId);
       if (clientId) query = query.or(`client_id.eq.${clientId},client_id.is.null`);
       const { data, error } = await query;
       if (error) throw error;
