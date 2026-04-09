@@ -74,7 +74,7 @@ Deno.serve(async (req) => {
         last_name: last_name || null,
         display_name: `${first_name || ''} ${last_name || ''}`.trim() || email,
         organization_id,
-        status: 'pending',
+        status: 'active',
         onboarding_completed: false,
       })
       .eq('user_id', userId);
