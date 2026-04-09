@@ -12,7 +12,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
-import { User, Clock, Building2, Search, UserX, Shield, Plus } from 'lucide-react';
+import { User, Building2, Search, UserX, Shield, Plus } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { useQueryClient } from '@tanstack/react-query';
@@ -50,7 +50,7 @@ export const UsersView = () => {
   // New user creation
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [newEmail, setNewEmail] = useState('');
-  const [newPassword] = useState(''); // No longer used — invite flow
+  
   const [newFirstName, setNewFirstName] = useState('');
   const [newLastName, setNewLastName] = useState('');
   const [newOrgRole, setNewOrgRole] = useState('user');
