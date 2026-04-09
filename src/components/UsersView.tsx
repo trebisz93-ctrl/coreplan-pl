@@ -3,7 +3,6 @@ import { useAuth } from '@/context/AuthContext';
 import { useOrganization } from '@/context/OrganizationContext';
 import { useProfiles, useClients } from '@/hooks/useData';
 import { useOrgMembers, useSetOrgRole } from '@/hooks/useOrgMembers';
-import { usePendingProfiles, useApproveUser } from '@/hooks/useProfileStatus';
 import { useClientAssignments, useSetClientAssignments } from '@/hooks/useClientAssignments';
 import { useIsAdmin } from '@/hooks/useRole';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -13,7 +12,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
-import { User, CheckCircle, XCircle, Clock, Building2, Search, UserX, Shield, Plus } from 'lucide-react';
+import { User, Building2, Search, UserX, Shield, Plus } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { useQueryClient } from '@tanstack/react-query';
@@ -39,24 +38,19 @@ export const UsersView = () => {
   const { data: profiles = [] } = useProfiles();
   const { data: orgMembers = [] } = useOrgMembers();
   const { data: clients = [] } = useClients();
-  const { data: pendingProfiles = [] } = usePendingProfiles();
   const { data: allAssignments = [] } = useClientAssignments();
   const setOrgRole = useSetOrgRole();
-  const approveUser = useApproveUser();
   const setClientAssignments = useSetClientAssignments();
   const qc = useQueryClient();
 
   const [searchQuery, setSearchQuery] = useState('');
-  const [approvalDialog, setApprovalDialog] = useState<{ userId: string; displayName: string } | null>(null);
-  const [approvalRole, setApprovalRole] = useState<'manager' | 'user' | 'viewer'>('user');
-  const [approvalClients, setApprovalClients] = useState<string[]>([]);
   const [editingAssignments, setEditingAssignments] = useState<string | null>(null);
   const [tempAssignments, setTempAssignments] = useState<string[]>([]);
 
   // New user creation
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [newEmail, setNewEmail] = useState('');
-  const [newPassword] = useState(''); // No longer used — invite flow
+  
   const [newFirstName, setNewFirstName] = useState('');
   const [newLastName, setNewLastName] = useState('');
   const [newOrgRole, setNewOrgRole] = useState('user');
@@ -102,36 +96,6 @@ export const UsersView = () => {
     } catch (e: any) { toast.error('Błąd: ' + e.message); }
   };
 
-  const handleApprove = async () => {
-    if (!approvalDialog || !orgId) return;
-    try {
-      // Add to organization_members with selected role
-      await supabase.from('organization_members').insert({
-        organization_id: orgId,
-        user_id: approvalDialog.userId,
-        org_role: approvalRole,
-      } as any);
-
-      if (approvalClients.length > 0) {
-        await setClientAssignments.mutateAsync({ userId: approvalDialog.userId, clientIds: approvalClients });
-      }
-      await approveUser.mutateAsync({ userId: approvalDialog.userId, status: 'active' });
-
-      // Update profile organization_id
-      await supabase.from('profiles').update({ organization_id: orgId } as any).eq('user_id', approvalDialog.userId);
-
-      toast.success('Użytkownik zatwierdzony');
-      setApprovalDialog(null);
-      qc.invalidateQueries({ queryKey: ['org_members'] });
-    } catch (e: any) { toast.error('Błąd: ' + e.message); }
-  };
-
-  const handleReject = async (userId: string) => {
-    try {
-      await approveUser.mutateAsync({ userId, status: 'rejected' });
-      toast.success('Użytkownik odrzucony');
-    } catch (e: any) { toast.error('Błąd: ' + e.message); }
-  };
 
   const handleDeactivate = async (userId: string) => {
     try {
@@ -343,50 +307,7 @@ export const UsersView = () => {
         </div>
       </div>
 
-      {/* Pending approvals */}
-      {pendingProfiles.length > 0 && (
-        <Card className="border-primary/30">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-base">
-              <Clock className="h-4 w-4 text-primary" /> Oczekujące na zatwierdzenie
-              <Badge variant="destructive" className="ml-2">{pendingProfiles.length}</Badge>
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {pendingProfiles.map((profile: any) => (
-              <div key={profile.id} className="flex items-center justify-between py-3 border-b border-border last:border-0">
-                <div className="flex items-center gap-3">
-                  <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
-                    <User className="h-4 w-4 text-primary" />
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium">
-                      {profile.first_name && profile.last_name
-                        ? `${profile.first_name} ${profile.last_name}`
-                        : profile.display_name || 'Bez nazwy'}
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      {new Date(profile.created_at).toLocaleDateString('pl-PL')}
-                    </p>
-                  </div>
-                </div>
-                <div className="flex gap-2">
-                  <Button size="sm" onClick={() => {
-                    setApprovalDialog({ userId: profile.user_id, displayName: profile.display_name || 'Bez nazwy' });
-                    setApprovalRole('user');
-                    setApprovalClients([]);
-                  }} className="gap-1">
-                    <CheckCircle className="h-3 w-3" /> Zatwierdź
-                  </Button>
-                  <Button size="sm" variant="destructive" onClick={() => handleReject(profile.user_id)} className="gap-1">
-                    <XCircle className="h-3 w-3" /> Odrzuć
-                  </Button>
-                </div>
-              </div>
-            ))}
-          </CardContent>
-        </Card>
-      )}
+
 
       {/* Active users */}
       <Card>
@@ -434,51 +355,6 @@ export const UsersView = () => {
           </CardContent>
         </Card>
       )}
-
-      {/* Approval dialog */}
-      <Dialog open={!!approvalDialog} onOpenChange={open => !open && setApprovalDialog(null)}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>Zatwierdź: {approvalDialog?.displayName}</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div>
-              <label className="text-sm font-medium">Rola w firmie</label>
-              <Select value={approvalRole} onValueChange={v => setApprovalRole(v as any)}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="manager">Manager</SelectItem>
-                  <SelectItem value="user">Użytkownik</SelectItem>
-                  <SelectItem value="viewer">Viewer</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <label className="text-sm font-medium">Przypisz klientów</label>
-              <div className="space-y-1 mt-1 max-h-40 overflow-y-auto border border-border rounded-lg p-2">
-                {clients.map(c => (
-                  <label key={c.id} className="flex items-center gap-2 text-sm cursor-pointer">
-                    <Checkbox
-                      checked={approvalClients.includes(c.id)}
-                      onCheckedChange={checked => {
-                        setApprovalClients(prev => checked ? [...prev, c.id] : prev.filter(x => x !== c.id));
-                      }}
-                    />
-                    <span>{c.name}</span>
-                  </label>
-                ))}
-                {clients.length === 0 && <p className="text-xs text-muted-foreground">Brak klientów</p>}
-              </div>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setApprovalDialog(null)}>Anuluj</Button>
-            <Button onClick={handleApprove} disabled={approveUser.isPending}>
-              {approveUser.isPending ? 'Zatwierdzanie...' : 'Zatwierdź i aktywuj'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
 
       {/* Create user dialog */}
       <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
