@@ -3,7 +3,7 @@ import { MobileAdminNav } from '@/components/MobileAdminNav';
 import {
   LayoutDashboard, Building2, Users, ScrollText, Database,
   Settings, LogOut, Shield, Trash2, Globe, ChevronDown, Activity, BarChart3,
-  ShoppingCart, Key, Plug
+  ShoppingCart, Key, Plug, Mail
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/context/AuthContext';
@@ -26,6 +26,7 @@ const navItems = [
   { label: 'Logi systemowe', icon: ScrollText, path: '/admin/logs' },
   { label: 'Backupy', icon: Database, path: '/admin/backups' },
   { label: 'Raporty', icon: BarChart3, path: '/admin/reports' },
+  { label: 'E-maile', icon: Mail, path: '/admin/emails' },
   { label: 'Kosz', icon: Trash2, path: '/admin/trash' },
   { label: 'Role i uprawnienia', icon: Key, path: '/admin/roles' },
   { label: 'Bezpieczeństwo', icon: Shield, path: '/admin/security' },

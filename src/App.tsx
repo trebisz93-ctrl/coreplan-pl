@@ -25,6 +25,7 @@ const AdminReportsView = lazy(() => import("./components/admin/AdminReportsView"
 const GlobalClientsView = lazy(() => import("./components/admin/GlobalClientsView").then(m => ({ default: m.GlobalClientsView })));
 const RolesManagementView = lazy(() => import("./components/admin/RolesManagementView").then(m => ({ default: m.RolesManagementView })));
 const IntegrationsView = lazy(() => import("./components/admin/IntegrationsView").then(m => ({ default: m.IntegrationsView })));
+const EmailLogView = lazy(() => import("./components/admin/EmailLogView").then(m => ({ default: m.EmailLogView })));
 const YearView = lazy(() => import("./components/YearView").then(m => ({ default: m.YearView })));
 const DashboardView = lazy(() => import("./components/DashboardView").then(m => ({ default: m.DashboardView })));
 
@@ -87,6 +88,7 @@ const App = () => (
                   <Route path="/admin/roles" element={<RolesManagementView />} />
                   <Route path="/admin/security" element={<SecurityView />} />
                   <Route path="/admin/integrations" element={<IntegrationsView />} />
+                  <Route path="/admin/emails" element={<EmailLogView />} />
                   <Route path="/admin/settings" element={<SettingsView />} />
                 </Route>
                 {/* Org-scoped routes */}
