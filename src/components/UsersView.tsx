@@ -3,7 +3,6 @@ import { useAuth } from '@/context/AuthContext';
 import { useOrganization } from '@/context/OrganizationContext';
 import { useProfiles, useClients } from '@/hooks/useData';
 import { useOrgMembers, useSetOrgRole } from '@/hooks/useOrgMembers';
-import { useMyOrgRole } from '@/hooks/useRole';
 import { useClientAssignments, useSetClientAssignments } from '@/hooks/useClientAssignments';
 import { useIsAdmin } from '@/hooks/useRole';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -39,7 +38,9 @@ export const UsersView = () => {
   const { data: profiles = [] } = useProfiles();
   const { data: orgMembers = [] } = useOrgMembers();
   const { data: clients = [] } = useClients();
+  const { data: allAssignments = [] } = useClientAssignments();
   const setOrgRole = useSetOrgRole();
+  const setClientAssignments = useSetClientAssignments();
   const qc = useQueryClient();
 
   const [searchQuery, setSearchQuery] = useState('');
@@ -95,36 +96,6 @@ export const UsersView = () => {
     } catch (e: any) { toast.error('Błąd: ' + e.message); }
   };
 
-  const handleApprove = async () => {
-    if (!approvalDialog || !orgId) return;
-    try {
-      // Add to organization_members with selected role
-      await supabase.from('organization_members').insert({
-        organization_id: orgId,
-        user_id: approvalDialog.userId,
-        org_role: approvalRole,
-      } as any);
-
-      if (approvalClients.length > 0) {
-        await setClientAssignments.mutateAsync({ userId: approvalDialog.userId, clientIds: approvalClients });
-      }
-      await approveUser.mutateAsync({ userId: approvalDialog.userId, status: 'active' });
-
-      // Update profile organization_id
-      await supabase.from('profiles').update({ organization_id: orgId } as any).eq('user_id', approvalDialog.userId);
-
-      toast.success('Użytkownik zatwierdzony');
-      setApprovalDialog(null);
-      qc.invalidateQueries({ queryKey: ['org_members'] });
-    } catch (e: any) { toast.error('Błąd: ' + e.message); }
-  };
-
-  const handleReject = async (userId: string) => {
-    try {
-      await approveUser.mutateAsync({ userId, status: 'rejected' });
-      toast.success('Użytkownik odrzucony');
-    } catch (e: any) { toast.error('Błąd: ' + e.message); }
-  };
 
   const handleDeactivate = async (userId: string) => {
     try {
@@ -384,51 +355,6 @@ export const UsersView = () => {
           </CardContent>
         </Card>
       )}
-
-      {/* Approval dialog */}
-      <Dialog open={!!approvalDialog} onOpenChange={open => !open && setApprovalDialog(null)}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>Zatwierdź: {approvalDialog?.displayName}</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div>
-              <label className="text-sm font-medium">Rola w firmie</label>
-              <Select value={approvalRole} onValueChange={v => setApprovalRole(v as any)}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="manager">Manager</SelectItem>
-                  <SelectItem value="user">Użytkownik</SelectItem>
-                  <SelectItem value="viewer">Viewer</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <label className="text-sm font-medium">Przypisz klientów</label>
-              <div className="space-y-1 mt-1 max-h-40 overflow-y-auto border border-border rounded-lg p-2">
-                {clients.map(c => (
-                  <label key={c.id} className="flex items-center gap-2 text-sm cursor-pointer">
-                    <Checkbox
-                      checked={approvalClients.includes(c.id)}
-                      onCheckedChange={checked => {
-                        setApprovalClients(prev => checked ? [...prev, c.id] : prev.filter(x => x !== c.id));
-                      }}
-                    />
-                    <span>{c.name}</span>
-                  </label>
-                ))}
-                {clients.length === 0 && <p className="text-xs text-muted-foreground">Brak klientów</p>}
-              </div>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setApprovalDialog(null)}>Anuluj</Button>
-            <Button onClick={handleApprove} disabled={approveUser.isPending}>
-              {approveUser.isPending ? 'Zatwierdzanie...' : 'Zatwierdź i aktywuj'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
 
       {/* Create user dialog */}
       <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
