@@ -3,7 +3,7 @@ import { useAuth } from '@/context/AuthContext';
 import { useOrganization } from '@/context/OrganizationContext';
 import { useProfiles, useClients } from '@/hooks/useData';
 import { useOrgMembers, useSetOrgRole } from '@/hooks/useOrgMembers';
-import { usePendingProfiles, useApproveUser } from '@/hooks/useProfileStatus';
+import { useMyOrgRole } from '@/hooks/useRole';
 import { useClientAssignments, useSetClientAssignments } from '@/hooks/useClientAssignments';
 import { useIsAdmin } from '@/hooks/useRole';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -13,7 +13,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
-import { User, CheckCircle, XCircle, Clock, Building2, Search, UserX, Shield, Plus } from 'lucide-react';
+import { User, Clock, Building2, Search, UserX, Shield, Plus } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { useQueryClient } from '@tanstack/react-query';
@@ -39,17 +39,10 @@ export const UsersView = () => {
   const { data: profiles = [] } = useProfiles();
   const { data: orgMembers = [] } = useOrgMembers();
   const { data: clients = [] } = useClients();
-  const { data: pendingProfiles = [] } = usePendingProfiles();
-  const { data: allAssignments = [] } = useClientAssignments();
   const setOrgRole = useSetOrgRole();
-  const approveUser = useApproveUser();
-  const setClientAssignments = useSetClientAssignments();
   const qc = useQueryClient();
 
   const [searchQuery, setSearchQuery] = useState('');
-  const [approvalDialog, setApprovalDialog] = useState<{ userId: string; displayName: string } | null>(null);
-  const [approvalRole, setApprovalRole] = useState<'manager' | 'user' | 'viewer'>('user');
-  const [approvalClients, setApprovalClients] = useState<string[]>([]);
   const [editingAssignments, setEditingAssignments] = useState<string | null>(null);
   const [tempAssignments, setTempAssignments] = useState<string[]>([]);
 
@@ -343,50 +336,7 @@ export const UsersView = () => {
         </div>
       </div>
 
-      {/* Pending approvals */}
-      {pendingProfiles.length > 0 && (
-        <Card className="border-primary/30">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-base">
-              <Clock className="h-4 w-4 text-primary" /> Oczekujące na zatwierdzenie
-              <Badge variant="destructive" className="ml-2">{pendingProfiles.length}</Badge>
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {pendingProfiles.map((profile: any) => (
-              <div key={profile.id} className="flex items-center justify-between py-3 border-b border-border last:border-0">
-                <div className="flex items-center gap-3">
-                  <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
-                    <User className="h-4 w-4 text-primary" />
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium">
-                      {profile.first_name && profile.last_name
-                        ? `${profile.first_name} ${profile.last_name}`
-                        : profile.display_name || 'Bez nazwy'}
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      {new Date(profile.created_at).toLocaleDateString('pl-PL')}
-                    </p>
-                  </div>
-                </div>
-                <div className="flex gap-2">
-                  <Button size="sm" onClick={() => {
-                    setApprovalDialog({ userId: profile.user_id, displayName: profile.display_name || 'Bez nazwy' });
-                    setApprovalRole('user');
-                    setApprovalClients([]);
-                  }} className="gap-1">
-                    <CheckCircle className="h-3 w-3" /> Zatwierdź
-                  </Button>
-                  <Button size="sm" variant="destructive" onClick={() => handleReject(profile.user_id)} className="gap-1">
-                    <XCircle className="h-3 w-3" /> Odrzuć
-                  </Button>
-                </div>
-              </div>
-            ))}
-          </CardContent>
-        </Card>
-      )}
+
 
       {/* Active users */}
       <Card>
