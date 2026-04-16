@@ -106,20 +106,16 @@ export const EmailLogView = () => {
   const handleResend = async (email: any) => {
     setResending(email.id);
     try {
-      // Re-invoke the auth email hook or transactional email based on template
-      const { error } = await supabase.functions.invoke('send-transactional-email', {
-        body: {
-          templateName: email.template_name,
-          recipientEmail: email.recipient_email,
-          idempotencyKey: `resend-${email.id}-${Date.now()}`,
-          templateData: email.metadata || {},
-        },
+      // For auth emails (invite, recovery, signup) — trigger a password recovery email
+      // which works for both new invites and existing users
+      const { error } = await supabase.auth.resetPasswordForEmail(email.recipient_email, {
+        redirectTo: `${window.location.origin}/reset-password`,
       });
       if (error) throw error;
-      toast.success(`E-mail ponownie wysłany do ${email.recipient_email}`);
+      toast.success(`Wysłano link do ustawienia hasła na ${email.recipient_email}`);
       refetch();
     } catch (e: any) {
-      toast.error('Błąd wysyłania: ' + e.message);
+      toast.error('Błąd wysyłania: ' + (e.message || 'Nieznany błąd'));
     } finally {
       setResending(null);
     }
