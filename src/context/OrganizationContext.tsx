@@ -105,6 +105,19 @@ export const OrganizationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     }
   }, [organizations, currentOrg, isSuperAdmin]);
 
+  // Keep currentOrg in sync with the freshest organization data (e.g. after onboarding completes)
+  useEffect(() => {
+    if (!currentOrg) return;
+    const fresh = organizations.find(o => o.id === currentOrg.id);
+    if (fresh && (
+      fresh.onboarding_completed !== currentOrg.onboarding_completed ||
+      fresh.status !== currentOrg.status ||
+      fresh.name !== currentOrg.name
+    )) {
+      setCurrentOrgState(fresh);
+    }
+  }, [organizations, currentOrg]);
+
   const logAction = useCallback(async (eventType: string, description: string, metadata?: any) => {
     if (!user) return;
     try {

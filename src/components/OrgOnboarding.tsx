@@ -87,13 +87,16 @@ export const OrgOnboarding = () => {
     if (!orgId) return;
     const { error } = await supabase
       .from('organizations')
-      .update({ onboarding_completed: true } as any)
+      .update({ onboarding_completed: true, status: 'active' } as any)
       .eq('id', orgId);
     if (error) {
       toast.error('Błąd: ' + error.message);
       return;
     }
-    qc.invalidateQueries({ queryKey: ['organizations'] });
+    await Promise.all([
+      qc.invalidateQueries({ queryKey: ['organizations'] }),
+      qc.invalidateQueries({ queryKey: ['my_organizations'] }),
+    ]);
     toast.success('Konfiguracja firmy zakończona!');
   };
 
