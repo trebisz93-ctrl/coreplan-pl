@@ -50,22 +50,32 @@ Deno.serve(async (req) => {
     let resultMessage: string;
 
     if (!existingUser) {
-      // No user — send fresh invite
       const { error: inviteError } = await supabaseAdmin.auth.admin.inviteUserByEmail(email, {
         redirectTo,
       });
       if (inviteError) throw inviteError;
       action = 'invite';
       resultMessage = `Wysłano nowe zaproszenie do ${email}`;
+    } else if (existingUser.invited_at && !existingUser.email_confirmed_at) {
+      // Invited but not activated yet -> must get a fresh invite link, not recovery.
+      const { data: inviteLink, error: inviteError } = await supabaseAdmin.auth.admin.generateLink({
+        type: 'invite',
+        email,
+        options: { redirectTo },
+      });
+      if (inviteError) throw inviteError;
+      if (!inviteLink?.properties?.action_link) throw new Error('Nie udało się wygenerować nowego linku zaproszenia');
+      action = 'invite';
+      resultMessage = `Wysłano nowe zaproszenie do ${email}`;
     } else {
-      // User exists — send fresh recovery (works for both confirmed and unconfirmed users,
-      // and generates a brand-new token that lands on /reset-password)
-      const { error: recoveryError } = await supabaseAdmin.auth.admin.generateLink({
+      // Active/confirmed user -> send fresh password setup/reset link.
+      const { data: recoveryLink, error: recoveryError } = await supabaseAdmin.auth.admin.generateLink({
         type: 'recovery',
         email,
         options: { redirectTo },
       });
       if (recoveryError) throw recoveryError;
+      if (!recoveryLink?.properties?.action_link) throw new Error('Nie udało się wygenerować nowego linku resetu hasła');
       action = 'recovery';
       resultMessage = `Wysłano nowy link do ustawienia hasła do ${email}`;
     }
