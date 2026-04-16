@@ -16,7 +16,6 @@ Deno.serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
     );
 
-    // Verify caller
     const authHeader = req.headers.get('Authorization');
     if (!authHeader) throw new Error('Brak autoryzacji');
 
@@ -30,7 +29,7 @@ Deno.serve(async (req) => {
       throw new Error('Wymagane pola: email, organization_id');
     }
 
-    // Check if caller is super_admin OR org_admin of the target organization
+    // Check permissions
     const { data: superRoles } = await supabaseAdmin
       .from('user_roles')
       .select('role')
@@ -40,86 +39,137 @@ Deno.serve(async (req) => {
     const isSuperAdmin = (superRoles?.length ?? 0) > 0;
 
     if (!isSuperAdmin) {
-      // Check if caller is org_admin of the target organization
       const { data: membership } = await supabaseAdmin
         .from('organization_members')
         .select('org_role')
         .eq('user_id', caller.id)
         .eq('organization_id', organization_id)
-        .single();
+        .maybeSingle();
 
       if (!membership || membership.org_role !== 'org_admin') {
         throw new Error('Brak uprawnień — musisz być administratorem tej firmy');
       }
     }
 
-    // Prevent org_admin from creating super_admin or org_admin
     const targetRole = org_role || 'user';
     if (!isSuperAdmin && (targetRole === 'super_admin' || targetRole === 'org_admin')) {
       throw new Error('Tylko Super Admin może nadawać rolę administratora firmy');
     }
 
-    // Get org name for invite context
+    // Get org name
     const { data: org } = await supabaseAdmin
       .from('organizations')
       .select('name')
       .eq('id', organization_id)
-      .single();
+      .maybeSingle();
 
     const orgName = org?.name || '';
 
-    // Invite user by email (user sets their own password via invite link)
-    const { data: authData, error: authError } = await supabaseAdmin.auth.admin.inviteUserByEmail(
-      email,
-      {
-        data: {
-          first_name: first_name || null,
-          last_name: last_name || null,
-          organization_id,
-          org_role: targetRole,
-          org_name: orgName,
-          invited_by: isSuperAdmin ? 'super_admin' : 'org_admin',
-        },
-        redirectTo: `https://coreplan.pl/auth?type=invite`,
-      }
+    // Check if user already exists in auth.users
+    const { data: existingUsers } = await supabaseAdmin.auth.admin.listUsers({
+      page: 1,
+      perPage: 1000,
+    });
+    const existingUser = existingUsers?.users.find(
+      (u) => u.email?.toLowerCase() === email.toLowerCase()
     );
 
-    if (authError) throw authError;
-    const userId = authData.user.id;
+    let userId: string;
+    let wasInvited = false;
 
-    // Update profile (created by handle_new_user trigger)
+    if (existingUser) {
+      userId = existingUser.id;
+
+      // Check if already a member of this org
+      const { data: existingMembership } = await supabaseAdmin
+        .from('organization_members')
+        .select('id, org_role')
+        .eq('user_id', userId)
+        .eq('organization_id', organization_id)
+        .maybeSingle();
+
+      if (existingMembership) {
+        throw new Error(
+          `Użytkownik ${email} jest już członkiem tej firmy (rola: ${existingMembership.org_role})`
+        );
+      }
+
+      // User exists but not in this org → send password reset link so they can re-access account
+      const { error: linkError } = await supabaseAdmin.auth.admin.generateLink({
+        type: 'recovery',
+        email,
+        options: {
+          redirectTo: `https://coreplan.pl/auth?type=invite`,
+        },
+      });
+      if (linkError) console.error('Recovery link error:', linkError);
+    } else {
+      // New user → invite by email
+      const { data: authData, error: authError } = await supabaseAdmin.auth.admin.inviteUserByEmail(
+        email,
+        {
+          data: {
+            first_name: first_name || null,
+            last_name: last_name || null,
+            organization_id,
+            org_role: targetRole,
+            org_name: orgName,
+            invited_by: isSuperAdmin ? 'super_admin' : 'org_admin',
+          },
+          redirectTo: `https://coreplan.pl/auth?type=invite`,
+        }
+      );
+
+      if (authError) throw authError;
+      userId = authData.user.id;
+      wasInvited = true;
+    }
+
+    // Update / upsert profile
+    const displayName = `${first_name || ''} ${last_name || ''}`.trim() || email;
     await supabaseAdmin
       .from('profiles')
       .update({
         first_name: first_name || null,
         last_name: last_name || null,
-        display_name: `${first_name || ''} ${last_name || ''}`.trim() || email,
+        display_name: displayName,
         organization_id,
         status: 'active',
         onboarding_completed: false,
       })
       .eq('user_id', userId);
 
-    // Add to organization_members with org_role
+    // Add to organization_members
     await supabaseAdmin.from('organization_members').insert({
       organization_id,
       user_id: userId,
       org_role: targetRole,
     });
 
-    // Log action
+    // Log
     await supabaseAdmin.from('system_logs').insert({
       user_id: caller.id,
-      event_type: 'user_invited',
-      description: `Zaproszono ${email} jako ${targetRole} do organizacji ${orgName}`,
+      event_type: wasInvited ? 'user_invited' : 'user_added_existing',
+      description: wasInvited
+        ? `Zaproszono ${email} jako ${targetRole} do organizacji ${orgName}`
+        : `Dodano istniejącego użytkownika ${email} jako ${targetRole} do organizacji ${orgName}`,
       organization_id,
-      metadata: { invited_user_id: userId, role: targetRole, org_name: orgName },
+      metadata: { invited_user_id: userId, role: targetRole, org_name: orgName, existing_user: !wasInvited },
     });
 
-    return new Response(JSON.stringify({ success: true, user_id: userId }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+    return new Response(
+      JSON.stringify({
+        success: true,
+        user_id: userId,
+        existing_user: !wasInvited,
+        message: wasInvited
+          ? 'Wysłano zaproszenie e-mail'
+          : 'Użytkownik istniał już w systemie — został dodany do firmy i otrzyma e-mail z linkiem dostępu',
+      }),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
   } catch (error: any) {
+    console.error('create-org-member error:', error);
     return new Response(JSON.stringify({ error: error.message }), {
       status: 400,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
