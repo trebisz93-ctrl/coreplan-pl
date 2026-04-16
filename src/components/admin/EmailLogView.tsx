@@ -106,13 +106,14 @@ export const EmailLogView = () => {
   const handleResend = async (email: any) => {
     setResending(email.id);
     try {
-      // For auth emails (invite, recovery, signup) — trigger a password recovery email
-      // which works for both new invites and existing users
-      const { error } = await supabase.auth.resetPasswordForEmail(email.recipient_email, {
-        redirectTo: `${window.location.origin}/reset-password`,
+      // Generates a fresh recovery/invite token (server-side via service role)
+      // that always redirects to /reset-password — invalidates any previous link.
+      const { data, error } = await supabase.functions.invoke('resend-user-invite', {
+        body: { email: email.recipient_email },
       });
       if (error) throw error;
-      toast.success(`Wysłano link do ustawienia hasła na ${email.recipient_email}`);
+      if (data && data.success === false) throw new Error(data.error || 'Nie udało się wysłać');
+      toast.success(data?.message || `Nowy link wysłany do ${email.recipient_email}`);
       refetch();
     } catch (e: any) {
       toast.error('Błąd wysyłania: ' + (e.message || 'Nieznany błąd'));
