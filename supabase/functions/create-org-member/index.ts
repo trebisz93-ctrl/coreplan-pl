@@ -99,7 +99,7 @@ Deno.serve(async (req) => {
         type: 'recovery',
         email,
         options: {
-          redirectTo: `https://coreplan.pl/auth?type=invite`,
+          redirectTo: `https://coreplan.pl/reset-password`,
         },
       });
       if (linkError) console.error('Recovery link error:', linkError);
@@ -116,7 +116,7 @@ Deno.serve(async (req) => {
             org_name: orgName,
             invited_by: isSuperAdmin ? 'super_admin' : 'org_admin',
           },
-          redirectTo: `https://coreplan.pl/auth?type=invite`,
+          redirectTo: `https://coreplan.pl/reset-password`,
         }
       );
 

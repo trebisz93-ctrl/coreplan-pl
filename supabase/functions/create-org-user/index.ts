@@ -77,7 +77,7 @@ Deno.serve(async (req) => {
       const { error: linkError } = await supabaseAdmin.auth.admin.generateLink({
         type: 'recovery',
         email,
-        options: { redirectTo: `https://coreplan.pl/auth?type=invite` },
+        options: { redirectTo: `https://coreplan.pl/reset-password` },
       });
       if (linkError) console.error('Recovery link error:', linkError);
     } else {
@@ -92,7 +92,7 @@ Deno.serve(async (req) => {
             org_name: orgName,
             invited_by: 'super_admin',
           },
-          redirectTo: `https://coreplan.pl/auth?type=invite`,
+          redirectTo: `https://coreplan.pl/reset-password`,
         }
       );
 

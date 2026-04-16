@@ -9,6 +9,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
+import confetti from 'canvas-confetti';
 
 interface OnboardingStep {
   id: string;
@@ -83,6 +84,23 @@ export const OrgOnboarding = () => {
   const allDone = completedCount >= 2;
   const progress = Math.round((completedCount / steps.length) * 100);
 
+  const fireConfetti = () => {
+    const colors = ['#D97A3A', '#B84E18', '#F5DCC8', '#FFF3E8', '#92400E'];
+    // Center burst
+    confetti({
+      particleCount: 120,
+      spread: 90,
+      origin: { y: 0.6 },
+      colors,
+      zIndex: 9999,
+    });
+    // Side bursts
+    setTimeout(() => {
+      confetti({ particleCount: 60, angle: 60, spread: 70, origin: { x: 0, y: 0.7 }, colors, zIndex: 9999 });
+      confetti({ particleCount: 60, angle: 120, spread: 70, origin: { x: 1, y: 0.7 }, colors, zIndex: 9999 });
+    }, 200);
+  };
+
   const handleFinish = async () => {
     if (!orgId) return;
     const { error } = await supabase
@@ -93,11 +111,12 @@ export const OrgOnboarding = () => {
       toast.error('Błąd: ' + error.message);
       return;
     }
+    fireConfetti();
     await Promise.all([
       qc.invalidateQueries({ queryKey: ['organizations'] }),
       qc.invalidateQueries({ queryKey: ['my_organizations'] }),
     ]);
-    toast.success('Konfiguracja firmy zakończona!');
+    toast.success('🎉 Konfiguracja firmy zakończona!');
   };
 
   return (
