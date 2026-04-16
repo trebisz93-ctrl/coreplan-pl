@@ -19,6 +19,24 @@ const ResetPassword = () => {
     // Supabase invite/recovery links land here with a session token in the URL hash.
     // Both INVITE and PASSWORD_RECOVERY events should let the user set a password.
     const checkSession = async () => {
+      const hash = window.location.hash;
+      const params = new URLSearchParams(hash.startsWith('#') ? hash.slice(1) : hash);
+      const accessToken = params.get('access_token');
+      const refreshToken = params.get('refresh_token');
+
+      if (accessToken && refreshToken) {
+        const { data, error } = await supabase.auth.setSession({
+          access_token: accessToken,
+          refresh_token: refreshToken,
+        });
+        if (!error && data.session) {
+          setHasSession(true);
+          setChecking(false);
+          window.history.replaceState({}, document.title, window.location.pathname);
+          return;
+        }
+      }
+
       const { data: { session } } = await supabase.auth.getSession();
       if (session) setHasSession(true);
       setChecking(false);
