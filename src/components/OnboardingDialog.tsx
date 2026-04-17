@@ -6,15 +6,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
-
-const jobRoles = [
-  { value: 'kam', label: 'KAM' },
-  { value: 'marketing', label: 'Marketing' },
-  { value: 'admin', label: 'Admin' },
-  { value: 'other', label: 'Inne' },
-];
 
 interface Props {
   open: boolean;
@@ -26,12 +18,11 @@ export const OnboardingDialog = ({ open, onComplete }: Props) => {
   const qc = useQueryClient();
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
-  const [jobRole, setJobRole] = useState('');
   const [saving, setSaving] = useState(false);
 
   const handleSave = async () => {
-    if (!firstName.trim() || !lastName.trim() || !jobRole) {
-      toast.error('Wszystkie pola są wymagane');
+    if (!firstName.trim() || !lastName.trim()) {
+      toast.error('Imię i nazwisko są wymagane');
       return;
     }
     setSaving(true);
@@ -41,7 +32,6 @@ export const OnboardingDialog = ({ open, onComplete }: Props) => {
         .update({
           first_name: firstName.trim(),
           last_name: lastName.trim(),
-          job_role: jobRole,
           display_name: `${firstName.trim()} ${lastName.trim()}`,
           onboarding_completed: true,
         } as any)
@@ -64,7 +54,7 @@ export const OnboardingDialog = ({ open, onComplete }: Props) => {
         <DialogHeader>
           <DialogTitle>Uzupełnij swój profil</DialogTitle>
           <DialogDescription>
-            Aby korzystać z systemu, uzupełnij poniższe dane. To zajmie chwilę.
+            Podaj swoje imię i nazwisko. Rolę w organizacji nadaje administrator.
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-4">
@@ -85,19 +75,6 @@ export const OnboardingDialog = ({ open, onComplete }: Props) => {
               onChange={e => setLastName(e.target.value)}
               placeholder="Kowalski"
             />
-          </div>
-          <div className="space-y-2">
-            <Label>Rola *</Label>
-            <Select value={jobRole} onValueChange={setJobRole}>
-              <SelectTrigger>
-                <SelectValue placeholder="Wybierz rolę" />
-              </SelectTrigger>
-              <SelectContent>
-                {jobRoles.map(r => (
-                  <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
           </div>
         </div>
         <DialogFooter>
