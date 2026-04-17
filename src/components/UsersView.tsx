@@ -122,6 +122,19 @@ export const UsersView = () => {
     } catch (e: any) { toast.error('Błąd: ' + e.message); }
   };
 
+  const handleResetOnboarding = async (userId: string) => {
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({ onboarding_completed: false } as any)
+        .eq('user_id', userId);
+      if (error) throw error;
+      qc.invalidateQueries({ queryKey: ['profiles'] });
+      qc.invalidateQueries({ queryKey: ['my_profile'] });
+      toast.success('Onboarding zresetowany — użytkownik uzupełni dane przy następnym logowaniu');
+    } catch (e: any) { toast.error('Błąd: ' + e.message); }
+  };
+
   const handleSaveAssignments = async (userId: string, clientIds: string[]) => {
     try {
       await setClientAssignments.mutateAsync({ userId, clientIds });
