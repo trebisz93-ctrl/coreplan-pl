@@ -223,11 +223,11 @@ export const UsersView = () => {
               <Tooltip>
                 <TooltipTrigger asChild>
                   {profile.onboarding_completed ? (
-                    <Badge variant="outline" className="gap-1 text-xs border-emerald-500/40 text-emerald-700 dark:text-emerald-400">
+                    <Badge variant="secondary" className="gap-1 text-xs">
                       <CheckCircle2 className="h-3 w-3" /> Onboarding OK
                     </Badge>
                   ) : (
-                    <Badge variant="outline" className="gap-1 text-xs border-amber-500/40 text-amber-700 dark:text-amber-400">
+                    <Badge variant="destructive" className="gap-1 text-xs">
                       <AlertCircle className="h-3 w-3" /> Wymaga uzupełnienia
                     </Badge>
                   )}
