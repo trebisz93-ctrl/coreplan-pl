@@ -110,7 +110,7 @@ Deno.serve(async (req) => {
         display_name: displayName,
         organization_id,
         status: 'active',
-        onboarding_completed: false,
+        onboarding_completed: true,
       })
       .eq('user_id', userId);
 
