@@ -12,7 +12,8 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
-import { User, Building2, Search, UserX, Shield, Plus } from 'lucide-react';
+import { User, Building2, Search, UserX, Shield, Plus, RotateCcw, CheckCircle2, AlertCircle } from 'lucide-react';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { useQueryClient } from '@tanstack/react-query';
@@ -121,6 +122,19 @@ export const UsersView = () => {
     } catch (e: any) { toast.error('Błąd: ' + e.message); }
   };
 
+  const handleResetOnboarding = async (userId: string) => {
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({ onboarding_completed: false } as any)
+        .eq('user_id', userId);
+      if (error) throw error;
+      qc.invalidateQueries({ queryKey: ['profiles'] });
+      qc.invalidateQueries({ queryKey: ['my_profile'] });
+      toast.success('Onboarding zresetowany — użytkownik uzupełni dane przy następnym logowaniu');
+    } catch (e: any) { toast.error('Błąd: ' + e.message); }
+  };
+
   const handleSaveAssignments = async (userId: string, clientIds: string[]) => {
     try {
       await setClientAssignments.mutateAsync({ userId, clientIds });
@@ -205,6 +219,45 @@ export const UsersView = () => {
             </div>
           </div>
           <div className="flex items-center gap-2 shrink-0">
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  {profile.onboarding_completed ? (
+                    <Badge variant="secondary" className="gap-1 text-xs">
+                      <CheckCircle2 className="h-3 w-3" /> Onboarding OK
+                    </Badge>
+                  ) : (
+                    <Badge variant="destructive" className="gap-1 text-xs">
+                      <AlertCircle className="h-3 w-3" /> Wymaga uzupełnienia
+                    </Badge>
+                  )}
+                </TooltipTrigger>
+                <TooltipContent>
+                  {profile.onboarding_completed
+                    ? 'Profil uzupełniony przez użytkownika lub admina'
+                    : 'Użytkownik zobaczy okno uzupełnij profil przy najbliższym logowaniu'}
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+
+            {!isSelf && profile.onboarding_completed && (
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => handleResetOnboarding(profile.user_id)}
+                      className="h-8 w-8 p-0"
+                    >
+                      <RotateCcw className="h-4 w-4" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>Resetuj onboarding</TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            )}
+
             {canChangeRole ? (
               <Select
                 value={role}
