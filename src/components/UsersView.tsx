@@ -219,6 +219,45 @@ export const UsersView = () => {
             </div>
           </div>
           <div className="flex items-center gap-2 shrink-0">
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  {profile.onboarding_completed ? (
+                    <Badge variant="outline" className="gap-1 text-xs border-emerald-500/40 text-emerald-700 dark:text-emerald-400">
+                      <CheckCircle2 className="h-3 w-3" /> Onboarding OK
+                    </Badge>
+                  ) : (
+                    <Badge variant="outline" className="gap-1 text-xs border-amber-500/40 text-amber-700 dark:text-amber-400">
+                      <AlertCircle className="h-3 w-3" /> Wymaga uzupełnienia
+                    </Badge>
+                  )}
+                </TooltipTrigger>
+                <TooltipContent>
+                  {profile.onboarding_completed
+                    ? 'Profil uzupełniony przez użytkownika lub admina'
+                    : 'Użytkownik zobaczy okno uzupełnij profil przy najbliższym logowaniu'}
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+
+            {!isSelf && profile.onboarding_completed && (
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => handleResetOnboarding(profile.user_id)}
+                      className="h-8 w-8 p-0"
+                    >
+                      <RotateCcw className="h-4 w-4" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>Resetuj onboarding</TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            )}
+
             {canChangeRole ? (
               <Select
                 value={role}
