@@ -1,14 +1,47 @@
+import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Shield, Key, Lock, Users, AlertTriangle, CheckCircle2 } from 'lucide-react';
+import { Shield, Key, Lock, Users, AlertTriangle, CheckCircle2, Bot, Copy, Loader2 } from 'lucide-react';
 import { useGlobalProfiles, useOrganizations } from '@/hooks/useSuperAdmin';
 import { useUserRoles } from '@/hooks/useData';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
+
+interface AikidoCred { email: string; password: string; org: string; role: string; }
 
 export const SecurityView = () => {
   const { data: profiles = [] } = useGlobalProfiles();
   const { data: orgs = [] } = useOrganizations();
   const { data: roles = [] } = useUserRoles();
+  const [aikidoOpen, setAikidoOpen] = useState(false);
+  const [aikidoLoading, setAikidoLoading] = useState(false);
+  const [aikidoCreds, setAikidoCreds] = useState<AikidoCred[]>([]);
+
+  const handleGenerateAikido = async () => {
+    setAikidoLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('create-aikido-test-users');
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      setAikidoCreds(data.credentials || []);
+      setAikidoOpen(true);
+      toast.success(data.message || 'Konta utworzone');
+    } catch (e: any) {
+      toast.error('Błąd: ' + (e.message || 'nieznany'));
+    } finally {
+      setAikidoLoading(false);
+    }
+  };
+
+  const copyAll = () => {
+    const text = aikidoCreds
+      .map((c) => `${c.email}\t${c.password}\t${c.org}\t${c.role}`)
+      .join('\n');
+    navigator.clipboard.writeText(`email\thasło\torganizacja\trola\n${text}`);
+    toast.success('Skopiowano do schowka');
+  };
 
   const activeProfiles = profiles.filter((p: any) => !p.deleted_at);
   const blockedUsers = activeProfiles.filter((p: any) => p.status === 'blocked').length;
