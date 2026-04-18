@@ -1,14 +1,47 @@
+import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Shield, Key, Lock, Users, AlertTriangle, CheckCircle2 } from 'lucide-react';
+import { Shield, Key, Lock, Users, AlertTriangle, CheckCircle2, Bot, Copy, Loader2 } from 'lucide-react';
 import { useGlobalProfiles, useOrganizations } from '@/hooks/useSuperAdmin';
 import { useUserRoles } from '@/hooks/useData';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
+
+interface AikidoCred { email: string; password: string; org: string; role: string; }
 
 export const SecurityView = () => {
   const { data: profiles = [] } = useGlobalProfiles();
   const { data: orgs = [] } = useOrganizations();
   const { data: roles = [] } = useUserRoles();
+  const [aikidoOpen, setAikidoOpen] = useState(false);
+  const [aikidoLoading, setAikidoLoading] = useState(false);
+  const [aikidoCreds, setAikidoCreds] = useState<AikidoCred[]>([]);
+
+  const handleGenerateAikido = async () => {
+    setAikidoLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('create-aikido-test-users');
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      setAikidoCreds(data.credentials || []);
+      setAikidoOpen(true);
+      toast.success(data.message || 'Konta utworzone');
+    } catch (e: any) {
+      toast.error('Błąd: ' + (e.message || 'nieznany'));
+    } finally {
+      setAikidoLoading(false);
+    }
+  };
+
+  const copyAll = () => {
+    const text = aikidoCreds
+      .map((c) => `${c.email}\t${c.password}\t${c.org}\t${c.role}`)
+      .join('\n');
+    navigator.clipboard.writeText(`email\thasło\torganizacja\trola\n${text}`);
+    toast.success('Skopiowano do schowka');
+  };
 
   const activeProfiles = profiles.filter((p: any) => !p.deleted_at);
   const blockedUsers = activeProfiles.filter((p: any) => p.status === 'blocked').length;
@@ -108,6 +141,68 @@ export const SecurityView = () => {
           </div>
         </CardContent>
       </Card>
+
+      {/* Aikido test users */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Bot className="h-5 w-5" />
+            Konta testowe Aikido
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <p className="text-sm text-muted-foreground">
+            Wygeneruj komplet kont testowych dla skanera bezpieczeństwa Aikido: 3 role
+            (Admin, Manager, Viewer) × 2 izolowane organizacje. Konta są aktywne od razu
+            (bez weryfikacji e-mail), nie mają roli super_admin i pozwalają testować
+            izolację multi-tenant. Hasła pokazane tylko raz — skopiuj i przekaż Aikido.
+          </p>
+          <Button onClick={handleGenerateAikido} disabled={aikidoLoading}>
+            {aikidoLoading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Bot className="h-4 w-4 mr-2" />}
+            Wygeneruj / odśwież konta testowe
+          </Button>
+        </CardContent>
+      </Card>
+
+      <Dialog open={aikidoOpen} onOpenChange={setAikidoOpen}>
+        <DialogContent className="max-w-3xl">
+          <DialogHeader>
+            <DialogTitle>Konta testowe Aikido</DialogTitle>
+            <DialogDescription>
+              Skopiuj poświadczenia teraz — nie będą ponownie pokazane. Po zakończeniu
+              testów usuń te konta z widoku Użytkownicy.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="overflow-x-auto rounded-lg border">
+            <table className="w-full text-sm">
+              <thead className="bg-muted">
+                <tr>
+                  <th className="text-left p-2">E-mail</th>
+                  <th className="text-left p-2">Hasło</th>
+                  <th className="text-left p-2">Organizacja</th>
+                  <th className="text-left p-2">Rola</th>
+                </tr>
+              </thead>
+              <tbody>
+                {aikidoCreds.map((c) => (
+                  <tr key={c.email} className="border-t">
+                    <td className="p-2 font-mono text-xs">{c.email}</td>
+                    <td className="p-2 font-mono text-xs">{c.password}</td>
+                    <td className="p-2">{c.org}</td>
+                    <td className="p-2"><Badge variant="outline">{c.role}</Badge></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={copyAll}>
+              <Copy className="h-4 w-4 mr-2" />Kopiuj wszystko (TSV)
+            </Button>
+            <Button onClick={() => setAikidoOpen(false)}>Zamknij</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
