@@ -93,7 +93,7 @@ Deno.serve(async (req) => {
       if (existingOrg) {
         orgId = existingOrg.id;
       } else {
-        const { data: newOrg, error: orgErr } = await admin
+        const { data: newOrg, error: orgErr } = await asAdmin
           .from('organizations')
           .insert({
             name: tenant.name,
