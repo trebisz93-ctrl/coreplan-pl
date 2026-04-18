@@ -15,5 +15,3 @@ project_id = "aswmmhxyqafqsvnnspqj"
     verify_jwt = false
   [functions.scheduled-backup]
     verify_jwt = false
-  [functions.setup-super-admin]
-    verify_jwt = false
