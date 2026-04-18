@@ -54,6 +54,12 @@ Deno.serve(async (req) => {
     }
 
     const admin = createClient(SUPABASE_URL, SERVICE_ROLE);
+    // Client that runs as the calling super_admin — used for inserts into tables
+    // whose audit triggers require auth.uid() to be present (e.g. organizations,
+    // organization_members, system_logs).
+    const asAdmin = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+      global: { headers: { Authorization: authHeader } },
+    });
 
     const { data: isAdminData, error: roleErr } = await admin.rpc('is_super_admin', { _user_id: userData.user.id });
     if (roleErr || !isAdminData) {
@@ -87,7 +93,7 @@ Deno.serve(async (req) => {
       if (existingOrg) {
         orgId = existingOrg.id;
       } else {
-        const { data: newOrg, error: orgErr } = await admin
+        const { data: newOrg, error: orgErr } = await asAdmin
           .from('organizations')
           .insert({
             name: tenant.name,
