@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Navigate, Link } from 'react-router-dom';
+import { Navigate, Link, useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useIsSuperAdmin } from '@/hooks/useSuperAdmin';
@@ -71,6 +71,10 @@ const MfaScreen = ({ factorId, challengeId, setChallengeId, refreshAal }: {
 const Auth = () => {
   const { user, loading, signIn, signUp, resetPassword, currentAal, nextAal, refreshAal } = useAuth();
   const { data: isSuperAdmin, isLoading: isRoleLoading } = useIsSuperAdmin();
+  const [searchParams] = useSearchParams();
+  const rawNext = searchParams.get('next');
+  // Only allow same-origin relative paths.
+  const nextPath = rawNext && rawNext.startsWith('/') && !rawNext.startsWith('//') ? rawNext : null;
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -107,7 +111,9 @@ const Auth = () => {
     );
   }
 
-  if (user && !needsMfa) return <Navigate to={isSuperAdmin ? "/admin" : "/app"} replace />;
+  if (user && !needsMfa) {
+    return <Navigate to={nextPath ?? (isSuperAdmin ? "/admin" : "/app")} replace />;
+  }
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
