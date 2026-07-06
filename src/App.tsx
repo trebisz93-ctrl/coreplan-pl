@@ -37,6 +37,7 @@ const UsersView = lazy(() => import("./components/UsersView").then(m => ({ defau
 const ImportExportView = lazy(() => import("./components/ImportExportView").then(m => ({ default: m.ImportExportView })));
 const Auth = lazy(() => import("./pages/Auth"));
 const ResetPassword = lazy(() => import("./pages/ResetPassword"));
+const OAuthConsent = lazy(() => import("./pages/OAuthConsent"));
 const LandingPage = lazy(() => import("./pages/LandingPage"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 const PrivacyPolicy = lazy(() => import("./pages/PrivacyPolicy"));
@@ -72,6 +73,7 @@ const App = () => (
                 <Route path="/" element={<LandingPage />} />
                 <Route path="/auth" element={<Auth />} />
                 <Route path="/reset-password" element={<ResetPassword />} />
+                <Route path="/.lovable/oauth/consent" element={<OAuthConsent />} />
                 <Route path="/polityka-prywatnosci" element={<PrivacyPolicy />} />
                 <Route path="/regulamin" element={<Terms />} />
                 {/* Super Admin routes */}
