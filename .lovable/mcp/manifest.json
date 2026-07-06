@@ -1,0 +1,194 @@
+{
+  "version": 1,
+  "sdk_version": "0.20.0",
+  "path": "/functions/v1/mcp",
+  "auth": {
+    "type": "oauth",
+    "issuer": "https://aswmmhxyqafqsvnnspqj.supabase.co/auth/v1",
+    "accepted_audiences": [
+      "authenticated"
+    ]
+  },
+  "mcp": {
+    "server": {
+      "name": "coreplan-mcp",
+      "version": "0.1.0",
+      "title": "CorePlan"
+    },
+    "tools": [
+      {
+        "name": "list_clients",
+        "title": "List clients",
+        "description": "List clients (customers/brands) the signed-in user has access to in CorePlan.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "search": {
+              "type": "string",
+              "description": "Optional name substring filter."
+            },
+            "limit": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 200,
+              "description": "Max rows to return (default 50)."
+            }
+          },
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "list_activities",
+        "title": "List activities",
+        "description": "List CorePlan marketing activities the signed-in user can see. Optionally filter by client, status, or date range.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "client_id": {
+              "type": "string",
+              "format": "uuid",
+              "description": "Filter by client UUID."
+            },
+            "status": {
+              "type": "string",
+              "enum": [
+                "planned",
+                "in_progress",
+                "completed",
+                "cancelled"
+              ]
+            },
+            "start_from": {
+              "type": "string",
+              "description": "ISO date; include activities starting on or after this date."
+            },
+            "start_to": {
+              "type": "string",
+              "description": "ISO date; include activities starting on or before this date."
+            },
+            "limit": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 500
+            }
+          },
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "list_products",
+        "title": "List products",
+        "description": "List products from the CorePlan catalog accessible to the signed-in user.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "search": {
+              "type": "string",
+              "description": "Optional name substring filter."
+            },
+            "category": {
+              "type": "string"
+            },
+            "client_id": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "limit": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 500
+            }
+          },
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "create_activity",
+        "title": "Create activity",
+        "description": "Create a new marketing activity in CorePlan for a given client.",
+        "annotations": {
+          "readOnlyHint": false,
+          "destructiveHint": false,
+          "idempotentHint": false,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "name": {
+              "type": "string",
+              "minLength": 1,
+              "description": "Activity name."
+            },
+            "client_id": {
+              "type": "string",
+              "format": "uuid",
+              "description": "Target client UUID."
+            },
+            "start_date": {
+              "type": "string",
+              "description": "ISO start date (YYYY-MM-DD)."
+            },
+            "end_date": {
+              "type": "string",
+              "description": "ISO end date (YYYY-MM-DD); must be >= start_date."
+            },
+            "price": {
+              "type": "number",
+              "minimum": 0,
+              "description": "Budget/price for the activity (>= 0)."
+            },
+            "channel": {
+              "type": "string"
+            },
+            "campaign_type": {
+              "type": "string"
+            },
+            "status": {
+              "type": "string",
+              "enum": [
+                "planned",
+                "in_progress",
+                "completed",
+                "cancelled"
+              ]
+            },
+            "note": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "name",
+            "client_id",
+            "start_date",
+            "end_date"
+          ],
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        },
+        "outputSchema": null
+      }
+    ]
+  }
+}
