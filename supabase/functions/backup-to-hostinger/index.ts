@@ -13,6 +13,15 @@ async function sha256(data: string): Promise<string> {
     .join('');
 }
 
+function timingSafeEqual(a: string, b: string): boolean {
+  const ea = new TextEncoder().encode(a);
+  const eb = new TextEncoder().encode(b);
+  if (ea.length !== eb.length) return false;
+  let r = 0;
+  for (let i = 0; i < ea.length; i++) r |= ea[i] ^ eb[i];
+  return r === 0;
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -30,7 +39,7 @@ Deno.serve(async (req) => {
     const CRON_SECRET = Deno.env.get('BACKUP_CRON_SECRET');
     let userId: string;
 
-    if (cronSecretHeader && CRON_SECRET && cronSecretHeader === CRON_SECRET) {
+    if (cronSecretHeader && CRON_SECRET && timingSafeEqual(cronSecretHeader, CRON_SECRET)) {
       // Trusted scheduled invocation (pg_cron / Supabase scheduled function).
       userId = 'system-cron';
     } else if (authHeader) {
