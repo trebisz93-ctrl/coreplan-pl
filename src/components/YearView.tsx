@@ -434,7 +434,7 @@ export const YearView = () => {
       const pos = getBarStyle(activity.startDate, activity.endDate);
       const isHovered = hoveredBarId === activity.id;
       const isSelected = selectedBarId === activity.id;
-      const channelColor = campaignColorFallback(activity.campaignType, baseColor);
+      const channelColor = baseColor;
       return (
         <TooltipProvider key={activity.id} delayDuration={120}>
           <Tooltip>
