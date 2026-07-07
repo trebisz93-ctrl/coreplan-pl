@@ -74,7 +74,7 @@ export const SystemLogsView = () => {
             </div>
             <div className="flex gap-2">
               <Input placeholder="Szukaj w opisie..." value={filters.search || ''} onChange={e => setFilters(f => ({ ...f, search: e.target.value || undefined }))} />
-              <Button variant="ghost" size="icon" onClick={resetFilters} title="Resetuj filtry">
+              <Button variant="ghost" size="icon" aria-label="Resetuj filtry" onClick={resetFilters} title="Resetuj filtry">
                 <RotateCcw className="h-4 w-4" />
               </Button>
             </div>

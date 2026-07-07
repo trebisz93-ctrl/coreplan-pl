@@ -224,21 +224,21 @@ export const ProductsView = () => {
                       <TableCell>
                         {isEditing ? (
                           <div className="flex gap-1">
-                            <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => handleUpdate(product.id)}>
+                            <Button size="icon" variant="ghost" className="h-7 w-7" aria-label="Zapisz produkt" onClick={() => handleUpdate(product.id)}>
                               <Check className="h-3 w-3" />
                             </Button>
-                            <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => setEditingId(null)}>
+                            <Button size="icon" variant="ghost" className="h-7 w-7" aria-label="Anuluj edycję" onClick={() => setEditingId(null)}>
                               <X className="h-3 w-3" />
                             </Button>
                           </div>
                         ) : (
                           <div className="flex gap-1">
-                            <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => startEditing(product)}>
+                            <Button size="icon" variant="ghost" className="h-7 w-7" aria-label="Edytuj produkt" onClick={() => startEditing(product)}>
                               <Pencil className="h-3 w-3" />
                             </Button>
                             <AlertDialog>
                               <AlertDialogTrigger asChild>
-                                <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive hover:text-destructive">
+                                <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive hover:text-destructive" aria-label="Usuń produkt">
                                   <Trash2 className="h-3 w-3" />
                                 </Button>
                               </AlertDialogTrigger>

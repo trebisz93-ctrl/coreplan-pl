@@ -137,10 +137,10 @@ export const SettingsView = forwardRef<HTMLDivElement>((_, ref) => {
                         <Input value={editCTName} onChange={e => setEditCTName(e.target.value)} className="h-8 text-sm max-w-32" />
                         <Input value={editCTLabel} onChange={e => setEditCTLabel(e.target.value)}
                           onKeyDown={e => e.key === 'Enter' && handleUpdateCT(ct.id)} className="h-8 text-sm max-w-48" />
-                        <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => handleUpdateCT(ct.id)}>
+                        <Button size="icon" variant="ghost" className="h-8 w-8" aria-label="Zapisz typ kampanii" onClick={() => handleUpdateCT(ct.id)}>
                           <Check className="h-3 w-3" />
                         </Button>
-                        <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => setEditingCT(null)}>
+                        <Button size="icon" variant="ghost" className="h-8 w-8" aria-label="Anuluj edycję" onClick={() => setEditingCT(null)}>
                           <X className="h-3 w-3" />
                         </Button>
                       </div>
@@ -151,13 +151,13 @@ export const SettingsView = forwardRef<HTMLDivElement>((_, ref) => {
                           <span className="text-sm">{ct.label}</span>
                         </div>
                         <div className="flex gap-1">
-                          <Button size="icon" variant="ghost" className="h-7 w-7"
+                          <Button size="icon" variant="ghost" className="h-7 w-7" aria-label="Edytuj typ kampanii"
                             onClick={() => { setEditingCT(ct.id); setEditCTName(ct.name); setEditCTLabel(ct.label); }}>
                             <Pencil className="h-3 w-3" />
                           </Button>
                           <AlertDialog>
                             <AlertDialogTrigger asChild>
-                              <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive hover:text-destructive">
+                              <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive hover:text-destructive" aria-label="Usuń typ kampanii">
                                 <Trash2 className="h-3 w-3" />
                               </Button>
                             </AlertDialogTrigger>
@@ -216,7 +216,7 @@ export const SettingsView = forwardRef<HTMLDivElement>((_, ref) => {
                         }}
                         className="h-8 text-sm max-w-xs"
                       />
-                      <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => {
+                      <Button size="icon" variant="ghost" className="h-8 w-8" aria-label="Zapisz email" onClick={() => {
                         updateSetting.mutate({ key: 'demo_notification_email', value: editDemoEmail }, {
                           onSuccess: () => { setEditingDemoEmail(false); toast.success('Email zaktualizowany'); },
                           onError: (err: any) => toast.error(err.message),
@@ -224,14 +224,14 @@ export const SettingsView = forwardRef<HTMLDivElement>((_, ref) => {
                       }}>
                         <Check className="h-3 w-3" />
                       </Button>
-                      <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => setEditingDemoEmail(false)}>
+                      <Button size="icon" variant="ghost" className="h-8 w-8" aria-label="Anuluj edycję emaila" onClick={() => setEditingDemoEmail(false)}>
                         <X className="h-3 w-3" />
                       </Button>
                     </div>
                   ) : (
                     <div className="flex items-center gap-2">
                       <p className="text-sm text-muted-foreground">{demoEmail ?? 'admin@coreplan.pl'}</p>
-                      <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => {
+                      <Button size="icon" variant="ghost" className="h-7 w-7" aria-label="Edytuj email powiadomień demo" onClick={() => {
                         setEditDemoEmail(demoEmail ?? 'admin@coreplan.pl');
                         setEditingDemoEmail(true);
                       }}>
@@ -271,7 +271,7 @@ export const SettingsView = forwardRef<HTMLDivElement>((_, ref) => {
                         <p className="text-xs text-muted-foreground">{format(new Date(req.created_at), 'dd.MM.yyyy HH:mm')}</p>
                       </div>
                       {!req.is_read && (
-                        <Button size="icon" variant="ghost" className="h-7 w-7 shrink-0" onClick={() => markRead.mutate(req.id)} title="Oznacz jako przeczytane">
+                        <Button size="icon" variant="ghost" className="h-7 w-7 shrink-0" aria-label="Oznacz jako przeczytane" onClick={() => markRead.mutate(req.id)} title="Oznacz jako przeczytane">
                           <Eye className="h-3 w-3" />
                         </Button>
                       )}

@@ -111,10 +111,10 @@ export const ClientsView = () => {
                         <Input value={editName} onChange={e => setEditName(e.target.value)}
                           onKeyDown={e => e.key === 'Enter' && handleUpdate(client.id)} className="h-8 text-sm" autoFocus />
                         <Tooltip><TooltipTrigger asChild>
-                          <Button size="icon" variant="ghost" className="h-8 w-8 shrink-0" onClick={() => handleUpdate(client.id)}><Check className="h-3 w-3" /></Button>
+                          <Button size="icon" variant="ghost" className="h-8 w-8 shrink-0" aria-label="Zapisz zmiany" onClick={() => handleUpdate(client.id)}><Check className="h-3 w-3" /></Button>
                         </TooltipTrigger><TooltipContent>Zapisz</TooltipContent></Tooltip>
                         <Tooltip><TooltipTrigger asChild>
-                          <Button size="icon" variant="ghost" className="h-8 w-8 shrink-0" onClick={() => setEditingId(null)}><X className="h-3 w-3" /></Button>
+                          <Button size="icon" variant="ghost" className="h-8 w-8 shrink-0" aria-label="Anuluj edycję" onClick={() => setEditingId(null)}><X className="h-3 w-3" /></Button>
                         </TooltipTrigger><TooltipContent>Anuluj</TooltipContent></Tooltip>
                       </div>
                     ) : (
@@ -138,10 +138,10 @@ export const ClientsView = () => {
                       <Input type="number" value={editBudget} onChange={e => setEditBudget(e.target.value)}
                         onKeyDown={e => e.key === 'Enter' && handleBudgetSave(client.id)} className="h-8 text-sm" autoFocus min="0" />
                       <Tooltip><TooltipTrigger asChild>
-                        <Button size="icon" variant="ghost" className="h-8 w-8 shrink-0" onClick={() => handleBudgetSave(client.id)}><Check className="h-3 w-3" /></Button>
+                        <Button size="icon" variant="ghost" className="h-8 w-8 shrink-0" aria-label="Zapisz budżet" onClick={() => handleBudgetSave(client.id)}><Check className="h-3 w-3" /></Button>
                       </TooltipTrigger><TooltipContent>Zapisz</TooltipContent></Tooltip>
                       <Tooltip><TooltipTrigger asChild>
-                        <Button size="icon" variant="ghost" className="h-8 w-8 shrink-0" onClick={() => setEditingBudgetId(null)}><X className="h-3 w-3" /></Button>
+                        <Button size="icon" variant="ghost" className="h-8 w-8 shrink-0" aria-label="Anuluj edycję budżetu" onClick={() => setEditingBudgetId(null)}><X className="h-3 w-3" /></Button>
                       </TooltipTrigger><TooltipContent>Anuluj</TooltipContent></Tooltip>
                     </div>
                   ) : (
