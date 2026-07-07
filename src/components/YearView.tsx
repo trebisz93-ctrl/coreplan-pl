@@ -665,9 +665,13 @@ export const YearView = () => {
                     className="flex items-center gap-1.5 pl-4 pr-2 py-2.5 w-full text-left group"
                   >
                     {hasSubs ? (
-                      isRowExpanded
-                        ? <ChevronDown className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                        : <ChevronRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                      <motion.span
+                        animate={{ rotate: isRowExpanded ? 90 : 0 }}
+                        transition={{ duration: 0.2, ease: 'easeInOut' }}
+                        className="inline-flex"
+                      >
+                        <ChevronRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                      </motion.span>
                     ) : (
                       <span className="w-3.5 shrink-0" />
                     )}
@@ -701,21 +705,34 @@ export const YearView = () => {
               </div>
 
               {/* ── SUB-ROWS (Produkty ze wszystkich aktywności w grupie) ── */}
-              {isRowExpanded && subRows.map((sub) => (
-                <div key={sub.id} className="flex border-b border-border/30">
-                  <div className="w-72 shrink-0 flex items-center relative">
-                    <div className="absolute left-[14px] top-0 bottom-0 w-px" style={{ backgroundColor: `${baseColor}20` }} />
-                    <span className="text-[11px] text-muted-foreground truncate pl-8 pr-2 py-1.5">
-                      {sub.name}
-                      {sub.brand && <span className="text-muted-foreground/50 ml-1">({sub.brand})</span>}
-                    </span>
-                  </div>
-                  <div className="flex-1 relative" style={{ minHeight: 34 }}>
-                    {renderGridLines()}
-                    {renderSecondaryBar(sub.id, sub.startDate, sub.endDate, sub.name, baseColor)}
-                  </div>
-                </div>
-              ))}
+              <AnimatePresence initial={false}>
+                {isRowExpanded && (
+                  <motion.div
+                    key={`${rowKey}-subs`}
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: 'auto', opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    transition={{ duration: 0.25, ease: 'easeInOut' }}
+                    className="overflow-hidden"
+                  >
+                    {subRows.map((sub) => (
+                      <div key={sub.id} className="flex border-b border-border/30">
+                        <div className="w-72 shrink-0 flex items-center relative">
+                          <div className="absolute left-[14px] top-0 bottom-0 w-px" style={{ backgroundColor: `${baseColor}20` }} />
+                          <span className="text-[11px] text-muted-foreground truncate pl-8 pr-2 py-1.5">
+                            {sub.name}
+                            {sub.brand && <span className="text-muted-foreground/50 ml-1">({sub.brand})</span>}
+                          </span>
+                        </div>
+                        <div className="flex-1 relative" style={{ minHeight: 34 }}>
+                          {renderGridLines()}
+                          {renderSecondaryBar(sub.id, sub.startDate, sub.endDate, sub.name, baseColor)}
+                        </div>
+                      </div>
+                    ))}
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </div>
           );
         })}
