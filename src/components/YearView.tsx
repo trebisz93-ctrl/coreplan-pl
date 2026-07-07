@@ -259,6 +259,27 @@ export const YearView = () => {
     return sorted;
   }, [filteredActivities]);
 
+  // ── Grupowanie do wizualizacji osi czasu (NIE dotyczy PDF, patrz activityGroups powyżej) ──
+  const timelineRows = useMemo(() => {
+    const map = new Map<string, Activity[]>();
+    activityGroups.forEach(activity => {
+      const key = activity.name;
+      if (!map.has(key)) map.set(key, []);
+      map.get(key)!.push(activity);
+    });
+    return Array.from(map.entries()).map(([name, activities]) => {
+      const sorted = [...activities].sort((a, b) => a.startDate.localeCompare(b.startDate));
+      return {
+        name,
+        activities: sorted,
+        totalPrice: sorted.reduce((sum, a) => sum + a.price, 0),
+        earliestStart: sorted[0].startDate,
+        tags: sorted[0].tags,
+        clientId: sorted[0].clientId,
+      };
+    });
+  }, [activityGroups]);
+
   // ── PDF Export ──
   const handleExportPDF = async () => {
     setExporting(true);
