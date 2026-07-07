@@ -1,4 +1,5 @@
 import { useMemo, useState, useCallback, useRef } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { OrgOnboarding } from '@/components/OrgOnboarding';
 import { useApp } from '@/context/AppContext';
 import { useCanEdit } from '@/hooks/useRole';
