@@ -289,25 +289,24 @@ function parseExcelDate(val: any): string | null {
   return null;
 }
 
-export function exportActivitiesToExcel(
+export async function exportActivitiesToExcel(
   clientName: string,
   activities: any[],
   products: DbProduct[],
 ) {
-  const wb = XLSX.utils.book_new();
-
+  const wb = new ExcelJS.Workbook();
+  const ws = wb.addWorksheet('Aktywności');
   const productMap = new Map<string, string>();
   products.forEach(p => productMap.set(p.id, p.name));
 
   const headers = ['Nazwa aktywności', 'Produkt(y)', 'Kanał', 'Typ kampanii', 'Data rozpoczęcia', 'Data zakończenia', 'Budżet', 'Status', 'Notatka', 'Tagi'];
-  const data = [headers];
+  ws.addRow(headers);
 
   activities.forEach(a => {
     const productNames = (a.product_ids || a.productIds || [])
       .map((id: string) => productMap.get(id) || id)
       .join(', ');
-
-    data.push([
+    ws.addRow([
       a.name,
       productNames,
       a.channel || a.channel,
@@ -321,16 +320,13 @@ export function exportActivitiesToExcel(
     ]);
   });
 
-  const ws = XLSX.utils.aoa_to_sheet(data);
-  ws['!cols'] = [
-    { wch: 35 }, { wch: 30 }, { wch: 12 }, { wch: 15 },
-    { wch: 15 }, { wch: 15 }, { wch: 12 }, { wch: 14 },
-    { wch: 30 }, { wch: 25 },
+  ws.columns = [
+    { width: 35 }, { width: 30 }, { width: 12 }, { width: 15 },
+    { width: 15 }, { width: 15 }, { width: 12 }, { width: 14 },
+    { width: 30 }, { width: 25 },
   ];
 
-  XLSX.utils.book_append_sheet(wb, ws, 'Aktywności');
-
   const fileName = `Eksport_${clientName.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.xlsx`;
-  downloadWorkbook(wb, fileName);
+  await downloadWorkbook(wb, fileName);
   return fileName;
 }
