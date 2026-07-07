@@ -60,7 +60,7 @@ export const ImportExportView = () => {
 
     try {
       const buffer = await file.arrayBuffer();
-      const result = parseAndValidateImport(buffer, clientProducts);
+      const result = await parseAndValidateImport(buffer, clientProducts);
 
       if (!result.success) {
         setValidationErrors(result.errors);
