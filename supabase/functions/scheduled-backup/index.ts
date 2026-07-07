@@ -40,7 +40,7 @@ Deno.serve(async (req) => {
 
   try {
     const tables = ['clients', 'products', 'activities', 'media_plans', 'packages', 'confirmations', 'campaign_types', 'product_clients'];
-    const backup: Record<string, any[]> = {};
+    const backup: Record<string, Array<Record<string, unknown>>> = {};
 
     for (const table of tables) {
       const { data, error } = await supabaseAdmin.from(table).select('*');
