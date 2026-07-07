@@ -32,7 +32,9 @@ const MfaScreen = ({ factorId, challengeId, setChallengeId, refreshAal }: {
       try {
         const { data: newChallenge } = await supabase.auth.mfa.challenge({ factorId });
         if (newChallenge) setChallengeId(newChallenge.id);
-      } catch {}
+      } catch (err) {
+        console.error('MFA re-challenge failed:', err);
+      }
       setMfaCode('');
     } else {
       await refreshAal();

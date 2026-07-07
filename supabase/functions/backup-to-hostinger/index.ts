@@ -26,9 +26,14 @@ Deno.serve(async (req) => {
 
     // Verify caller is super_admin (via auth header) or internal cron
     const authHeader = req.headers.get('Authorization');
-    let userId = 'system-cron';
+    const cronSecretHeader = req.headers.get('X-Cron-Secret');
+    const CRON_SECRET = Deno.env.get('BACKUP_CRON_SECRET');
+    let userId: string;
 
-    if (authHeader) {
+    if (cronSecretHeader && CRON_SECRET && cronSecretHeader === CRON_SECRET) {
+      // Trusted scheduled invocation (pg_cron / Supabase scheduled function).
+      userId = 'system-cron';
+    } else if (authHeader) {
       const supabaseUser = createClient(
         Deno.env.get('SUPABASE_URL')!,
         Deno.env.get('SUPABASE_ANON_KEY')!,
@@ -49,6 +54,9 @@ Deno.serve(async (req) => {
         return new Response(JSON.stringify({ error: 'Only super_admin can trigger backups' }), { status: 403, headers: corsHeaders });
       }
       userId = user.id;
+    } else {
+      // No cron secret and no auth token -> deny by default.
+      return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: corsHeaders });
     }
 
     // Export all tables
