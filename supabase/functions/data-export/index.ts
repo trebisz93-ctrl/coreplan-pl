@@ -83,7 +83,7 @@ Deno.serve(async (req) => {
     // Tables scoped via product relationship
     const productScopedTables = ['product_clients'];
 
-    const backup: Record<string, any[]> = {};
+    const backup: Record<string, Array<Record<string, unknown>>> = {};
 
     for (const table of orgScopedTables) {
       let query = supabaseAdmin.from(table).select('*');
@@ -123,7 +123,7 @@ Deno.serve(async (req) => {
     }
 
     // Confirmations — scoped via activities
-    const activityIds = (backup['activities'] || []).map((a: any) => a.id);
+    const activityIds = (backup['activities'] || []).map((a) => a.id as string);
     if (activityIds.length > 0) {
       const { data } = await supabaseAdmin.from('confirmations').select('*').in('activity_id', activityIds);
       backup['confirmations'] = data || [];
@@ -132,7 +132,7 @@ Deno.serve(async (req) => {
     }
 
     // Product clients — scoped via products
-    const productIds = (backup['products'] || []).map((p: any) => p.id);
+    const productIds = (backup['products'] || []).map((p) => p.id as string);
     if (productIds.length > 0) {
       const { data } = await supabaseAdmin.from('product_clients').select('*').in('product_id', productIds);
       backup['product_clients'] = data || [];
