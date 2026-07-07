@@ -199,9 +199,10 @@ Deno.serve(async (req) => {
       }),
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
-  } catch (e: any) {
+  } catch (e: unknown) {
     console.error('create-aikido-test-users error:', e);
-    return new Response(JSON.stringify({ error: e.message || 'Unknown error' }), {
+    const msg = e instanceof Error ? e.message : 'Unknown error';
+    return new Response(JSON.stringify({ error: msg }), {
       status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }

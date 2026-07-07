@@ -12,7 +12,7 @@ export function fnUrl(name: string): string {
 export async function callFn(
   name: string,
   init: RequestInit = {},
-): Promise<{ status: number; body: any; text: string }> {
+): Promise<{ status: number; body: Record<string, unknown> | null; text: string }> {
   const headers = new Headers(init.headers);
   if (!headers.has("apikey")) headers.set("apikey", ANON_KEY);
   if (!headers.has("Content-Type") && init.body) {
@@ -20,7 +20,7 @@ export async function callFn(
   }
   const res = await fetch(fnUrl(name), { ...init, headers });
   const text = await res.text();
-  let body: any = null;
+  let body: Record<string, unknown> | null = null;
   try { body = JSON.parse(text); } catch { /* not json */ }
   return { status: res.status, body, text };
 }
