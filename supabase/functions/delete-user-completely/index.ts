@@ -32,7 +32,7 @@ Deno.serve(async (req) => {
     if (!target) throw new Error(`Nie znaleziono użytkownika o emailu ${email}`);
 
     const userId = target.id;
-    const cleanup: Record<string, any> = {};
+    const cleanup: Record<string, string> = {};
 
     // Delete from all related tables
     const tables = [
@@ -62,9 +62,10 @@ Deno.serve(async (req) => {
     return new Response(JSON.stringify({ success: true, user_id: userId, email, cleanup }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
-  } catch (e: any) {
+  } catch (e: unknown) {
     console.error('delete-user-completely error:', e);
-    return new Response(JSON.stringify({ error: e.message }), {
+    const msg = e instanceof Error ? e.message : String(e);
+    return new Response(JSON.stringify({ error: msg }), {
       status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
