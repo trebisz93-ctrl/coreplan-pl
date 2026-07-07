@@ -10,6 +10,7 @@ import { OrganizationProvider } from "./context/OrganizationContext";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import { SuperAdminRoute } from "./components/SuperAdminRoute";
 import { AppLayout } from "./components/AppLayout";
+import { ErrorBoundary } from "./components/ErrorBoundary";
 
 // Lazy-loaded route components
 const SuperAdminLayout = lazy(() => import("./components/admin/SuperAdminLayout").then(m => ({ default: m.SuperAdminLayout })));
@@ -66,7 +67,8 @@ const App = () => (
       <Toaster />
       <Sonner />
       <BrowserRouter>
-        <AuthProvider>
+        <ErrorBoundary>
+          <AuthProvider>
           <OrganizationProvider>
             <Suspense fallback={<LazyFallback />}>
               <Routes>
@@ -109,7 +111,8 @@ const App = () => (
               </Routes>
             </Suspense>
           </OrganizationProvider>
-        </AuthProvider>
+          </AuthProvider>
+        </ErrorBoundary>
       </BrowserRouter>
     </TooltipProvider>
   </QueryClientProvider>
