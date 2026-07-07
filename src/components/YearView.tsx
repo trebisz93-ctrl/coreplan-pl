@@ -640,16 +640,14 @@ export const YearView = () => {
           )}
         </div>
 
-        {/* ── Activity Rows ── */}
-        {activityGroups.map((activity, aIdx) => {
+        {/* ── Activity Rows (grouped by name) ── */}
+        {timelineRows.map((row, aIdx) => {
           const baseColor = BASE_COLORS[aIdx % BASE_COLORS.length];
-          const isActExpanded = expandedActivities.has(activity.id);
-          const subRows = getSubRows(activity);
-          const hasSubs = subRows.length > 0;
-          const isActSelected = selectedBarId === activity.id;
+          const isActSelected = row.activities.some(a => a.id === selectedBarId);
+          const rowKey = `${row.name}__${aIdx}`;
 
           return (
-            <div key={activity.id}>
+            <div key={rowKey}>
               {/* ── ACTIVITY ROW ── */}
               <div
                 className="flex border-b border-border/60 transition-colors hover:bg-muted/30"
@@ -658,63 +656,35 @@ export const YearView = () => {
                 }}
               >
                 <div className="w-72 shrink-0 flex items-center gap-1.5 relative">
-                  {/* Status indicator */}
-                  <div
-                    className="absolute left-0 top-1 bottom-1 w-[3px] rounded-r"
-                    style={{ backgroundColor: STATUS_LEFT_COLORS[activity.status] || STATUS_LEFT_COLORS.planned }}
-                  />
-
-                  <button
-                    onClick={() => hasSubs && toggleActivity(activity.id)}
-                    className="flex items-center gap-1.5 pl-4 pr-2 py-2.5 w-full text-left group"
-                  >
-                    {hasSubs ? (
-                      isActExpanded
-                        ? <ChevronDown className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                        : <ChevronRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                    ) : (
-                      <span className="w-3.5 shrink-0" />
-                    )}
+                  <div className="flex items-center gap-1.5 pl-4 pr-2 py-2.5 w-full text-left">
                     <div className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: baseColor }} />
-                    <span className="text-xs font-semibold truncate">{activity.name}</span>
-                    {activity.tags?.map((tag, ti) => (
+                    <span className="text-xs font-semibold truncate">{row.name}</span>
+                    {row.activities.length > 1 && (
+                      <Badge variant="secondary" className="text-[8px] px-1 py-0 h-3.5 shrink-0">
+                        ×{row.activities.length}
+                      </Badge>
+                    )}
+                    {row.tags?.map((tag, ti) => (
                       <Badge key={tag} variant="outline" className="text-[8px] px-1 py-0 h-3.5 shrink-0" style={{ borderColor: TAG_COLORS[ti % TAG_COLORS.length] + '60', color: TAG_COLORS[ti % TAG_COLORS.length] }}>
                         {tag}
                       </Badge>
                     ))}
-                    {activity.clientId && clientMap.get(activity.clientId) && (
+                    {row.clientId && clientMap.get(row.clientId) && (
                       <Badge variant="outline" className="text-[8px] px-1 py-0 h-3.5 shrink-0 border-muted-foreground/20 text-muted-foreground">
-                        {clientMap.get(activity.clientId)}
+                        {clientMap.get(row.clientId)}
                       </Badge>
                     )}
                     <span className="text-[9px] text-muted-foreground ml-auto whitespace-nowrap shrink-0">
-                      {activity.startDate.slice(5)}
-                      {showPrices ? ` • ${formatPLN(activity.price)}` : ''}
+                      {row.earliestStart.slice(5)}
+                      {showPrices ? ` • ${formatPLN(row.totalPrice)}` : ''}
                     </span>
-                  </button>
+                  </div>
                 </div>
                 <div className="flex-1 relative" style={{ minHeight: 36 }}>
                   {renderGridLines()}
-                  {renderPrimaryBar(activity, baseColor)}
+                  {renderGroupMarkers(row, baseColor)}
                 </div>
               </div>
-
-              {/* ── SUB-ROWS (Products) ── */}
-              {isActExpanded && subRows.map((sub) => (
-                <div key={sub.id} className="flex border-b border-border/30">
-                  <div className="w-72 shrink-0 flex items-center relative">
-                    <div className="absolute left-[14px] top-0 bottom-0 w-px" style={{ backgroundColor: `${baseColor}20` }} />
-                    <span className="text-[11px] text-muted-foreground truncate pl-8 pr-2 py-1.5">
-                      {sub.name}
-                      {sub.brand && <span className="text-muted-foreground/50 ml-1">({sub.brand})</span>}
-                    </span>
-                  </div>
-                  <div className="flex-1 relative" style={{ minHeight: 34 }}>
-                    {renderGridLines()}
-                    {renderSecondaryBar(sub.id, sub.startDate, sub.endDate, sub.name, baseColor)}
-                  </div>
-                </div>
-              ))}
             </div>
           );
         })}
