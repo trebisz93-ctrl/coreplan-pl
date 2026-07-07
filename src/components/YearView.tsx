@@ -390,6 +390,7 @@ export const YearView = () => {
   };
 
   const renderSecondaryBar = (subId: string, startDate: string, endDate: string, name: string, baseColor: string) => {
+    // (retained for backward compat; not used in the grouped timeline view)
     const pos = getBarStyle(startDate, endDate);
     const lightColor = lightenHsl(baseColor, 30);
     const isHovered = hoveredBarId === subId;
@@ -426,6 +427,65 @@ export const YearView = () => {
         </Tooltip>
       </TooltipProvider>
     );
+  };
+
+  const renderGroupMarkers = (row: typeof timelineRows[number], baseColor: string) => {
+    return row.activities.map((activity) => {
+      const pos = getBarStyle(activity.startDate, activity.endDate);
+      const isHovered = hoveredBarId === activity.id;
+      const isSelected = selectedBarId === activity.id;
+      const channelColor = campaignColorFallback(activity.campaignType, baseColor);
+      return (
+        <TooltipProvider key={activity.id} delayDuration={120}>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <div
+                className="absolute cursor-pointer transition-all duration-150 z-10 flex items-center justify-center"
+                style={{
+                  ...pos,
+                  top: 8,
+                  height: 20,
+                  borderRadius: 6,
+                  backgroundColor: isHovered ? darkenHsl(channelColor, 8) : channelColor,
+                  boxShadow: isHovered
+                    ? '0 4px 12px -2px rgba(0,0,0,0.25)'
+                    : isSelected
+                      ? `0 0 0 2px ${channelColor}, 0 0 8px ${channelColor}40`
+                      : '0 1px 3px rgba(0,0,0,0.12)',
+                  outline: isSelected ? `2px solid ${channelColor}` : 'none',
+                  outlineOffset: isSelected ? 1 : 0,
+                }}
+                onMouseEnter={() => setHoveredBarId(activity.id)}
+                onMouseLeave={() => setHoveredBarId(null)}
+                onClick={() => {
+                  setSelectedBarId(activity.id);
+                  setSelectedActivity(activity);
+                  setDrawerOpen(true);
+                }}
+              >
+                <span className="text-[9px] leading-none px-1.5 font-semibold truncate block text-white drop-shadow-sm">
+                  {campaignTypeLabels[activity.campaignType] ?? activity.campaignType}
+                </span>
+              </div>
+            </TooltipTrigger>
+            <TooltipContent side="top" className="max-w-xs p-3 space-y-1.5">
+              <div className="font-semibold text-sm">{activity.name}</div>
+              <div className="flex gap-1.5 flex-wrap">
+                <Badge className={statusBadgeClass[activity.status]} variant="secondary">{statusLabels[activity.status]}</Badge>
+                <Badge variant="outline">{campaignTypeLabels[activity.campaignType] ?? activity.campaignType}</Badge>
+                <Badge variant="outline" className={activity.channel === 'online' ? 'border-online text-online' : 'border-offline text-offline'}>
+                  {activity.channel}
+                </Badge>
+              </div>
+              <div className="text-xs text-muted-foreground space-y-0.5">
+                <div>📅 {activity.startDate} → {activity.endDate}</div>
+                {showPrices && <div>💰 {formatPLN(activity.price)}</div>}
+              </div>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+      );
+    });
   };
 
   const hasContent = filteredActivities.length > 0;
