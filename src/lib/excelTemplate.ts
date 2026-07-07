@@ -1,7 +1,19 @@
-import ExcelJS from 'exceljs';
+import type ExcelJSType from 'exceljs';
 import type { DbProduct } from '@/hooks/useData';
 
-async function downloadWorkbook(wb: ExcelJS.Workbook, fileName: string) {
+// Lazy-load exceljs (heavy ~900KB) only when a user actually imports/exports.
+type ExcelJSModule = typeof ExcelJSType;
+let exceljsPromise: Promise<ExcelJSModule> | null = null;
+const loadExcelJS = (): Promise<ExcelJSModule> => {
+  if (!exceljsPromise) {
+    exceljsPromise = import('exceljs').then(
+      (m) => ((m as unknown as { default?: ExcelJSModule }).default ?? (m as unknown as ExcelJSModule)),
+    );
+  }
+  return exceljsPromise;
+};
+
+async function downloadWorkbook(wb: ExcelJSType.Workbook, fileName: string) {
   const buf = await wb.xlsx.writeBuffer();
   const blob = new Blob([buf], { type: 'application/octet-stream' });
   const url = URL.createObjectURL(blob);
@@ -32,6 +44,7 @@ const STATUSES = ['planned', 'in_progress', 'completed', 'cancelled'];
 const CAMPAIGN_TYPES = ['display', 'social', 'search', 'video', 'print', 'outdoor', 'radio', 'tv', 'event', 'email'];
 
 export async function generateTemplate(clientName: string, products: DbProduct[]) {
+  const ExcelJS = await loadExcelJS();
   const wb = new ExcelJS.Workbook();
 
   const ws = wb.addWorksheet('Import');
@@ -111,6 +124,7 @@ export async function parseAndValidateImport(
   const errors: ImportValidationError[] = [];
   const rows: ParsedRow[] = [];
 
+  const ExcelJS = await loadExcelJS();
   const wb = new ExcelJS.Workbook();
   try {
     await wb.xlsx.load(file);
@@ -294,6 +308,7 @@ export async function exportActivitiesToExcel(
   activities: any[],
   products: DbProduct[],
 ) {
+  const ExcelJS = await loadExcelJS();
   const wb = new ExcelJS.Workbook();
   const ws = wb.addWorksheet('Aktywności');
   const productMap = new Map<string, string>();
