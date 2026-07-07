@@ -216,7 +216,11 @@ export const YearView = () => {
   const [expandedActivities, setExpandedActivities] = useState<Set<string>>(new Set());
 
   const toggleActivity = (id: string) =>
-    setExpandedActivities(p => { const n = new Set(p); n.has(id) ? n.delete(id) : n.add(id); return n; });
+    setExpandedActivities(p => {
+      const n = new Set(p);
+      if (n.has(id)) n.delete(id); else n.add(id);
+      return n;
+    });
 
   // ── Bar position calc ──
   const getBarStyle = useCallback((startDate: string, endDate: string) => {
