@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { useClients, useProducts, DbProduct } from '@/hooks/useData';
 import { useActivities } from '@/hooks/useActivities';
 import { useApp } from '@/context/AppContext';
@@ -68,7 +68,7 @@ export const DashboardView = () => {
   };
 
   // Filter activities by date range, clients, and product category
-  const filterActivities = (acts: typeof allDbActivities, from: string, to: string) => {
+  const filterActivities = useCallback((acts: typeof allDbActivities, from: string, to: string) => {
     const clientIds = multiClientMode ? new Set(selectedClientIds) : new Set(clients.map(c => c.id));
 
     // Get product IDs matching category/subcategory filters
@@ -88,11 +88,11 @@ export const DashboardView = () => {
       if (matchingProductIds && !a.product_ids.some(pid => matchingProductIds!.has(pid))) return false;
       return true;
     });
-  };
+  }, [multiClientMode, selectedClientIds, clients, categoryFilter, subcategoryFilter, allProducts]);
 
   const filteredActivities = useMemo(() =>
     filterActivities(allDbActivities, dateFrom, dateTo),
-    [allDbActivities, dateFrom, dateTo, multiClientMode, selectedClientIds, clients, categoryFilter, subcategoryFilter, allProducts]
+    [filterActivities, allDbActivities, dateFrom, dateTo]
   );
 
   // YoY previous year activities
@@ -101,7 +101,7 @@ export const DashboardView = () => {
   const prevYearActivities = useMemo(() => {
     if (!yoyEnabled) return [];
     return filterActivities(allDbActivities, prevYearFrom, prevYearTo);
-  }, [yoyEnabled, allDbActivities, prevYearFrom, prevYearTo, multiClientMode, selectedClientIds, clients, categoryFilter, subcategoryFilter, allProducts]);
+  }, [filterActivities, yoyEnabled, allDbActivities, prevYearFrom, prevYearTo]);
 
   // Status counts
   const statusCounts = useMemo(() => {
