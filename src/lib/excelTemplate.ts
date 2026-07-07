@@ -1,8 +1,9 @@
-import * as XLSX from 'xlsx/xlsx.mjs';
+import ExcelJS from 'exceljs';
+import type { DbProduct } from '@/hooks/useData';
 
-function downloadWorkbook(wb: XLSX.WorkBook, fileName: string) {
-  const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
-  const blob = new Blob([wbout], { type: 'application/octet-stream' });
+async function downloadWorkbook(wb: ExcelJS.Workbook, fileName: string) {
+  const buf = await wb.xlsx.writeBuffer();
+  const blob = new Blob([buf], { type: 'application/octet-stream' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
@@ -12,7 +13,6 @@ function downloadWorkbook(wb: XLSX.WorkBook, fileName: string) {
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
 }
-import type { DbProduct } from '@/hooks/useData';
 
 const TEMPLATE_COLUMNS = [
   'Produkt',
@@ -31,87 +31,48 @@ const CHANNELS = ['online', 'offline'];
 const STATUSES = ['planned', 'in_progress', 'completed', 'cancelled'];
 const CAMPAIGN_TYPES = ['display', 'social', 'search', 'video', 'print', 'outdoor', 'radio', 'tv', 'event', 'email'];
 
-export function generateTemplate(clientName: string, products: DbProduct[]) {
-  const wb = XLSX.utils.book_new();
+export async function generateTemplate(clientName: string, products: DbProduct[]) {
+  const wb = new ExcelJS.Workbook();
 
-  // Main sheet with headers
-  const wsData = [TEMPLATE_COLUMNS];
-  const ws = XLSX.utils.aoa_to_sheet(wsData);
-
-  // Set column widths
-  ws['!cols'] = [
-    { wch: 30 }, // Produkt
-    { wch: 35 }, // Nazwa
-    { wch: 12 }, // Kanał
-    { wch: 15 }, // Typ kampanii
-    { wch: 15 }, // Data start
-    { wch: 15 }, // Data end
-    { wch: 12 }, // Budżet
-    { wch: 14 }, // Status
-    { wch: 30 }, // Notatka
-    { wch: 25 }, // Tagi
+  const ws = wb.addWorksheet('Import');
+  ws.addRow(TEMPLATE_COLUMNS);
+  ws.columns = [
+    { width: 30 }, { width: 35 }, { width: 12 }, { width: 15 },
+    { width: 15 }, { width: 15 }, { width: 12 }, { width: 14 },
+    { width: 30 }, { width: 25 },
   ];
 
-  // Products sheet
-  const prodData = [['ID produktu', 'Nazwa produktu']];
-  products.forEach(p => prodData.push([p.id, p.name]));
-  const wsProd = XLSX.utils.aoa_to_sheet(prodData);
-  wsProd['!cols'] = [{ wch: 40 }, { wch: 40 }];
+  const wsProd = wb.addWorksheet('Produkty');
+  wsProd.addRow(['ID produktu', 'Nazwa produktu']);
+  products.forEach(p => wsProd.addRow([p.id, p.name]));
+  wsProd.columns = [{ width: 40 }, { width: 40 }];
 
-  // Słownik sheet for dropdowns reference
-  const dictData = [['Kanały', 'Typy kampanii', 'Statusy']];
+  const wsDict = wb.addWorksheet('Słownik');
+  wsDict.addRow(['Kanały', 'Typy kampanii', 'Statusy']);
   const maxLen = Math.max(CHANNELS.length, CAMPAIGN_TYPES.length, STATUSES.length);
   for (let i = 0; i < maxLen; i++) {
-    dictData.push([
-      CHANNELS[i] || '',
-      CAMPAIGN_TYPES[i] || '',
-      STATUSES[i] || '',
-    ]);
+    wsDict.addRow([CHANNELS[i] || '', CAMPAIGN_TYPES[i] || '', STATUSES[i] || '']);
   }
-  const wsDict = XLSX.utils.aoa_to_sheet(dictData);
 
-  // Add data validations for main sheet
   const maxRows = 1000;
-  const productNames = products.map(p => `"${p.name}"`).join(',');
+  const addListValidation = (colLetter: string, values: string[]) => {
+    const formulae = [`"${values.join(',')}"`];
+    for (let r = 2; r <= maxRows; r++) {
+      ws.getCell(`${colLetter}${r}`).dataValidation = {
+        type: 'list', allowBlank: true, formulae,
+      };
+    }
+  };
 
-  if (!ws['!dataValidation']) ws['!dataValidation'] = [];
-
-  // Product dropdown (column A, rows 2-1000)
-  if (products.length <= 50) {
-    ws['!dataValidation'].push({
-      type: 'list',
-      sqref: `A2:A${maxRows}`,
-      formula1: `"${products.map(p => p.name).join(',')}"`,
-    });
+  if (products.length > 0 && products.length <= 50) {
+    addListValidation('A', products.map(p => p.name));
   }
-
-  // Channel dropdown
-  ws['!dataValidation'].push({
-    type: 'list',
-    sqref: `C2:C${maxRows}`,
-    formula1: `"${CHANNELS.join(',')}"`,
-  });
-
-  // Campaign type dropdown
-  ws['!dataValidation'].push({
-    type: 'list',
-    sqref: `D2:D${maxRows}`,
-    formula1: `"${CAMPAIGN_TYPES.join(',')}"`,
-  });
-
-  // Status dropdown
-  ws['!dataValidation'].push({
-    type: 'list',
-    sqref: `H2:H${maxRows}`,
-    formula1: `"${STATUSES.join(',')}"`,
-  });
-
-  XLSX.utils.book_append_sheet(wb, ws, 'Import');
-  XLSX.utils.book_append_sheet(wb, wsProd, 'Produkty');
-  XLSX.utils.book_append_sheet(wb, wsDict, 'Słownik');
+  addListValidation('C', CHANNELS);
+  addListValidation('D', CAMPAIGN_TYPES);
+  addListValidation('H', STATUSES);
 
   const fileName = `Szablon_Import_${clientName.replace(/\s+/g, '_')}.xlsx`;
-  downloadWorkbook(wb, fileName);
+  await downloadWorkbook(wb, fileName);
   return fileName;
 }
 
@@ -143,32 +104,42 @@ export interface ParsedRow {
   tags: string[];
 }
 
-export function parseAndValidateImport(
+export async function parseAndValidateImport(
   file: ArrayBuffer,
   products: DbProduct[],
-): ImportResult {
+): Promise<ImportResult> {
   const errors: ImportValidationError[] = [];
   const rows: ParsedRow[] = [];
 
-  let wb: XLSX.WorkBook;
+  const wb = new ExcelJS.Workbook();
   try {
-    wb = XLSX.read(file, { type: 'array' });
+    await wb.xlsx.load(file);
   } catch {
     return { success: false, rows: [], errors: [{ row: 0, column: '-', message: 'Nie udało się odczytać pliku. Upewnij się, że to plik .xlsx' }], totalRows: 0 };
   }
 
-  // Check sheets
-  if (!wb.SheetNames.includes('Import')) {
+  const importWs = wb.getWorksheet('Import');
+  const produktyWs = wb.getWorksheet('Produkty');
+  if (!importWs) {
     errors.push({ row: 0, column: '-', message: 'Brak arkusza "Import". Użyj szablonu wygenerowanego przez system.' });
     return { success: false, rows: [], errors, totalRows: 0 };
   }
-  if (!wb.SheetNames.includes('Produkty')) {
+  if (!produktyWs) {
     errors.push({ row: 0, column: '-', message: 'Brak arkusza "Produkty". Użyj szablonu wygenerowanego przez system.' });
     return { success: false, rows: [], errors, totalRows: 0 };
   }
 
-  const ws = wb.Sheets['Import'];
-  const data = XLSX.utils.sheet_to_json<any>(ws, { header: 1 }) as any[][];
+  const data: any[][] = [];
+  importWs.eachRow({ includeEmpty: false }, (row) => {
+    const arr: any[] = [];
+    for (let c = 1; c <= TEMPLATE_COLUMNS.length; c++) {
+      const v = row.getCell(c).value as any;
+      if (v && typeof v === 'object' && 'text' in v) arr.push((v as any).text);
+      else if (v instanceof Date) arr.push(v);
+      else arr.push(v);
+    }
+    data.push(arr);
+  });
 
   if (data.length < 2) {
     errors.push({ row: 0, column: '-', message: 'Plik nie zawiera danych do importu.' });
