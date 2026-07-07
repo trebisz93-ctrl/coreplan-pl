@@ -28,8 +28,6 @@ export default defineConfig(({ mode }) => ({
           'vendor-query': ['@tanstack/react-query'],
           'vendor-ui': ['@radix-ui/react-dialog', '@radix-ui/react-popover', '@radix-ui/react-dropdown-menu', '@radix-ui/react-tabs', '@radix-ui/react-tooltip'],
           'vendor-supabase': ['@supabase/supabase-js'],
-          'vendor-charts': ['recharts'],
-          'vendor-motion': ['framer-motion'],
         },
       },
     },

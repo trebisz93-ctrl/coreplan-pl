@@ -17,7 +17,8 @@ import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { ActivityDetailDrawer } from './ActivityDetailDrawer';
 import { ActivityDialog } from './ActivityDialog';
-import { exportMediaPlanPDF } from '@/lib/exportPdfVector';
+// exportMediaPlanPDF is lazy-loaded inside the export handler to keep
+// jsPDF/html2canvas out of the initial /app bundle.
 
 // ── Constants ──
 
@@ -279,6 +280,7 @@ export const YearView = () => {
         activities: activityGroups,
       }];
 
+      const { exportMediaPlanPDF } = await import('@/lib/exportPdfVector');
       await exportMediaPlanPDF({
         dateFrom,
         dateTo,

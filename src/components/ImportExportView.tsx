@@ -4,7 +4,11 @@ import { useActivities, useCreateActivity } from '@/hooks/useActivities';
 import { useImportHistory, useCreateImportHistory } from '@/hooks/useImportExport';
 import { useAuth } from '@/context/AuthContext';
 import { useOrganization } from '@/context/OrganizationContext';
-import { generateTemplate, parseAndValidateImport, exportActivitiesToExcel, type ImportValidationError } from '@/lib/excelTemplate';
+import type { ImportValidationError } from '@/lib/excelTemplate';
+// generateTemplate / parseAndValidateImport / exportActivitiesToExcel are
+// lazy-loaded inside the click handlers so exceljs (~940 KB) stays out of
+// the initial Import/Export page bundle.
+const loadExcel = () => import('@/lib/excelTemplate');
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -40,8 +44,10 @@ export const ImportExportView = () => {
       toast.error('Nie można pobrać wzoru pliku. Dla tego klienta nie zostały jeszcze skonfigurowane produkty.');
       return;
     }
-    generateTemplate(selectedClient.name, clientProducts);
-    toast.success('Szablon pobrany');
+    loadExcel().then(({ generateTemplate }) => {
+      generateTemplate(selectedClient.name, clientProducts);
+      toast.success('Szablon pobrany');
+    });
   };
 
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -60,6 +66,7 @@ export const ImportExportView = () => {
 
     try {
       const buffer = await file.arrayBuffer();
+      const { parseAndValidateImport } = await loadExcel();
       const result = await parseAndValidateImport(buffer, clientProducts);
 
       if (!result.success) {
@@ -130,8 +137,10 @@ export const ImportExportView = () => {
       toast.error('Brak aktywności do eksportu');
       return;
     }
-    exportActivitiesToExcel(selectedClient.name, activities, clientProducts);
-    toast.success('Eksport pobrany');
+    loadExcel().then(({ exportActivitiesToExcel }) => {
+      exportActivitiesToExcel(selectedClient.name, activities, clientProducts);
+      toast.success('Eksport pobrany');
+    });
   };
 
   const noProducts = selectedClientId && clientProducts.length === 0;
