@@ -645,6 +645,9 @@ export const YearView = () => {
           const baseColor = BASE_COLORS[aIdx % BASE_COLORS.length];
           const isActSelected = row.activities.some(a => a.id === selectedBarId);
           const rowKey = `${row.name}__${aIdx}`;
+          const isRowExpanded = expandedActivities.has(rowKey);
+          const subRows = row.activities.flatMap(a => getSubRows(a));
+          const hasSubs = subRows.length > 0;
 
           return (
             <div key={rowKey}>
@@ -656,7 +659,17 @@ export const YearView = () => {
                 }}
               >
                 <div className="w-72 shrink-0 flex items-center gap-1.5 relative">
-                  <div className="flex items-center gap-1.5 pl-4 pr-2 py-2.5 w-full text-left">
+                  <button
+                    onClick={() => hasSubs && toggleActivity(rowKey)}
+                    className="flex items-center gap-1.5 pl-4 pr-2 py-2.5 w-full text-left group"
+                  >
+                    {hasSubs ? (
+                      isRowExpanded
+                        ? <ChevronDown className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                        : <ChevronRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                    ) : (
+                      <span className="w-3.5 shrink-0" />
+                    )}
                     <div className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: baseColor }} />
                     <span className="text-xs font-semibold truncate">{row.name}</span>
                     {row.activities.length > 1 && (
@@ -678,13 +691,30 @@ export const YearView = () => {
                       {row.earliestStart.slice(5)}
                       {showPrices ? ` • ${formatPLN(row.totalPrice)}` : ''}
                     </span>
-                  </div>
+                  </button>
                 </div>
                 <div className="flex-1 relative" style={{ minHeight: 36 }}>
                   {renderGridLines()}
                   {renderGroupMarkers(row, baseColor)}
                 </div>
               </div>
+
+              {/* ── SUB-ROWS (Produkty ze wszystkich aktywności w grupie) ── */}
+              {isRowExpanded && subRows.map((sub) => (
+                <div key={sub.id} className="flex border-b border-border/30">
+                  <div className="w-72 shrink-0 flex items-center relative">
+                    <div className="absolute left-[14px] top-0 bottom-0 w-px" style={{ backgroundColor: `${baseColor}20` }} />
+                    <span className="text-[11px] text-muted-foreground truncate pl-8 pr-2 py-1.5">
+                      {sub.name}
+                      {sub.brand && <span className="text-muted-foreground/50 ml-1">({sub.brand})</span>}
+                    </span>
+                  </div>
+                  <div className="flex-1 relative" style={{ minHeight: 34 }}>
+                    {renderGridLines()}
+                    {renderSecondaryBar(sub.id, sub.startDate, sub.endDate, sub.name, baseColor)}
+                  </div>
+                </div>
+              ))}
             </div>
           );
         })}
