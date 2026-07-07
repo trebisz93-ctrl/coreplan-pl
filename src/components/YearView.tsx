@@ -11,7 +11,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
-  ChevronDown, ChevronRight, Plus, Search, FileDown,
+  ChevronRight, Plus, Search, FileDown,
   Calendar, LayoutGrid, List, EyeOff, Eye, Tag
 } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
