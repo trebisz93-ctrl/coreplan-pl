@@ -137,11 +137,19 @@ Deno.serve(async (req) => {
     );
 
     const authHeader = req.headers.get('Authorization');
-    if (!authHeader) throw new Error('Brak autoryzacji');
+    if (!authHeader) {
+      return new Response(JSON.stringify({ success: false, error: 'Brak autoryzacji' }), {
+        status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
 
     const token = authHeader.replace('Bearer ', '');
     const { data: { user: caller } } = await supabaseAdmin.auth.getUser(token);
-    if (!caller) throw new Error('Nieprawidłowy token');
+    if (!caller) {
+      return new Response(JSON.stringify({ success: false, error: 'Nieprawidłowy token' }), {
+        status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
 
     // Only super admins can resend
     const { data: roles } = await supabaseAdmin
@@ -150,7 +158,11 @@ Deno.serve(async (req) => {
       .eq('user_id', caller.id)
       .eq('role', 'super_admin');
 
-    if (!roles || roles.length === 0) throw new Error('Brak uprawnień (wymagany super_admin)');
+    if (!roles || roles.length === 0) {
+      return new Response(JSON.stringify({ success: false, error: 'Brak uprawnień (wymagany super_admin)' }), {
+        status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
 
     const { email } = await req.json();
     if (!email) throw new Error('Wymagane pole: email');
@@ -230,7 +242,7 @@ Deno.serve(async (req) => {
     console.error('resend-user-invite error:', error);
     return new Response(
       JSON.stringify({ success: false, error: error.message }),
-      { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
 });
