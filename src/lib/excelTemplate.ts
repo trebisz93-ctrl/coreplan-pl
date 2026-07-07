@@ -2,10 +2,13 @@ import type ExcelJSType from 'exceljs';
 import type { DbProduct } from '@/hooks/useData';
 
 // Lazy-load exceljs (heavy ~900KB) only when a user actually imports/exports.
-let exceljsPromise: Promise<typeof import('exceljs').default> | null = null;
-const loadExcelJS = () => {
+type ExcelJSModule = typeof ExcelJSType;
+let exceljsPromise: Promise<ExcelJSModule> | null = null;
+const loadExcelJS = (): Promise<ExcelJSModule> => {
   if (!exceljsPromise) {
-    exceljsPromise = import('exceljs').then(m => m.default ?? (m as unknown as typeof import('exceljs').default));
+    exceljsPromise = import('exceljs').then(
+      (m) => ((m as unknown as { default?: ExcelJSModule }).default ?? (m as unknown as ExcelJSModule)),
+    );
   }
   return exceljsPromise;
 };
