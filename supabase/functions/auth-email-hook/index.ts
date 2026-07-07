@@ -26,6 +26,7 @@ const EMAIL_SUBJECTS: Record<string, string> = {
 }
 
 // Template mapping
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- shared component signature; each template has its own props shape
 const EMAIL_TEMPLATES: Record<string, React.ComponentType<any>> = {
   signup: SignupEmail,
   invite: InviteEmail,
@@ -148,6 +149,7 @@ async function handleWebhook(req: Request): Promise<Response> {
   }
 
   // Verify signature + timestamp, then parse payload.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- payload shape is validated by parseEmailWebhookPayload
   let payload: any
   let run_id = ''
   try {
@@ -240,6 +242,7 @@ async function handleWebhook(req: Request): Promise<Response> {
           filter: { email: payload.data.email },
           page: 1,
           perPage: 1,
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any -- listUsers types don't yet expose `filter`
         } as any)
         const authUser = users?.[0]
         if (authUser?.user_metadata) {
