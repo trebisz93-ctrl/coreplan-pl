@@ -421,10 +421,12 @@ export const ActivityDetailDrawer = ({ activity, open, onOpenChange, clientId }:
                     {canEdit && (
                       <>
                         <Button size="icon" variant="secondary" className="h-7 w-7"
+                          aria-label={conf.is_cover ? "Usuń jako okładkę" : "Ustaw jako okładkę"}
                           onClick={() => handleSetCover(conf.id)}>
                           {conf.is_cover ? <StarOff className="h-3 w-3" /> : <Star className="h-3 w-3" />}
                         </Button>
                         <Button size="icon" variant="secondary" className="h-7 w-7"
+                          aria-label="Usuń potwierdzenie"
                           onClick={() => handleDeleteConfirmation(conf.id)}>
                           <Trash2 className="h-3 w-3" />
                         </Button>
@@ -432,7 +434,7 @@ export const ActivityDetailDrawer = ({ activity, open, onOpenChange, clientId }:
                     )}
                     {conf.link && (
                       <a href={conf.link} target="_blank" rel="noopener noreferrer">
-                        <Button size="icon" variant="secondary" className="h-7 w-7">
+                        <Button size="icon" variant="secondary" className="h-7 w-7" aria-label="Otwórz link w nowej karcie">
                           <ExternalLink className="h-3 w-3" />
                         </Button>
                       </a>
