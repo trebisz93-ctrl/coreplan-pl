@@ -5,14 +5,23 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+function timingSafeEqual(a: string, b: string): boolean {
+  const ea = new TextEncoder().encode(a);
+  const eb = new TextEncoder().encode(b);
+  if (ea.length !== eb.length) return false;
+  let r = 0;
+  for (let i = 0; i < ea.length; i++) r |= ea[i] ^ eb[i];
+  return r === 0;
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
-  const cronSecretHeader = req.headers.get('X-Cron-Secret');
-  const CRON_SECRET = Deno.env.get('BACKUP_CRON_SECRET');
-  if (!CRON_SECRET || cronSecretHeader !== CRON_SECRET) {
+  const cronSecretHeader = req.headers.get('X-Cron-Secret') ?? '';
+  const CRON_SECRET = Deno.env.get('BACKUP_CRON_SECRET') ?? '';
+  if (!CRON_SECRET || !timingSafeEqual(cronSecretHeader, CRON_SECRET)) {
     return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
   }
 
