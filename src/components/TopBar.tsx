@@ -123,7 +123,7 @@ export const TopBar = () => {
 
           {/* Right: bell */}
           <div className="shrink-0">
-            <Button variant="ghost" size="icon" className="relative" onClick={() => setNotifOpen(true)}>
+            <Button variant="ghost" size="icon" className="relative" aria-label="Powiadomienia" onClick={() => setNotifOpen(true)}>
               <Bell className="h-5 w-5" />
               {unreadCount > 0 && (
                 <span className="absolute -top-0.5 -right-0.5 h-4 min-w-4 px-1 rounded-full bg-destructive text-destructive-foreground text-[10px] font-bold flex items-center justify-center">
