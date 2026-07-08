@@ -56,9 +56,7 @@ export async function exportEstimationsToExcel(rows: EstimationReportRow[], file
       r.unitPriceEffectiveFrom,
       r.growthDuringPct,
       r.growthAfterPct,
-      // TODO: r.userId to surowe UUID — warto zmapować na profiles.display_name
-      // przy okazji rozbudowy widoku (join z tabelą profiles po stronie widoku SQL).
-      r.userId,
+      r.userDisplayName ?? r.userId,
       r.createdAt?.slice(0, 10),
     ]);
   });
