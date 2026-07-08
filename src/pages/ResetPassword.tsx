@@ -16,42 +16,39 @@ const ResetPassword = () => {
   const [checking, setChecking] = useState(true);
 
   useEffect(() => {
-    // Supabase invite/recovery links land here with a session token in the URL hash.
-    // Both INVITE and PASSWORD_RECOVERY events should let the user set a password.
-    const checkSession = async () => {
-      const hash = window.location.hash;
-      const params = new URLSearchParams(hash.startsWith('#') ? hash.slice(1) : hash);
-      const accessToken = params.get('access_token');
-      const refreshToken = params.get('refresh_token');
-
-      if (accessToken && refreshToken) {
-        const { data, error } = await supabase.auth.setSession({
-          access_token: accessToken,
-          refresh_token: refreshToken,
-        });
-        if (!error && data.session) {
-          setHasSession(true);
-          setChecking(false);
-          window.history.replaceState({}, document.title, window.location.pathname);
-          return;
-        }
-      }
-
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session) setHasSession(true);
-      setChecking(false);
-    };
-    checkSession();
-
+    // WAŻNE: Supabase (detectSessionInUrl: true, domyślne) SAM automatycznie
+    // wykrywa i przetwarza access_token/refresh_token z linku w adresie strony.
+    // Nie wolno robić tego RÓWNOLEGLE ręcznie (np. supabase.auth.setSession
+    // z tokenami wyciągniętymi z window.location.hash) — token recovery/invite
+    // jest jednorazowy, więc dwa niezależne procesy próbujące go "zużyć"
+    // w tym samym momencie powodują błąd "invalid/expired" dla tego, który
+    // przegra wyścig. Stąd wcześniejszy bug: działo się to za KAŻDYM razem,
+    // niezależnie od skrzynki pocztowej.
+    //
+    // Poprawne podejście: poczekać, aż Supabase sam przetworzy hash (dzieje
+    // się to automatycznie przy starcie klienta), i tylko nasłuchiwać wyniku.
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === 'PASSWORD_RECOVERY' || event === 'SIGNED_IN' || event === 'INITIAL_SESSION') {
         if (session) {
           setHasSession(true);
-          setChecking(false);
         }
+        setChecking(false);
       }
     });
-    return () => subscription.unsubscribe();
+
+    // Supabase czyści hash z adresu po przetworzeniu tokenów — jeśli po
+    // rozsądnym czasie nie ma jeszcze sesji ani zdarzenia, sprawdź jeszcze raz
+    // (np. link był już wcześniej użyty albo faktycznie wygasł).
+    const fallbackTimer = setTimeout(async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      setHasSession(!!session);
+      setChecking(false);
+    }, 2500);
+
+    return () => {
+      subscription.unsubscribe();
+      clearTimeout(fallbackTimer);
+    };
   }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
