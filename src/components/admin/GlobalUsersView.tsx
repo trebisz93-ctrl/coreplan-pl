@@ -142,7 +142,7 @@ export const GlobalUsersView = () => {
                     <TableCell>
                       <div className="flex items-center gap-1">
                         <Badge variant="outline">{getRole(p.user_id)}</Badge>
-                        {hasPrgm(p.user_id) && getRole(p.user_id) !== 'prgm' && (
+                        {hasPrgm(p.user_id) && (getRole(p.user_id) as string) !== 'prgm' && (
                           <Badge className="bg-primary/10 text-primary border-primary/30 text-[10px]">PRGM</Badge>
                         )}
                       </div>
