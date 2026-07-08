@@ -1,8 +1,9 @@
 import { Link, useLocation } from 'react-router-dom';
-import { CalendarDays, BarChart3, FileText, Settings, LogOut, Building2, ShoppingBag, Users, Shield, FileSpreadsheet } from 'lucide-react';
+import { CalendarDays, BarChart3, FileText, Settings, LogOut, Building2, ShoppingBag, Users, Shield, FileSpreadsheet, TrendingUp } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/context/AuthContext';
 import { useIsAdmin, useIsSuperAdminRole } from '@/hooks/useRole';
+import { usePrgmAccess } from '@/hooks/usePrgmAccess';
 import { useOrganization } from '@/context/OrganizationContext';
 import corePlanLogo from '@/assets/core-plan-logo.png';
 
@@ -13,6 +14,10 @@ const baseNavItems = [
   { label: 'Produkty', icon: ShoppingBag, path: '/products' },
   { label: 'Raporty', icon: FileText, path: '/reports' },
   { label: 'Import / Export', icon: FileSpreadsheet, path: '/import-export' },
+];
+
+const prgmNavItems = [
+  { label: 'Estymacje sprzedaży', icon: TrendingUp, path: '/estimations' },
 ];
 
 const adminNavItems = [
@@ -28,9 +33,10 @@ export const AppSidebar = () => {
   const { pathname } = useLocation();
   const isAdmin = useIsAdmin();
   const isSuperAdmin = useIsSuperAdminRole();
+  const { data: canSeeEstimations } = usePrgmAccess();
   const { currentOrg } = useOrganization();
 
-  const navItems = [...baseNavItems, ...(isAdmin ? adminNavItems : []), ...bottomNavItems];
+  const navItems = [...baseNavItems, ...(canSeeEstimations ? prgmNavItems : []), ...(isAdmin ? adminNavItems : []), ...bottomNavItems];
   return (
     <aside className="hidden md:flex w-60 shrink-0 bg-sidebar text-sidebar-foreground flex-col border-r border-sidebar-border">
       <div className="p-5 border-b border-sidebar-border">

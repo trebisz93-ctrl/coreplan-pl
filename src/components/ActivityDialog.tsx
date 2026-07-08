@@ -11,6 +11,10 @@ import { useApp } from '@/context/AppContext';
 import { useProducts, useClients } from '@/hooks/useData';
 import { useCreateActivity } from '@/hooks/useActivities';
 import { useCampaignTypes } from '@/hooks/useCampaignTypes';
+import { usePrgmAccess } from '@/hooks/usePrgmAccess';
+import { useSaveActivityEstimation } from '@/hooks/useActivityEstimations';
+import { useCurrentProductPrices } from '@/hooks/useProductPrices';
+import { EstimationSection, type ProductEstimationState } from '@/components/EstimationSection';
 import { Channel, CampaignType, ActivityStatus, campaignTypeLabels } from '@/types/mediaplan';
 import { AlertTriangle, Search, X } from 'lucide-react';
 import { toast } from 'sonner';
@@ -27,9 +31,14 @@ export const ActivityDialog = ({ open, onOpenChange }: Props) => {
   const { data: clients = [] } = useClients();
   const { data: campaignTypes = [] } = useCampaignTypes();
   const createActivity = useCreateActivity();
+  const saveEstimation = useSaveActivityEstimation();
+  const { data: canSeeEstimation } = usePrgmAccess();
+  const [estimationEnabled, setEstimationEnabled] = useState(false);
+  const [estimationState, setEstimationState] = useState<ProductEstimationState[]>([]);
   const [dialogClientId, setDialogClientId] = useState<string>('');
   const effectiveClientId = dialogClientId || selectedClientId;
   const { data: allProducts = [] } = useProducts();
+  const { data: currentPrices } = useCurrentProductPrices(selectedProducts);
 
   const allCampaignTypes = [
     ...Object.entries(campaignTypeLabels).map(([k, v]) => ({ name: k, label: v })),
@@ -80,7 +89,7 @@ export const ActivityDialog = ({ open, onOpenChange }: Props) => {
     if (error) { toast.error(error); return; }
 
     try {
-      await createActivity.mutateAsync({
+      const created = await createActivity.mutateAsync({
         client_id: effectiveClientId,
         name: name.trim(),
         channel,
@@ -93,6 +102,34 @@ export const ActivityDialog = ({ open, onOpenChange }: Props) => {
         note: note || undefined,
         tags,
       });
+
+      if (estimationEnabled && canSeeEstimation) {
+        for (const est of estimationState) {
+          if (!selectedProducts.includes(est.productId)) continue;
+          const hasAnyAmount = est.before.amount || est.during.amount || est.after.amount;
+          if (!hasAnyAmount) continue;
+
+          const priceInfo = currentPrices?.[est.productId] ?? null;
+          const toValue = (amount: string): number => {
+            const n = parseFloat(amount) || 0;
+            return est.unit === 'units' && priceInfo ? n * priceInfo.price : n;
+          };
+
+          await saveEstimation.mutateAsync({
+            activityId: created.id,
+            productId: est.productId,
+            unit: est.unit,
+            unitPriceSnapshot: est.unit === 'units' ? priceInfo?.price ?? null : null,
+            unitPriceEffectiveFrom: est.unit === 'units' ? priceInfo?.effectiveFrom ?? null : null,
+            periods: [
+              { period: 'before', periodStart: est.before.start, periodEnd: est.before.end, units: est.unit === 'units' ? parseFloat(est.before.amount) || 0 : null, value: toValue(est.before.amount) },
+              { period: 'during', periodStart: startDate, periodEnd: endDate, units: est.unit === 'units' ? parseFloat(est.during.amount) || 0 : null, value: toValue(est.during.amount) },
+              { period: 'after', periodStart: est.after.start, periodEnd: est.after.end, units: est.unit === 'units' ? parseFloat(est.after.amount) || 0 : null, value: toValue(est.after.amount) },
+            ],
+          });
+        }
+      }
+
       toast.success('Aktywność dodana');
       onOpenChange(false);
       resetForm();
@@ -107,6 +144,7 @@ export const ActivityDialog = ({ open, onOpenChange }: Props) => {
     setStartDate(t); setEndDate(t); setSelectedProducts([]); setProductSearch('');
     setPrice(''); setStatus('planned'); setNote('');
     setConfirmed(false); setDialogClientId(''); setTags([]); setTagInput('');
+    setEstimationEnabled(false); setEstimationState([]);
   };
 
   return (
@@ -272,6 +310,19 @@ export const ActivityDialog = ({ open, onOpenChange }: Props) => {
                 </label>
               </div>
             </div>
+          )}
+
+          {canSeeEstimation && (
+            <EstimationSection
+              enabled={estimationEnabled}
+              onEnabledChange={setEstimationEnabled}
+              productIds={selectedProducts}
+              products={allProducts}
+              activityStartDate={startDate}
+              activityEndDate={endDate}
+              value={estimationState}
+              onChange={setEstimationState}
+            />
           )}
         </div>
         <DialogFooter>

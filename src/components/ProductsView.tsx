@@ -5,8 +5,10 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ShoppingBag, Plus, Pencil, Trash2, Check, X, Search } from 'lucide-react';
+import { ShoppingBag, Plus, Pencil, Trash2, Check, X, Search, Tag } from 'lucide-react';
 import { toast } from 'sonner';
+import { ProductPriceDialog } from '@/components/ProductPriceDialog';
+import { usePrgmAccess } from '@/hooks/usePrgmAccess';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
@@ -24,6 +26,8 @@ export const ProductsView = () => {
   const updateProduct = useUpdateProduct();
   const deleteProduct = useDeleteProduct();
   const canEdit = useCanEdit();
+  const { data: canManagePrices } = usePrgmAccess();
+  const [priceDialogProduct, setPriceDialogProduct] = useState<{ id: string; name: string } | null>(null);
 
   // Filters
   const [searchQuery, setSearchQuery] = useState('');
@@ -233,6 +237,11 @@ export const ProductsView = () => {
                           </div>
                         ) : (
                           <div className="flex gap-1">
+                            {canManagePrices && (
+                              <Button size="icon" variant="ghost" className="h-7 w-7" aria-label="Cennik produktu" onClick={() => setPriceDialogProduct({ id: product.id, name: product.name })}>
+                                <Tag className="h-3 w-3" />
+                              </Button>
+                            )}
                             <Button size="icon" variant="ghost" className="h-7 w-7" aria-label="Edytuj produkt" onClick={() => startEditing(product)}>
                               <Pencil className="h-3 w-3" />
                             </Button>
@@ -276,6 +285,15 @@ export const ProductsView = () => {
       <div className="text-xs text-muted-foreground">
         Wyświetlono {filteredProducts.length} z {products.length} produktów
       </div>
+
+      {priceDialogProduct && (
+        <ProductPriceDialog
+          productId={priceDialogProduct.id}
+          productName={priceDialogProduct.name}
+          open={!!priceDialogProduct}
+          onOpenChange={(o) => !o && setPriceDialogProduct(null)}
+        />
+      )}
     </div>
   );
 };
