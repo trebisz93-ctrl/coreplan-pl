@@ -61,7 +61,25 @@ const ResetPassword = () => {
       toast.error('Hasła nie są identyczne');
       return;
     }
+
     setIsSubmitting(true);
+
+    // Token jest zamieniany na sesję DOPIERO teraz — w momencie realnej
+    // interakcji użytkownika, nie przy wejściu na stronę.
+    if (tokenHash && tokenType) {
+      const { error: verifyError } = await supabase.auth.verifyOtp({
+        token_hash: tokenHash,
+        type: tokenType as 'recovery' | 'invite' | 'email' | 'signup',
+      });
+      if (verifyError) {
+        setIsSubmitting(false);
+        toast.error('Link wygasł lub został już użyty. Poproś administratora o nowe zaproszenie.');
+        setInvalid(true);
+        setTokenHash(null);
+        return;
+      }
+    }
+
     const { error } = await supabase.auth.updateUser({ password });
     setIsSubmitting(false);
     if (error) {
@@ -88,7 +106,7 @@ const ResetPassword = () => {
     );
   }
 
-  if (!hasSession) {
+  if (invalid && !tokenHash && !hasExistingSession) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-background p-4">
         <Card className="w-full max-w-md">
