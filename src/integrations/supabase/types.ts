@@ -109,6 +109,131 @@ export type Database = {
           },
         ]
       }
+      activity_estimation_periods: {
+        Row: {
+          created_at: string
+          estimation_id: string
+          id: string
+          organization_id: string
+          period: string
+          period_end: string
+          period_start: string
+          unit_price_effective_from: string | null
+          unit_price_snapshot: number | null
+          units: number | null
+          updated_at: string
+          user_id: string
+          value: number
+        }
+        Insert: {
+          created_at?: string
+          estimation_id: string
+          id?: string
+          organization_id: string
+          period: string
+          period_end: string
+          period_start: string
+          unit_price_effective_from?: string | null
+          unit_price_snapshot?: number | null
+          units?: number | null
+          updated_at?: string
+          user_id: string
+          value: number
+        }
+        Update: {
+          created_at?: string
+          estimation_id?: string
+          id?: string
+          organization_id?: string
+          period?: string
+          period_end?: string
+          period_start?: string
+          unit_price_effective_from?: string | null
+          unit_price_snapshot?: number | null
+          units?: number | null
+          updated_at?: string
+          user_id?: string
+          value?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "activity_estimation_periods_estimation_id_fkey"
+            columns: ["estimation_id"]
+            isOneToOne: false
+            referencedRelation: "activity_product_estimations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "activity_estimation_periods_estimation_id_fkey"
+            columns: ["estimation_id"]
+            isOneToOne: false
+            referencedRelation: "view_activity_estimations_report"
+            referencedColumns: ["estimation_id"]
+          },
+          {
+            foreignKeyName: "activity_estimation_periods_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      activity_product_estimations: {
+        Row: {
+          activity_id: string
+          created_at: string
+          id: string
+          organization_id: string
+          product_id: string
+          unit: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          activity_id: string
+          created_at?: string
+          id?: string
+          organization_id: string
+          product_id: string
+          unit: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          activity_id?: string
+          created_at?: string
+          id?: string
+          organization_id?: string
+          product_id?: string
+          unit?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "activity_product_estimations_activity_id_fkey"
+            columns: ["activity_id"]
+            isOneToOne: false
+            referencedRelation: "activities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "activity_product_estimations_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "activity_product_estimations_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       app_settings: {
         Row: {
           id: string
@@ -878,6 +1003,51 @@ export type Database = {
           },
         ]
       }
+      product_prices: {
+        Row: {
+          created_at: string
+          effective_from: string
+          id: string
+          organization_id: string
+          price: number
+          product_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          effective_from: string
+          id?: string
+          organization_id: string
+          price: number
+          product_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          effective_from?: string
+          id?: string
+          organization_id?: string
+          price?: number
+          product_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_prices_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_prices_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       products: {
         Row: {
           brand: string | null
@@ -1121,7 +1291,66 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      view_activity_estimations_report: {
+        Row: {
+          activity_id: string | null
+          activity_name: string | null
+          after_end: string | null
+          after_start: string | null
+          after_units: number | null
+          after_value: number | null
+          before_end: string | null
+          before_start: string | null
+          before_units: number | null
+          before_value: number | null
+          client_id: string | null
+          created_at: string | null
+          during_end: string | null
+          during_start: string | null
+          during_units: number | null
+          during_value: number | null
+          estimation_id: string | null
+          growth_after_pct: number | null
+          growth_during_pct: number | null
+          organization_id: string | null
+          product_id: string | null
+          product_name: string | null
+          unit: string | null
+          unit_price_effective_from: string | null
+          unit_price_snapshot: number | null
+          user_id: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "activities_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "activity_product_estimations_activity_id_fkey"
+            columns: ["activity_id"]
+            isOneToOne: false
+            referencedRelation: "activities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "activity_product_estimations_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "activity_product_estimations_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Functions: {
       cleanup_old_backups: { Args: never; Returns: undefined }
