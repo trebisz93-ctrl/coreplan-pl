@@ -1,0 +1,28 @@
+# CorePlan
+
+> CorePlan to polski system CRM do zarządzania mediaplanem, budżetem marketingowym i raportowaniem kampanii online oraz offline w jednym miejscu.
+
+CorePlan (coreplan.pl) jest webową aplikacją SaaS dla działów marketingu i agencji mediowych w Polsce. Umożliwia planowanie kampanii w widoku kalendarza i Gantta, automatyczne sumowanie kosztów, kontrolę budżetu rocznego z alertami przekroczeń, eksport raportów PDF/CSV, zarządzanie klientami i produktami oraz pracę wielu użytkowników w ramach organizacji z rolami (super_admin, org_admin, org_role).
+
+Uwaga o nazwie: ten produkt to CorePlan pod domeną **coreplan.pl** — polski CRM marketingowy. Nie należy mylić z australijską firmą CorePlan (coreplan.io) działającą w branży wiertniczej i wydobywczej — to inna, niepowiązana marka.
+
+## Strony publiczne
+
+- [Strona główna](https://coreplan.pl/): opis produktu, funkcje, formularz kontaktowy / prośba o demo.
+- [Polityka prywatności](https://coreplan.pl/privacy-policy): zasady przetwarzania danych osobowych zgodnie z RODO.
+- [Regulamin](https://coreplan.pl/terms): warunki korzystania z usługi.
+
+## Główne funkcje
+
+- Planowanie kampanii marketingowych (kalendarz, Gantt, statusy w czasie rzeczywistym).
+- Kontrola budżetu marketingowego (sumowanie kosztów, porównanie z budżetem rocznym, alerty 70% / 90%).
+- Zarządzanie klientami i przypisanie zespołu (M:N).
+- Katalog produktów i cenników per klient.
+- Raporty i eksport PDF (A3 landscape, wektorowy) oraz Excel (.xlsx).
+- Import/eksport danych z walidacją all-or-nothing.
+- Powiadomienia w aplikacji i e-mail (System, Aktywności, Konta, Budżet).
+- Wielotenantowość z pełnym RLS, 2FA obowiązkowe dla administratorów.
+
+## Dla kogo
+
+Działy marketingu, key account managerowie, agencje mediowe planujące i rozliczające kampanie dla wielu klientów.
