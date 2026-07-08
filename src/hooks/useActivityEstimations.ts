@@ -83,11 +83,11 @@ export const useSaveActivityEstimation = () => {
           {
             activity_id: input.activityId,
             product_id: input.productId,
-            organization_id: orgId,
+            organization_id: orgId!,
             unit: input.unit,
             user_id: user!.id,
             updated_at: new Date().toISOString(),
-          } as any,
+          },
           { onConflict: 'activity_id,product_id' }
         )
         .select()
@@ -95,8 +95,8 @@ export const useSaveActivityEstimation = () => {
       if (parentError) throw parentError;
 
       const periodRows = input.periods.map((p) => ({
-        estimation_id: (parent as any).id,
-        organization_id: orgId,
+        estimation_id: parent.id,
+        organization_id: orgId!,
         period: p.period,
         period_start: p.periodStart,
         period_end: p.periodEnd,
@@ -110,7 +110,7 @@ export const useSaveActivityEstimation = () => {
 
       const { error: periodsError } = await supabase
         .from('activity_estimation_periods')
-        .upsert(periodRows as any, { onConflict: 'estimation_id,period' });
+        .upsert(periodRows, { onConflict: 'estimation_id,period' });
       if (periodsError) throw periodsError;
 
       return parent;
