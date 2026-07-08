@@ -263,7 +263,6 @@ export const UsersView = () => {
               </TooltipProvider>
             )}
 
-            {canChangeRole ? (
             {!isSelf && (isAdmin || isSuperAdmin) && (
               <TooltipProvider>
                 <Tooltip>
