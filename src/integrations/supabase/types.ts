@@ -1369,6 +1369,7 @@ export type Database = {
         Returns: string
       }
       get_user_org_ids: { Args: { _user_id: string }; Returns: string[] }
+      grant_prgm_role: { Args: { _target_user_id: string }; Returns: undefined }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -1398,6 +1399,10 @@ export type Database = {
           msg_id: number
           read_ct: number
         }[]
+      }
+      revoke_prgm_role: {
+        Args: { _target_user_id: string }
+        Returns: undefined
       }
     }
     Enums: {
