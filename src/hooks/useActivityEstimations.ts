@@ -25,7 +25,7 @@ export const useActivityEstimations = (activityId?: string) => {
     queryKey: ['activity_product_estimations', activityId],
     queryFn: async (): Promise<ActivityProductEstimation[]> => {
       const { data: parents, error: parentsError } = await supabase
-        .from('activity_product_estimations' as any)
+        .from('activity_product_estimations')
         .select('*')
         .eq('activity_id', activityId!);
       if (parentsError) throw parentsError;
@@ -33,7 +33,7 @@ export const useActivityEstimations = (activityId?: string) => {
 
       const parentIds = parents.map((p: any) => p.id);
       const { data: periods, error: periodsError } = await supabase
-        .from('activity_estimation_periods' as any)
+        .from('activity_estimation_periods')
         .select('*')
         .in('estimation_id', parentIds);
       if (periodsError) throw periodsError;
@@ -78,16 +78,16 @@ export const useSaveActivityEstimation = () => {
   return useMutation({
     mutationFn: async (input: SaveEstimationInput) => {
       const { data: parent, error: parentError } = await supabase
-        .from('activity_product_estimations' as any)
+        .from('activity_product_estimations')
         .upsert(
           {
             activity_id: input.activityId,
             product_id: input.productId,
-            organization_id: orgId,
+            organization_id: orgId!,
             unit: input.unit,
             user_id: user!.id,
             updated_at: new Date().toISOString(),
-          } as any,
+          },
           { onConflict: 'activity_id,product_id' }
         )
         .select()
@@ -95,8 +95,8 @@ export const useSaveActivityEstimation = () => {
       if (parentError) throw parentError;
 
       const periodRows = input.periods.map((p) => ({
-        estimation_id: (parent as any).id,
-        organization_id: orgId,
+        estimation_id: parent.id,
+        organization_id: orgId!,
         period: p.period,
         period_start: p.periodStart,
         period_end: p.periodEnd,
@@ -109,8 +109,8 @@ export const useSaveActivityEstimation = () => {
       }));
 
       const { error: periodsError } = await supabase
-        .from('activity_estimation_periods' as any)
-        .upsert(periodRows as any, { onConflict: 'estimation_id,period' });
+        .from('activity_estimation_periods')
+        .upsert(periodRows, { onConflict: 'estimation_id,period' });
       if (periodsError) throw periodsError;
 
       return parent;
@@ -161,7 +161,7 @@ export const useEstimationsReport = (filters?: { clientId?: string; dateFrom?: s
     queryKey: ['view_activity_estimations_report', orgId, filters],
     queryFn: async () => {
       let query = supabase
-        .from('view_activity_estimations_report' as any)
+        .from('view_activity_estimations_report')
         .select('*')
         .eq('organization_id', orgId)
         .order('created_at', { ascending: false });

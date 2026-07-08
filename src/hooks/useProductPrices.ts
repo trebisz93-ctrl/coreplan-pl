@@ -22,7 +22,7 @@ export const useProductPriceHistory = (productId?: string) => {
     queryKey: ['product_prices', productId],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from('product_prices' as any)
+        .from('product_prices')
         .select('*')
         .eq('product_id', productId!)
         .order('effective_from', { ascending: false });
@@ -42,7 +42,7 @@ export const useCurrentProductPrice = (productId?: string) => {
     queryFn: async () => {
       const today = new Date().toISOString().slice(0, 10);
       const { data, error } = await supabase
-        .from('product_prices' as any)
+        .from('product_prices')
         .select('*')
         .eq('product_id', productId!)
         .lte('effective_from', today)
@@ -69,7 +69,7 @@ export const useCurrentProductPrices = (productIds: string[]) => {
       if (sortedIds.length === 0) return {};
       const today = new Date().toISOString().slice(0, 10);
       const { data, error } = await supabase
-        .from('product_prices' as any)
+        .from('product_prices')
         .select('*')
         .in('product_id', sortedIds)
         .lte('effective_from', today)
@@ -97,8 +97,8 @@ export const useAddProductPrice = () => {
   return useMutation({
     mutationFn: async ({ productId, price, effectiveFrom }: { productId: string; price: number; effectiveFrom: string }) => {
       const { data, error } = await supabase
-        .from('product_prices' as any)
-        .insert({ product_id: productId, organization_id: orgId, price, effective_from: effectiveFrom, user_id: user!.id } as any)
+        .from('product_prices')
+        .insert({ product_id: productId, organization_id: orgId!, price, effective_from: effectiveFrom, user_id: user!.id })
         .select()
         .single();
       if (error) throw error;

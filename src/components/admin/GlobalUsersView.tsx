@@ -39,7 +39,7 @@ export const GlobalUsersView = () => {
       if (enable) {
         const { error } = await supabase
           .from('user_roles')
-          .insert({ user_id: userId, role: 'prgm' } as any);
+          .insert({ user_id: userId, role: 'prgm' });
         if (error) throw error;
         toast({ title: 'Nadano rolę PRGM' });
       } else {
@@ -47,7 +47,7 @@ export const GlobalUsersView = () => {
           .from('user_roles')
           .delete()
           .eq('user_id', userId)
-          .eq('role', 'prgm' as any);
+          .eq('role', 'prgm');
         if (error) throw error;
         toast({ title: 'Odebrano rolę PRGM' });
       }
@@ -142,7 +142,7 @@ export const GlobalUsersView = () => {
                     <TableCell>
                       <div className="flex items-center gap-1">
                         <Badge variant="outline">{getRole(p.user_id)}</Badge>
-                        {hasPrgm(p.user_id) && (getRole(p.user_id) as string) !== 'prgm' && (
+                        {hasPrgm(p.user_id) && getRole(p.user_id) !== 'prgm' && (
                           <Badge className="bg-primary/10 text-primary border-primary/30 text-[10px]">PRGM</Badge>
                         )}
                       </div>

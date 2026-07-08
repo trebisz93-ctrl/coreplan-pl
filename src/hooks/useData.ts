@@ -42,7 +42,7 @@ export interface DbProfile {
 export interface DbUserRole {
   id: string;
   user_id: string;
-  role: 'super_admin' | 'org_admin' | 'admin' | 'manager' | 'user' | 'viewer';
+  role: 'super_admin' | 'org_admin' | 'admin' | 'manager' | 'user' | 'viewer' | 'prgm';
 }
 
 // ── Clients ──
