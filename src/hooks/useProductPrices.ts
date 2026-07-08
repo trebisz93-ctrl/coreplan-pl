@@ -98,7 +98,7 @@ export const useAddProductPrice = () => {
     mutationFn: async ({ productId, price, effectiveFrom }: { productId: string; price: number; effectiveFrom: string }) => {
       const { data, error } = await supabase
         .from('product_prices')
-        .insert({ product_id: productId, organization_id: orgId, price, effective_from: effectiveFrom, user_id: user!.id } as any)
+        .insert({ product_id: productId, organization_id: orgId!, price, effective_from: effectiveFrom, user_id: user!.id })
         .select()
         .single();
       if (error) throw error;
