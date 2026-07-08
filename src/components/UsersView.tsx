@@ -5,6 +5,8 @@ import { useProfiles, useClients } from '@/hooks/useData';
 import { useOrgMembers, useSetOrgRole } from '@/hooks/useOrgMembers';
 import { useClientAssignments, useSetClientAssignments } from '@/hooks/useClientAssignments';
 import { useIsAdmin } from '@/hooks/useRole';
+import { usePrgmMembers, useGrantPrgmRole, useRevokePrgmRole } from '@/hooks/usePrgmAccess';
+import { Switch } from '@/components/ui/switch';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -41,6 +43,9 @@ export const UsersView = () => {
   const { data: clients = [] } = useClients();
   const { data: allAssignments = [] } = useClientAssignments();
   const setOrgRole = useSetOrgRole();
+  const { data: prgmMembers = new Set<string>() } = usePrgmMembers();
+  const grantPrgm = useGrantPrgmRole();
+  const revokePrgm = useRevokePrgmRole();
   const setClientAssignments = useSetClientAssignments();
   const qc = useQueryClient();
 
@@ -254,6 +259,29 @@ export const UsersView = () => {
                     </Button>
                   </TooltipTrigger>
                   <TooltipContent>Resetuj onboarding</TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            )}
+
+            {!isSelf && (isAdmin || isSuperAdmin) && (
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-xs text-muted-foreground">PRGM</span>
+                      <Switch
+                        checked={prgmMembers.has(profile.user_id)}
+                        onCheckedChange={(checked) => {
+                          const action = checked ? grantPrgm : revokePrgm;
+                          action.mutate(profile.user_id, {
+                            onError: (err: any) => toast.error('Nie udało się zmienić uprawnienia PRGM: ' + (err.message || 'Nieznany błąd')),
+                          });
+                        }}
+                        disabled={grantPrgm.isPending || revokePrgm.isPending}
+                      />
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent>Dostęp do zakładki "Estymacje sprzedaży" i estymacji w aktywnościach</TooltipContent>
                 </Tooltip>
               </TooltipProvider>
             )}
