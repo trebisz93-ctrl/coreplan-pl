@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Trash2, Eye, ShieldBan, ShieldCheck } from 'lucide-react';
+import { Trash2, Eye, ShieldBan, ShieldCheck, Sparkles } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/context/AuthContext';
 import { useOrganization } from '@/context/OrganizationContext';
@@ -29,6 +29,32 @@ export const GlobalUsersView = () => {
   const getRole = (userId: string) => {
     const r = roles.find((r: any) => r.user_id === userId);
     return r?.role || 'user';
+  };
+
+  const hasPrgm = (userId: string) =>
+    roles.some((r: any) => r.user_id === userId && r.role === 'prgm');
+
+  const togglePrgm = async (userId: string, enable: boolean) => {
+    try {
+      if (enable) {
+        const { error } = await supabase
+          .from('user_roles')
+          .insert({ user_id: userId, role: 'prgm' } as any);
+        if (error) throw error;
+        toast({ title: 'Nadano rolę PRGM' });
+      } else {
+        const { error } = await supabase
+          .from('user_roles')
+          .delete()
+          .eq('user_id', userId)
+          .eq('role', 'prgm' as any);
+        if (error) throw error;
+        toast({ title: 'Odebrano rolę PRGM' });
+      }
+      qc.invalidateQueries({ queryKey: ['user_roles'] });
+    } catch (err: any) {
+      toast({ title: 'Błąd', description: err.message, variant: 'destructive' });
+    }
   };
 
   const getOrgName = (orgId: string | null) => {
@@ -113,7 +139,14 @@ export const GlobalUsersView = () => {
                     <TableCell>{p.first_name || '—'}</TableCell>
                     <TableCell>{p.last_name || '—'}</TableCell>
                     <TableCell className="text-sm">{getOrgName(p.organization_id)}</TableCell>
-                    <TableCell><Badge variant="outline">{getRole(p.user_id)}</Badge></TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-1">
+                        <Badge variant="outline">{getRole(p.user_id)}</Badge>
+                        {hasPrgm(p.user_id) && (getRole(p.user_id) as string) !== 'prgm' && (
+                          <Badge className="bg-primary/10 text-primary border-primary/30 text-[10px]">PRGM</Badge>
+                        )}
+                      </div>
+                    </TableCell>
                     <TableCell><Badge variant={statusVariant(p.status)}>{p.status}</Badge></TableCell>
                     <TableCell className="text-sm text-muted-foreground">
                       {new Date(p.created_at).toLocaleDateString('pl-PL')}
@@ -124,6 +157,15 @@ export const GlobalUsersView = () => {
                           <>
                             <Button variant="ghost" size="sm" onClick={() => impersonateUser(p.user_id, p.display_name || p.first_name || 'Użytkownik')} className="h-8 w-8 p-0" title="Podejrzyj">
                               <Eye className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => togglePrgm(p.user_id, !hasPrgm(p.user_id))}
+                              className={`h-8 w-8 p-0 ${hasPrgm(p.user_id) ? 'text-primary' : 'text-muted-foreground'}`}
+                              title={hasPrgm(p.user_id) ? 'Odbierz rolę PRGM (estymacje sprzedaży)' : 'Nadaj rolę PRGM (estymacje sprzedaży)'}
+                            >
+                              <Sparkles className="h-4 w-4" />
                             </Button>
                             {p.status === 'blocked' ? (
                               <Button variant="ghost" size="sm" onClick={() => updateStatus(p, 'active')} className="h-8 w-8 p-0 text-green-600" title="Aktywuj">

@@ -52,7 +52,7 @@ const EstimationCard = ({ row }: { row: EstimationReportRow }) => {
       </div>
 
       <div className="text-xs text-muted-foreground border-t pt-2">
-        Wpisał: {row.userId.slice(0, 8)}… · {row.createdAt?.slice(0, 10)}
+        Wpisał: {row.userDisplayName ?? `${row.userId.slice(0, 8)}…`} · {row.createdAt?.slice(0, 10)}
         {row.unit === 'units' && row.unitPriceSnapshot && (
           <span> · cena: {row.unitPriceSnapshot} zł (od {row.unitPriceEffectiveFrom})</span>
         )}

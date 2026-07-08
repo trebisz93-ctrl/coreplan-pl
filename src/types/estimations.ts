@@ -48,6 +48,7 @@ export interface EstimationReportRow {
   unit: EstimationUnit;
   organizationId: string;
   userId: string;
+  userDisplayName: string | null;
   createdAt: string;
   beforeStart: string | null;
   beforeEnd: string | null;
