@@ -25,7 +25,7 @@ export const useActivityEstimations = (activityId?: string) => {
     queryKey: ['activity_product_estimations', activityId],
     queryFn: async (): Promise<ActivityProductEstimation[]> => {
       const { data: parents, error: parentsError } = await supabase
-        .from('activity_product_estimations' as any)
+        .from('activity_product_estimations')
         .select('*')
         .eq('activity_id', activityId!);
       if (parentsError) throw parentsError;
@@ -33,7 +33,7 @@ export const useActivityEstimations = (activityId?: string) => {
 
       const parentIds = parents.map((p: any) => p.id);
       const { data: periods, error: periodsError } = await supabase
-        .from('activity_estimation_periods' as any)
+        .from('activity_estimation_periods')
         .select('*')
         .in('estimation_id', parentIds);
       if (periodsError) throw periodsError;
@@ -78,7 +78,7 @@ export const useSaveActivityEstimation = () => {
   return useMutation({
     mutationFn: async (input: SaveEstimationInput) => {
       const { data: parent, error: parentError } = await supabase
-        .from('activity_product_estimations' as any)
+        .from('activity_product_estimations')
         .upsert(
           {
             activity_id: input.activityId,
@@ -109,7 +109,7 @@ export const useSaveActivityEstimation = () => {
       }));
 
       const { error: periodsError } = await supabase
-        .from('activity_estimation_periods' as any)
+        .from('activity_estimation_periods')
         .upsert(periodRows as any, { onConflict: 'estimation_id,period' });
       if (periodsError) throw periodsError;
 
@@ -161,7 +161,7 @@ export const useEstimationsReport = (filters?: { clientId?: string; dateFrom?: s
     queryKey: ['view_activity_estimations_report', orgId, filters],
     queryFn: async () => {
       let query = supabase
-        .from('view_activity_estimations_report' as any)
+        .from('view_activity_estimations_report')
         .select('*')
         .eq('organization_id', orgId)
         .order('created_at', { ascending: false });
