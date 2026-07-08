@@ -131,6 +131,7 @@ const mapReportRow = (row: any): import('@/types/estimations').EstimationReportR
   unit: row.unit,
   organizationId: row.organization_id,
   userId: row.user_id,
+  userDisplayName: row.user_display_name ?? null,
   createdAt: row.created_at,
   beforeStart: row.before_start,
   beforeEnd: row.before_end,
