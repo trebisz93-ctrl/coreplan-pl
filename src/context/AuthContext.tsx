@@ -87,10 +87,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const signUp = async (email: string, password: string) => {
+    // Ta sama zasada co w resetPassword niżej — na sztywno coreplan.pl.
     const { error } = await supabase.auth.signUp({
       email,
       password,
-      options: { emailRedirectTo: window.location.origin },
+      options: { emailRedirectTo: `https://coreplan.pl/reset-password` },
     });
     return { error };
   };
@@ -111,8 +112,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const resetPassword = async (email: string) => {
+    // WAŻNE: na sztywno coreplan.pl, NIE window.location.origin. Dynamiczne
+    // pochodzenie oznacza, że jeśli ktoś wywoła to z podglądu Lovable
+    // (id-preview--<project>.lovable.app) albo dowolnej innej domeny
+    // testowej, link w mailu wskaże na TĄ domenę, a nie na produkcję —
+    // dokładnie tak wygenerował się myślący link do lovable.app, który
+    // dostaliśmy do analizy. Spójne z create-org-user, create-org-member
+    // i resend-user-invite, które już poprawnie hardkodują coreplan.pl.
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/reset-password`,
+      redirectTo: `https://coreplan.pl/reset-password`,
     });
     return { error };
   };
