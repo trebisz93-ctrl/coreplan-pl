@@ -225,6 +225,24 @@ async function handleWebhook(req: Request): Promise<Response> {
     )
   }
 
+  // WAŻNE — bezpieczeństwo przed skanerami linków (Proofpoint URL Defense,
+  // Microsoft Safe Links i podobne): payload.data.url to gotowy link
+  // Supabase (`/auth/v1/verify?token=...`), który ZUŻYWA token natychmiast
+  // przy zwykłym GET, bez żadnej interakcji użytkownika. Firmowe filtry
+  // pocztowe automatycznie "odwiedzają" każdy link w mailu w celu skanowania
+  // pod kątem phishingu — to konsumuje token, zanim prawdziwy użytkownik
+  // zdąży kliknąć. Efekt: "token wygasł" za każdym razem na skrzynkach
+  // z takim filtrem (np. Danone/Microsoft 365 + Proofpoint).
+  //
+  // Poprawka: link w mailu prowadzi do WŁASNEJ strony z surowym token_hash
+  // w query stringu (samo wejście na stronę nic nie konsumuje). Token jest
+  // zamieniany na sesję dopiero w momencie, gdy użytkownik faktycznie
+  // wypełni i wyśle formularz ustawienia hasła — czego żaden automatyczny
+  // skaner linków nie robi.
+  const ownConfirmationUrl = payload.data.token_hash
+    ? `https://${ROOT_DOMAIN}/reset-password?token_hash=${encodeURIComponent(payload.data.token_hash)}&type=${encodeURIComponent(emailType)}`
+    : payload.data.url // fallback, gdyby token_hash nie przyszedł w payloadzie
+
   // Lookup organization name and invite context for the user
   const supabaseLookup = createClient(
     Deno.env.get('SUPABASE_URL')!,
@@ -294,7 +312,7 @@ async function handleWebhook(req: Request): Promise<Response> {
     siteName: SITE_NAME,
     siteUrl: `https://${ROOT_DOMAIN}`,
     recipient: payload.data.email,
-    confirmationUrl: payload.data.url,
+    confirmationUrl: ownConfirmationUrl,
     token: payload.data.token,
     email: payload.data.email,
     newEmail: payload.data.new_email,

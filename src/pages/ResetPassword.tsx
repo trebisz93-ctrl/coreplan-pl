@@ -12,43 +12,44 @@ const ResetPassword = () => {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [hasSession, setHasSession] = useState(false);
   const [checking, setChecking] = useState(true);
+  const [tokenHash, setTokenHash] = useState<string | null>(null);
+  const [tokenType, setTokenType] = useState<string | null>(null);
+  const [hasExistingSession, setHasExistingSession] = useState(false);
+  const [invalid, setInvalid] = useState(false);
 
   useEffect(() => {
-    // WAŻNE: Supabase (detectSessionInUrl: true, domyślne) SAM automatycznie
-    // wykrywa i przetwarza access_token/refresh_token z linku w adresie strony.
-    // Nie wolno robić tego RÓWNOLEGLE ręcznie (np. supabase.auth.setSession
-    // z tokenami wyciągniętymi z window.location.hash) — token recovery/invite
-    // jest jednorazowy, więc dwa niezależne procesy próbujące go "zużyć"
-    // w tym samym momencie powodują błąd "invalid/expired" dla tego, który
-    // przegra wyścig. Stąd wcześniejszy bug: działo się to za KAŻDYM razem,
-    // niezależnie od skrzynki pocztowej.
+    // WAŻNE — bezpieczeństwo przed skanerami linków (Proofpoint URL Defense,
+    // Microsoft Safe Links itp.): NIE wolno zamieniać tokenu na sesję
+    // (supabase.auth.verifyOtp) automatycznie przy samym wejściu na stronę.
+    // Firmowe filtry pocztowe automatycznie "odwiedzają" (GET) każdy link
+    // w mailu, żeby go zeskanować pod kątem phishingu — jeśli sama wizyta
+    // na stronie zużywałaby token, skaner zdąży to zrobić, zanim prawdziwy
+    // użytkownik kliknie link, i użytkownik dostanie "token wygasł" za
+    // każdym razem.
     //
-    // Poprawne podejście: poczekać, aż Supabase sam przetworzy hash (dzieje
-    // się to automatycznie przy starcie klienta), i tylko nasłuchiwać wyniku.
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event === 'PASSWORD_RECOVERY' || event === 'SIGNED_IN' || event === 'INITIAL_SESSION') {
-        if (session) {
-          setHasSession(true);
-        }
-        setChecking(false);
-      }
-    });
+    // Dlatego tutaj TYLKO odczytujemy token_hash + type z query stringu
+    // (samo odczytanie URL nic nie konsumuje) i czekamy z jego zużyciem
+    // do chwili, gdy użytkownik faktycznie wypełni i wyśle formularz
+    // ustawienia hasła — czego żaden automatyczny skaner nie robi.
+    const params = new URLSearchParams(window.location.search);
+    const th = params.get('token_hash');
+    const type = params.get('type');
 
-    // Supabase czyści hash z adresu po przetworzeniu tokenów — jeśli po
-    // rozsądnym czasie nie ma jeszcze sesji ani zdarzenia, sprawdź jeszcze raz
-    // (np. link był już wcześniej użyty albo faktycznie wygasł).
-    const fallbackTimer = setTimeout(async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      setHasSession(!!session);
+    if (th && type) {
+      setTokenHash(th);
+      setTokenType(type);
       setChecking(false);
-    }, 2500);
+      return;
+    }
 
-    return () => {
-      subscription.unsubscribe();
-      clearTimeout(fallbackTimer);
-    };
+    // Brak token_hash w query stringu — sprawdź, czy może użytkownik ma już
+    // aktywną sesję (np. wrócił na tę stronę będąc już zalogowanym).
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setHasExistingSession(!!session);
+      if (!session) setInvalid(true);
+      setChecking(false);
+    });
   }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -61,7 +62,25 @@ const ResetPassword = () => {
       toast.error('Hasła nie są identyczne');
       return;
     }
+
     setIsSubmitting(true);
+
+    // Token jest zamieniany na sesję DOPIERO teraz — w momencie realnej
+    // interakcji użytkownika, nie przy wejściu na stronę.
+    if (tokenHash && tokenType) {
+      const { error: verifyError } = await supabase.auth.verifyOtp({
+        token_hash: tokenHash,
+        type: tokenType as 'recovery' | 'invite' | 'email' | 'signup',
+      });
+      if (verifyError) {
+        setIsSubmitting(false);
+        toast.error('Link wygasł lub został już użyty. Poproś administratora o nowe zaproszenie.');
+        setInvalid(true);
+        setTokenHash(null);
+        return;
+      }
+    }
+
     const { error } = await supabase.auth.updateUser({ password });
     setIsSubmitting(false);
     if (error) {
@@ -88,7 +107,7 @@ const ResetPassword = () => {
     );
   }
 
-  if (!hasSession) {
+  if (invalid && !tokenHash && !hasExistingSession) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-background p-4">
         <Card className="w-full max-w-md">
