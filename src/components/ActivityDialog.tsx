@@ -38,7 +38,6 @@ export const ActivityDialog = ({ open, onOpenChange }: Props) => {
   const [dialogClientId, setDialogClientId] = useState<string>('');
   const effectiveClientId = dialogClientId || selectedClientId;
   const { data: allProducts = [] } = useProducts();
-  const { data: currentPrices } = useCurrentProductPrices(selectedProducts);
 
   const allCampaignTypes = [
     ...Object.entries(campaignTypeLabels).map(([k, v]) => ({ name: k, label: v })),
@@ -53,6 +52,7 @@ export const ActivityDialog = ({ open, onOpenChange }: Props) => {
   const [endDate, setEndDate] = useState(today);
   const [selectedProducts, setSelectedProducts] = useState<string[]>([]);
   const [productSearch, setProductSearch] = useState('');
+  const { data: currentPrices } = useCurrentProductPrices(selectedProducts);
   const [price, setPrice] = useState('');
   const [status, setStatus] = useState<ActivityStatus>('planned');
   const [note, setNote] = useState('');

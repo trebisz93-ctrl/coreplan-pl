@@ -18,6 +18,6 @@ export const usePrgmAccess = () => {
       return data;
     },
     enabled: !!user,
-    select: (data) => data.some(r => r.role === 'prgm' || r.role === 'admin' || r.role === 'super_admin'),
+    select: (data) => data.some(r => (r.role as string) === 'prgm' || r.role === 'admin' || r.role === 'super_admin'),
   });
 };
