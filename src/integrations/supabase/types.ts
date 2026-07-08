@@ -1318,6 +1318,7 @@ export type Database = {
           unit: string | null
           unit_price_effective_from: string | null
           unit_price_snapshot: number | null
+          user_display_name: string | null
           user_id: string | null
         }
         Relationships: [
