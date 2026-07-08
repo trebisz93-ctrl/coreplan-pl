@@ -216,6 +216,13 @@ async function handleWebhook(req: Request): Promise<Response> {
   const emailType = payload.data.action_type
   console.log('Received auth event', { emailType, email: payload.data.email, run_id })
 
+  // DIAGNOSTYKA — tymczasowe logowanie do ustalenia rzeczywistego kształtu
+  // payload.data (bez logowania wartości samego tokenu, tylko nazw pól i tego,
+  // czy token_hash w ogóle istnieje). Do usunięcia po potwierdzeniu, że link
+  // w mailu poprawnie korzysta z token_hash zamiast fallbackowego payload.data.url.
+  console.log('DEBUG payload.data keys', Object.keys(payload.data ?? {}))
+  console.log('DEBUG token_hash present?', typeof payload.data.token_hash, payload.data.token_hash ? `len=${payload.data.token_hash.length}` : 'BRAK')
+
   const EmailTemplate = EMAIL_TEMPLATES[emailType]
   if (!EmailTemplate) {
     console.error('Unknown email type', { emailType, run_id })
@@ -242,6 +249,8 @@ async function handleWebhook(req: Request): Promise<Response> {
   const ownConfirmationUrl = payload.data.token_hash
     ? `https://${ROOT_DOMAIN}/reset-password?token_hash=${encodeURIComponent(payload.data.token_hash)}&type=${encodeURIComponent(emailType)}`
     : payload.data.url // fallback, gdyby token_hash nie przyszedł w payloadzie
+
+  console.log('DEBUG link source', payload.data.token_hash ? 'WŁASNY (token_hash obecny)' : 'FALLBACK payload.data.url (token_hash BRAK — to jest problem!)')
 
   // Lookup organization name and invite context for the user
   const supabaseLookup = createClient(
