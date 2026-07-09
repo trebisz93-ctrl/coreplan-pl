@@ -11,6 +11,7 @@ import { ProtectedRoute } from "./components/ProtectedRoute";
 import { SuperAdminRoute } from "./components/SuperAdminRoute";
 import { AppLayout } from "./components/AppLayout";
 import { ErrorBoundary } from "./components/ErrorBoundary";
+import { CookieConsent } from "./components/CookieConsent";
 
 // Lazy-loaded route components
 const SuperAdminLayout = lazy(() => import("./components/admin/SuperAdminLayout").then(m => ({ default: m.SuperAdminLayout })));
@@ -112,6 +113,7 @@ const App = () => (
                 <Route path="*" element={<NotFound />} />
               </Routes>
             </Suspense>
+            <CookieConsent />
           </OrganizationProvider>
           </AuthProvider>
         </ErrorBoundary>
