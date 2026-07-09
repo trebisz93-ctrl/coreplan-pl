@@ -5,7 +5,25 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
 
+function escapeHtml(input: unknown): string {
+  const s = String(input ?? '');
+  return s
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function encodeUriPart(input: string): string {
+  return encodeURIComponent(input);
+}
+
 function buildDemoEmailHtml(name: string, email: string, company: string | null): string {
+  const sName = escapeHtml(name);
+  const sEmail = escapeHtml(email);
+  const sCompany = company ? escapeHtml(company) : null;
+  const mailtoEmail = encodeUriPart(email);
   return `<!DOCTYPE html>
 <html lang="pl">
 <head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"></head>
@@ -29,20 +47,20 @@ function buildDemoEmailHtml(name: string, email: string, company: string | null)
           <table style="width:100%;border-collapse:collapse;margin:16px 0 24px;">
             <tr>
               <td style="padding:8px 0;font-size:13px;color:#71717a;border-bottom:1px solid #f4f4f5;">Imię i nazwisko</td>
-              <td style="padding:8px 0;font-size:14px;color:#18181b;font-weight:500;border-bottom:1px solid #f4f4f5;text-align:right;">${name}</td>
+              <td style="padding:8px 0;font-size:14px;color:#18181b;font-weight:500;border-bottom:1px solid #f4f4f5;text-align:right;">${sName}</td>
             </tr>
             <tr>
               <td style="padding:8px 0;font-size:13px;color:#71717a;border-bottom:1px solid #f4f4f5;">Email</td>
               <td style="padding:8px 0;font-size:14px;color:#18181b;font-weight:500;border-bottom:1px solid #f4f4f5;text-align:right;">
-                <a href="mailto:${email}" style="color:#C77745;text-decoration:none;">${email}</a>
+                <a href="mailto:${mailtoEmail}" style="color:#C77745;text-decoration:none;">${sEmail}</a>
               </td>
             </tr>
-            ${company ? `<tr>
+            ${sCompany ? `<tr>
               <td style="padding:8px 0;font-size:13px;color:#71717a;">Firma</td>
-              <td style="padding:8px 0;font-size:14px;color:#18181b;font-weight:500;text-align:right;">${company}</td>
+              <td style="padding:8px 0;font-size:14px;color:#18181b;font-weight:500;text-align:right;">${sCompany}</td>
             </tr>` : ''}
           </table>
-          <a href="mailto:${email}?subject=CorePlan%20Demo" style="display:inline-block;background-color:#C77745;color:#ffffff;text-decoration:none;font-size:14px;font-weight:600;padding:12px 24px;border-radius:8px;">
+          <a href="mailto:${mailtoEmail}?subject=CorePlan%20Demo" style="display:inline-block;background-color:#C77745;color:#ffffff;text-decoration:none;font-size:14px;font-weight:600;padding:12px 24px;border-radius:8px;">
             Odpowiedz klientowi
           </a>
         </td></tr>
@@ -72,6 +90,15 @@ serve(async (req) => {
 
     const { name, email, company } = await req.json();
     if (!name || !email) throw new Error('Missing name or email');
+    // Basic validation to reduce injection surface
+    const nameStr = String(name).slice(0, 200);
+    const emailStr = String(email).slice(0, 320);
+    const companyStr = company ? String(company).slice(0, 200) : null;
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailStr)) {
+      return new Response(JSON.stringify({ error: 'Invalid email' }), {
+        status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
 
     // Get notification email from app_settings
     const settingsRes = await fetch(
@@ -87,7 +114,7 @@ serve(async (req) => {
     const notifyEmail = settingsData?.[0]?.value || 'admin@coreplan.pl';
 
     // Send email via Resend
-    const html = buildDemoEmailHtml(name, email, company || null);
+    const html = buildDemoEmailHtml(nameStr, emailStr, companyStr);
 
     const resendRes = await fetch('https://api.resend.com/emails', {
       method: 'POST',
@@ -98,9 +125,9 @@ serve(async (req) => {
       body: JSON.stringify({
         from: 'CorePlan <noreply@neovir.pl>',
         to: [notifyEmail],
-        subject: `🔔 Nowe zgłoszenie demo: ${name}`,
+        subject: `🔔 Nowe zgłoszenie demo: ${nameStr}`,
         html,
-        reply_to: email,
+        reply_to: emailStr,
       }),
     });
 
