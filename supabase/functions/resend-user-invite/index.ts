@@ -208,7 +208,6 @@ Deno.serve(async (req) => {
       const inviteConfirmationUrl = inviteLink.properties.hashed_token
         ? `https://${ROOT_DOMAIN}/reset-password?token_hash=${encodeURIComponent(inviteLink.properties.hashed_token)}&type=invite`
         : inviteLink.properties.action_link;
-      console.log('DEBUG resend-invite hashed_token present?', !!inviteLink.properties.hashed_token);
       const { orgName, invitedBy } = await buildOrgContext(supabaseAdmin, email);
       await queueAuthEmail(supabaseAdmin, {
         action: 'invite',
@@ -232,7 +231,6 @@ Deno.serve(async (req) => {
       const recoveryConfirmationUrl = recoveryLink.properties.hashed_token
         ? `https://${ROOT_DOMAIN}/reset-password?token_hash=${encodeURIComponent(recoveryLink.properties.hashed_token)}&type=recovery`
         : recoveryLink.properties.action_link;
-      console.log('DEBUG resend-invite (recovery) hashed_token present?', !!recoveryLink.properties.hashed_token);
       const { orgName } = await buildOrgContext(supabaseAdmin, email);
       await queueAuthEmail(supabaseAdmin, {
         action: 'recovery',
