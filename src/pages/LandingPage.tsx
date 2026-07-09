@@ -118,7 +118,7 @@ const LandingPage = () => {
       <nav className="sticky top-0 z-50 bg-background/80 backdrop-blur-lg border-b border-border">
         <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
           <Link to="/" className="flex items-center gap-3">
-            <img src={corePlanLogo} alt="CorePlan logo" className="h-12 object-contain" />
+            <img src={corePlanLogo} alt="CorePlan logo" className="h-12 object-contain" width={240} height={48} />
           </Link>
           <div className="flex items-center gap-3">
             <Button variant="ghost" asChild className="text-muted-foreground hover:text-foreground hidden sm:inline-flex">
@@ -350,7 +350,7 @@ const LandingPage = () => {
         <div className="max-w-6xl mx-auto px-6">
           <div className="flex flex-col md:flex-row items-center justify-between gap-6">
             <div className="flex items-center gap-3">
-              <img src={corePlanLogo} alt="CorePlan" className="h-10 object-contain" />
+              <img src={corePlanLogo} alt="CorePlan" className="h-10 object-contain" width={200} height={40} />
             </div>
             <div className="flex items-center gap-6">
               <Link to="/polityka-prywatnosci" className="text-primary-foreground/40 hover:text-primary-foreground/70 text-sm transition-colors">
