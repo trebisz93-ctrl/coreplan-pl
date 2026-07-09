@@ -19,9 +19,21 @@ const categoryLabels: Record<string, string> = {
   system: 'System',
 };
 
+function escapeHtml(input: unknown): string {
+  const s = String(input ?? '');
+  return s
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 function buildEmailHtml(title: string, description: string | null, type: string, category: string): string {
   const cfg = typeConfig[type] || typeConfig.info;
   const catLabel = categoryLabels[category] || 'System';
+  const safeTitle = escapeHtml(title);
+  const safeDescription = description ? escapeHtml(description) : null;
 
   return `<!DOCTYPE html>
 <html lang="pl">
@@ -44,8 +56,8 @@ function buildEmailHtml(title: string, description: string | null, type: string,
           <div style="display:inline-block;background-color:${cfg.color}15;color:${cfg.color};font-size:12px;font-weight:600;padding:4px 12px;border-radius:20px;margin-bottom:16px;">
             ${cfg.emoji} ${cfg.label}
           </div>
-          <h1 style="margin:16px 0 8px;font-size:20px;font-weight:700;color:#18181b;line-height:1.3;">${title}</h1>
-          ${description ? `<p style="margin:0 0 24px;font-size:14px;color:#52525b;line-height:1.6;">${description}</p>` : ''}
+          <h1 style="margin:16px 0 8px;font-size:20px;font-weight:700;color:#18181b;line-height:1.3;">${safeTitle}</h1>
+          ${safeDescription ? `<p style="margin:0 0 24px;font-size:14px;color:#52525b;line-height:1.6;">${safeDescription}</p>` : ''}
           <a href="https://coreplan.pl" style="display:inline-block;background-color:#2563eb;color:#ffffff;text-decoration:none;font-size:14px;font-weight:600;padding:12px 24px;border-radius:8px;">
             Otwórz aplikację
           </a>
@@ -69,6 +81,15 @@ serve(async (req) => {
   }
 
   try {
+    const expectedSecret = Deno.env.get('NOTIFICATION_EMAIL_SECRET');
+    const providedSecret = req.headers.get('x-notification-secret');
+    if (!expectedSecret || providedSecret !== expectedSecret) {
+      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+        status: 401,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
     const resendApiKey = Deno.env.get('RESEND_API_KEY');
     if (!resendApiKey) throw new Error('RESEND_API_KEY not configured');
 
@@ -105,7 +126,7 @@ serve(async (req) => {
       body: JSON.stringify({
         from: 'CorePlan <noreply@notify.coreplan.pl>',
         to: [email],
-        subject: `${(typeConfig[type] || typeConfig.info).emoji} ${title}`,
+        subject: `${(typeConfig[type] || typeConfig.info).emoji} ${String(title ?? '').slice(0, 200)}`,
         html,
       }),
     });
