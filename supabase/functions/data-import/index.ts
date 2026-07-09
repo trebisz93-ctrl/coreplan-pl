@@ -40,14 +40,24 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: corsHeaders });
     }
 
-    // Only admins can import
-    const { data: roleData } = await supabaseAdmin
+    // Determine caller privileges
+    const { data: rolesData } = await supabaseAdmin
       .from('user_roles')
       .select('role')
-      .eq('user_id', user.id)
-      .single();
+      .eq('user_id', user.id);
+    const roles = (rolesData ?? []).map((r: { role: string }) => r.role);
+    const isSuperAdmin = roles.includes('super_admin');
+    const isPlatformAdmin = roles.includes('admin');
 
-    if (roleData?.role !== 'admin') {
+    // Fetch caller's organization ids
+    const { data: membersData } = await supabaseAdmin
+      .from('organization_members')
+      .select('organization_id, org_role')
+      .eq('user_id', user.id);
+    const callerOrgIds = new Set<string>((membersData ?? []).map((m: { organization_id: string }) => m.organization_id));
+    const isOrgAdmin = (membersData ?? []).some((m: { org_role: string }) => m.org_role === 'org_admin');
+
+    if (!isSuperAdmin && !isPlatformAdmin && !isOrgAdmin) {
       return new Response(JSON.stringify({ error: 'Only admins can import data' }), { status: 403, headers: corsHeaders });
     }
 
@@ -84,6 +94,15 @@ Deno.serve(async (req) => {
       for (const row of rows) {
         if ('user_id' in row) {
           row.user_id = user.id;
+        }
+
+        // Cross-tenant guard: non super-admin callers cannot write into organizations they don't belong to
+        if (!isSuperAdmin && 'organization_id' in row) {
+          const rowOrgId = row.organization_id as string | null | undefined;
+          if (!rowOrgId || !callerOrgIds.has(rowOrgId)) {
+            errors.push(`${row.id}: organization_id not accessible for caller`);
+            continue;
+          }
         }
 
         const { error } = await supabaseAdmin.from(table).upsert(row, { onConflict: 'id' });
