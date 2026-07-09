@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
 import corePlanLogo from '@/assets/core-plan-logo.png';
+import { openCookieSettings } from '@/hooks/useCookieConsent';
 
 const PrivacyPolicy = () => {
   const today = '07.04.2026';
@@ -105,7 +106,21 @@ const PrivacyPolicy = () => {
 
           <section>
             <h2 className="text-xl font-bold text-primary">8. Pliki cookie</h2>
-            <p>Aplikacja CorePlan wykorzystuje jedynie niezbędne pliki cookie sesyjne służące do utrzymania sesji zalogowanego użytkownika. Nie stosujemy cookie marketingowych ani analitycznych firm trzecich.</p>
+            <p>
+              Aplikacja CorePlan korzysta wyłącznie z technologii przeglądarki (localStorage oraz plików cookie sesyjnych)
+              niezbędnych do działania: utrzymania zalogowanej sesji, bezpieczeństwa oraz zapamiętania ustawień interfejsu.
+              Opcjonalnie — za Twoją zgodą — zapamiętujemy również preferencje użytkownika (wybrany klient, filtry).
+              Nie stosujemy plików cookie marketingowych ani narzędzi analitycznych firm trzecich.
+            </p>
+            <p className="mt-2">
+              <button
+                type="button"
+                onClick={openCookieSettings}
+                className="underline text-primary hover:text-primary/80"
+              >
+                Zarządzaj ustawieniami cookies
+              </button>
+            </p>
           </section>
 
           <section>
