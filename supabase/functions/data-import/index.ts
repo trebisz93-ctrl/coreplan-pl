@@ -81,6 +81,19 @@ Deno.serve(async (req) => {
     
     const importOrder = ['clients', 'products', 'product_clients', 'packages', 'media_plans', 'activities', 'confirmations', 'campaign_types'];
 
+    // Tables that carry organization_id directly
+    const orgScopedTables = new Set(['clients', 'products', 'packages', 'media_plans', 'activities', 'campaign_types']);
+    // Dependent tables: verify referenced parent belongs to caller
+    const dependentRefs: Record<string, Array<{ column: string; table: string }>> = {
+      product_clients: [
+        { column: 'product_id', table: 'products' },
+        { column: 'client_id', table: 'clients' },
+      ],
+      confirmations: [
+        { column: 'activity_id', table: 'activities' },
+      ],
+    };
+
     for (const table of importOrder) {
       const rows = tables[table];
       if (!rows || !Array.isArray(rows) || rows.length === 0) {
@@ -96,13 +109,52 @@ Deno.serve(async (req) => {
           row.user_id = user.id;
         }
 
-        // Cross-tenant guard: non super-admin callers cannot write into organizations they don't belong to
-        if (!isSuperAdmin && 'organization_id' in row) {
-          const rowOrgId = row.organization_id as string | null | undefined;
-          if (!rowOrgId || !callerOrgIds.has(rowOrgId)) {
+        // Cross-tenant guard for org-scoped tables:
+        // Force organization_id to a caller-owned org (never trust client input).
+        if (!isSuperAdmin && orgScopedTables.has(table)) {
+          const submittedOrgId = row.organization_id as string | null | undefined;
+          if (submittedOrgId && callerOrgIds.has(submittedOrgId)) {
+            row.organization_id = submittedOrgId;
+          } else if (callerOrgIds.size === 1) {
+            row.organization_id = Array.from(callerOrgIds)[0];
+          } else {
             errors.push(`${row.id}: organization_id not accessible for caller`);
             continue;
           }
+        }
+
+        // Existing-row ownership check: prevent hijacking a record that today
+        // belongs to a different tenant by re-using its id in an upsert.
+        if (!isSuperAdmin && row.id && orgScopedTables.has(table)) {
+          const { data: existing } = await supabaseAdmin
+            .from(table)
+            .select('organization_id')
+            .eq('id', row.id)
+            .maybeSingle();
+          if (existing && existing.organization_id && !callerOrgIds.has(existing.organization_id)) {
+            errors.push(`${row.id}: record belongs to another account`);
+            continue;
+          }
+        }
+
+        // Dependent tables: verify each referenced parent belongs to caller
+        if (!isSuperAdmin && dependentRefs[table]) {
+          let refOk = true;
+          for (const ref of dependentRefs[table]) {
+            const refId = row[ref.column];
+            if (!refId) continue;
+            const { data: parent } = await supabaseAdmin
+              .from(ref.table)
+              .select('organization_id')
+              .eq('id', refId)
+              .maybeSingle();
+            if (!parent || !parent.organization_id || !callerOrgIds.has(parent.organization_id)) {
+              errors.push(`${row.id}: ${ref.column} references record outside caller's organization`);
+              refOk = false;
+              break;
+            }
+          }
+          if (!refOk) continue;
         }
 
         const { error } = await supabaseAdmin.from(table).upsert(row, { onConflict: 'id' });
