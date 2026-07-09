@@ -653,6 +653,19 @@ export const YearView = () => {
           const isRowExpanded = expandedActivities.has(rowKey);
           const subRows = row.activities.flatMap(a => getSubRows(a));
           const hasSubs = subRows.length > 0;
+          // Grupowanie po nazwie produktu — jeśli ten sam produkt występuje
+          // w kilku aktywnościach tej grupy (np. dwie "Gazetki" z tym samym
+          // Nutridrink Protein), pokazujemy JEDEN wiersz z kilkoma znacznikami
+          // zamiast duplikować cały wiersz per wystąpienie.
+          const groupedSubRows = Array.from(
+            subRows.reduce((map, sub) => {
+              const key = sub.name;
+              if (!map.has(key)) map.set(key, { name: sub.name, brand: sub.brand, occurrences: [] as typeof subRows });
+              map.get(key)!.occurrences.push(sub);
+              return map;
+            }, new Map<string, { name: string; brand: string | null; occurrences: typeof subRows }>()).values()
+          );
+
 
           return (
             <div key={rowKey}>
@@ -719,21 +732,27 @@ export const YearView = () => {
                     transition={{ duration: 0.25, ease: 'easeInOut' }}
                     className="overflow-hidden"
                   >
-                    {subRows.map((sub) => (
-                      <div key={sub.id} className="flex border-b border-border/30">
+                    {groupedSubRows.map((group) => (
+                      <div key={group.name} className="flex border-b border-border/30">
                         <div className="w-72 shrink-0 flex items-center relative">
                           <div className="absolute left-[14px] top-0 bottom-0 w-px" style={{ backgroundColor: `${baseColor}20` }} />
-                          <span className="text-[11px] text-muted-foreground truncate pl-8 pr-2 py-1.5">
-                            {sub.name}
-                            {sub.brand && <span className="text-muted-foreground/50 ml-1">({sub.brand})</span>}
+                          <span className="text-[11px] text-muted-foreground truncate pl-8 pr-2 py-1.5 flex items-center gap-1">
+                            {group.name}
+                            {group.brand && <span className="text-muted-foreground/50">({group.brand})</span>}
+                            {group.occurrences.length > 1 && (
+                              <Badge variant="secondary" className="text-[7px] px-1 py-0 h-3 shrink-0">
+                                ×{group.occurrences.length}
+                              </Badge>
+                            )}
                           </span>
                         </div>
                         <div className="flex-1 relative" style={{ minHeight: 34 }}>
                           {renderGridLines()}
-                          {renderSecondaryBar(sub.id, sub.startDate, sub.endDate, sub.name, baseColor)}
+                          {group.occurrences.map((occ) => renderSecondaryBar(occ.id, occ.startDate, occ.endDate, occ.name, baseColor))}
                         </div>
                       </div>
                     ))}
+
                   </motion.div>
                 )}
               </AnimatePresence>
