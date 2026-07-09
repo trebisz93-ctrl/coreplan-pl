@@ -92,6 +92,7 @@ const tagline = {
 const wrapper = { maxWidth: '520px', margin: '0 auto', padding: '0' }
 
 const header = {
+  backgroundColor: '#D97A3A', // fallback dla Outlooka i innych klientow bez obslugi gradientow w tle
   background: 'linear-gradient(135deg, #D97A3A 0%, #B84E18 100%)',
   padding: '28px 32px',
   borderRadius: '12px 12px 0 0',

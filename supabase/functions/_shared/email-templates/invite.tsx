@@ -107,6 +107,15 @@ export const InviteEmail = ({
               </Button>
             </Section>
 
+            <Text style={fallbackText}>
+              Jeśli przycisk nie działa, skopiuj i wklej ten adres do przeglądarki
+              (celowo bez aktywnego linku — część firmowych filtrów pocztowych
+              automatycznie „klika” linki w mailach, co unieważnia jednorazowy
+              token, zanim zdążysz go użyć):
+              <br />
+              <span style={fallbackUrl}>{confirmationUrl}</span>
+            </Text>
+
             <Text style={hint}>
               {isSuperAdminInvite
                 ? 'Po kliknięciu ustawisz swoje hasło i będziesz mógł skonfigurować firmę w CorePlan.'
@@ -149,6 +158,7 @@ const tagline = {
 const wrapper = { maxWidth: '520px', margin: '0 auto', padding: '0' }
 
 const header = {
+  backgroundColor: '#D97A3A', // fallback dla Outlooka i innych klientow bez obslugi gradientow w tle
   background: 'linear-gradient(135deg, #D97A3A 0%, #B84E18 100%)',
   padding: '28px 32px',
   borderRadius: '12px 12px 0 0',
@@ -221,6 +231,7 @@ const orgBadgeRole = {
 const buttonContainer = { textAlign: 'center' as const, margin: '0 0 28px' }
 
 const button = {
+  backgroundColor: '#D97A3A', // fallback dla Outlooka i innych klientow bez obslugi gradientow w tle -- bez tego przycisk bywa niewidoczny (biale tlo + bialy tekst)
   background: 'linear-gradient(135deg, #D97A3A 0%, #C56A2E 100%)',
   color: '#ffffff',
   fontSize: '15px',
@@ -230,6 +241,21 @@ const button = {
   textDecoration: 'none',
   display: 'inline-block' as const,
   boxShadow: '0 2px 8px rgba(217, 122, 58, 0.35)',
+}
+
+const fallbackText = {
+  fontSize: '12px',
+  color: '#a1a1aa',
+  lineHeight: '1.6',
+  margin: '0 0 20px',
+  textAlign: 'center' as const,
+  wordBreak: 'break-all' as const,
+}
+
+const fallbackUrl = {
+  color: '#52525b',
+  fontSize: '12px',
+  wordBreak: 'break-all' as const,
 }
 
 const hint = {
