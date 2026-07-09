@@ -1,10 +1,13 @@
-import { useEffect, useState } from 'react';
+import { lazy, Suspense, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
-import { Switch } from '@/components/ui/switch';
-import { Cookie, X } from 'lucide-react';
+import { Cookie } from 'lucide-react';
 import { useCookieConsent } from '@/hooks/useCookieConsent';
+
+// Panel ustawień (Dialog + Switch + ich zależności Radix) ładuje się
+// dopiero po kliknięciu "Ustawienia" — sam banner zostaje lekki i eager,
+// bo to jedyna część, którą widzi ~99% odwiedzających.
+const CookieConsentSettings = lazy(() => import('./CookieConsentSettings'));
 
 export const CookieConsent = () => {
   const { consent, save, acceptAll, rejectNonEssential } = useCookieConsent();
@@ -31,7 +34,7 @@ export const CookieConsent = () => {
     <>
       {showBanner && (
         <div
-          role="dialog"
+          role="region"
           aria-live="polite"
           aria-label="Zgoda na pliki cookie"
           className="fixed bottom-0 left-0 right-0 z-[100] p-3 sm:p-4"
@@ -68,60 +71,21 @@ export const CookieConsent = () => {
         </div>
       )}
 
-      <Dialog open={settingsOpen} onOpenChange={setSettingsOpen}>
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
-            <DialogTitle>Ustawienia plików cookie</DialogTitle>
-            <DialogDescription>
-              Wybierz, które kategorie chcesz włączyć. Możesz zmienić te ustawienia w każdej chwili.
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="space-y-4 py-2">
-            <div className="flex items-start justify-between gap-4 rounded-lg border border-border/60 p-4">
-              <div className="flex-1">
-                <div className="font-medium text-foreground">Niezbędne</div>
-                <p className="text-sm text-muted-foreground mt-1">
-                  Wymagane do logowania, bezpieczeństwa sesji i podstawowego działania interfejsu. Nie można ich wyłączyć.
-                </p>
-              </div>
-              <Switch checked disabled aria-label="Niezbędne — zawsze włączone" />
-            </div>
-
-            <div className="flex items-start justify-between gap-4 rounded-lg border border-border/60 p-4">
-              <div className="flex-1">
-                <div className="font-medium text-foreground">Funkcjonalne</div>
-                <p className="text-sm text-muted-foreground mt-1">
-                  Zapamiętują Twoje preferencje: wybranego klienta, ustawienia filtrów i widoków. Ułatwiają codzienną pracę.
-                </p>
-              </div>
-              <Switch checked={functional} onCheckedChange={setFunctional} aria-label="Funkcjonalne" />
-            </div>
-
-            <div className="flex items-start justify-between gap-4 rounded-lg border border-border/60 p-4">
-              <div className="flex-1">
-                <div className="font-medium text-foreground">Analityczne</div>
-                <p className="text-sm text-muted-foreground mt-1">
-                  Obecnie nie zbieramy żadnych danych analitycznych. Ten przełącznik przygotowuje ustawienia na przyszłość — jeżeli kiedykolwiek uruchomimy analitykę, będziemy respektować Twoją decyzję już teraz.
-                </p>
-              </div>
-              <Switch checked={analytics} onCheckedChange={setAnalytics} aria-label="Analityczne" />
-            </div>
-          </div>
-
-          <DialogFooter className="gap-2 sm:gap-2">
-            <Button variant="outline" onClick={() => { rejectNonEssential(); setSettingsOpen(false); }}>
-              Odrzuć niekonieczne
-            </Button>
-            <Button variant="outline" onClick={() => { save(functional, analytics); setSettingsOpen(false); }}>
-              Zapisz wybór
-            </Button>
-            <Button onClick={() => { acceptAll(); setSettingsOpen(false); }}>
-              Akceptuj wszystkie
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {settingsOpen && (
+        <Suspense fallback={null}>
+          <CookieConsentSettings
+            open={settingsOpen}
+            onOpenChange={setSettingsOpen}
+            functional={functional}
+            setFunctional={setFunctional}
+            analytics={analytics}
+            setAnalytics={setAnalytics}
+            onReject={() => { rejectNonEssential(); setSettingsOpen(false); }}
+            onSave={() => { save(functional, analytics); setSettingsOpen(false); }}
+            onAcceptAll={() => { acceptAll(); setSettingsOpen(false); }}
+          />
+        </Suspense>
+      )}
     </>
   );
 };
