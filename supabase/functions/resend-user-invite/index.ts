@@ -197,10 +197,22 @@ Deno.serve(async (req) => {
       });
       if (inviteError) throw inviteError;
       if (!inviteLink?.properties?.action_link) throw new Error('Nie udało się wygenerować nowego linku zaproszenia');
+      // WAŻNE: NIE używamy inviteLink.properties.action_link bezpośrednio —
+      // to surowy link Supabase (/auth/v1/verify?token=...), który zużywa
+      // token przy zwykłym wejściu (GET), bez interakcji użytkownika.
+      // Firmowe skanery linków (Proofpoint URL Defense, Microsoft Safe Links)
+      // automatycznie "odwiedzają" każdy link w mailu, co konsumowało token,
+      // zanim prawdziwy użytkownik zdążył kliknąć — to samo, co naprawiliśmy
+      // w auth-email-hook/index.ts. Ta funkcja ma WŁASNĄ, niezależną ścieżkę
+      // wysyłki (queueAuthEmail), więc wymaga tej samej poprawki osobno.
+      const inviteConfirmationUrl = inviteLink.properties.hashed_token
+        ? `https://${ROOT_DOMAIN}/reset-password?token_hash=${encodeURIComponent(inviteLink.properties.hashed_token)}&type=invite`
+        : inviteLink.properties.action_link;
+      console.log('DEBUG resend-invite hashed_token present?', !!inviteLink.properties.hashed_token);
       const { orgName, invitedBy } = await buildOrgContext(supabaseAdmin, email);
       await queueAuthEmail(supabaseAdmin, {
         action: 'invite',
-        confirmationUrl: inviteLink.properties.action_link,
+        confirmationUrl: inviteConfirmationUrl,
         email,
         orgName,
         invitedBy,
@@ -216,10 +228,15 @@ Deno.serve(async (req) => {
       });
       if (recoveryError) throw recoveryError;
       if (!recoveryLink?.properties?.action_link) throw new Error('Nie udało się wygenerować nowego linku resetu hasła');
+      // Ta sama poprawka co przy zaproszeniu wyżej — patrz komentarz tam.
+      const recoveryConfirmationUrl = recoveryLink.properties.hashed_token
+        ? `https://${ROOT_DOMAIN}/reset-password?token_hash=${encodeURIComponent(recoveryLink.properties.hashed_token)}&type=recovery`
+        : recoveryLink.properties.action_link;
+      console.log('DEBUG resend-invite (recovery) hashed_token present?', !!recoveryLink.properties.hashed_token);
       const { orgName } = await buildOrgContext(supabaseAdmin, email);
       await queueAuthEmail(supabaseAdmin, {
         action: 'recovery',
-        confirmationUrl: recoveryLink.properties.action_link,
+        confirmationUrl: recoveryConfirmationUrl,
         email,
         orgName,
       });
