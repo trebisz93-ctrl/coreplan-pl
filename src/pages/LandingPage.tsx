@@ -348,21 +348,59 @@ const LandingPage = () => {
       {/* Footer */}
       <footer className="bg-charcoal py-12">
         <div className="max-w-6xl mx-auto px-6">
-          <div className="flex flex-col md:flex-row items-center justify-between gap-6">
-            <div className="flex items-center gap-3">
-              <img src={corePlanLogo} alt="CorePlan" className="h-10 object-contain" width={200} height={40} />
-            </div>
-            <div className="flex items-center gap-6">
-              <Link to="/polityka-prywatnosci" className="text-primary-foreground/40 hover:text-primary-foreground/70 text-sm transition-colors">
-                Polityka prywatności
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-10 mb-10">
+            <div className="md:col-span-1">
+              <Link to="/" className="inline-flex items-center gap-3 mb-4">
+                <img src={corePlanLogo} alt="CorePlan" className="h-10 object-contain" width={200} height={40} />
               </Link>
-              <Link to="/regulamin" className="text-primary-foreground/40 hover:text-primary-foreground/70 text-sm transition-colors">
-                Regulamin
-              </Link>
-              <p className="text-primary-foreground/40 text-sm">
-                © {new Date().getFullYear()} CorePlan
+              <p className="text-primary-foreground/50 text-sm leading-relaxed">
+                Prosty CRM do zaawansowanego planowania mediów. Przejmij pełną kontrolę nad budżetem i widocznością Twojej firmy.
               </p>
             </div>
+            <div>
+              <h4 className="text-primary-foreground font-semibold text-sm mb-4">Produkt</h4>
+              <ul className="space-y-2.5">
+                <li>
+                  <a href="#funkcje" className="text-primary-foreground/50 hover:text-primary-foreground/80 text-sm transition-colors">Funkcje</a>
+                </li>
+                <li>
+                  <a href="#bezpieczenstwo" className="text-primary-foreground/50 hover:text-primary-foreground/80 text-sm transition-colors">Bezpieczeństwo</a>
+                </li>
+                <li>
+                  <a href="#demo" className="text-primary-foreground/50 hover:text-primary-foreground/80 text-sm transition-colors">Umów demo</a>
+                </li>
+                <li>
+                  <Link to="/auth" className="text-primary-foreground/50 hover:text-primary-foreground/80 text-sm transition-colors">Zaloguj się</Link>
+                </li>
+              </ul>
+            </div>
+            <div>
+              <h4 className="text-primary-foreground font-semibold text-sm mb-4">Prawne</h4>
+              <ul className="space-y-2.5">
+                <li>
+                  <Link to="/polityka-prywatnosci" className="text-primary-foreground/50 hover:text-primary-foreground/80 text-sm transition-colors">Polityka prywatności</Link>
+                </li>
+                <li>
+                  <Link to="/regulamin" className="text-primary-foreground/50 hover:text-primary-foreground/80 text-sm transition-colors">Regulamin</Link>
+                </li>
+              </ul>
+            </div>
+            <div>
+              <h4 className="text-primary-foreground font-semibold text-sm mb-4">Kontakt</h4>
+              <a href="mailto:kontakt@coreplan.pl" className="inline-flex items-center gap-2 text-primary-foreground/50 hover:text-primary-foreground/80 text-sm transition-colors">
+                <Mail className="h-3.5 w-3.5" aria-hidden="true" />
+                kontakt@coreplan.pl
+              </a>
+            </div>
+          </div>
+          <div className="pt-8 border-t border-primary-foreground/10 flex flex-col md:flex-row items-center justify-between gap-4">
+            <p className="text-primary-foreground/40 text-sm">
+              © {new Date().getFullYear()} CorePlan. Zbudowane dla polskich zespołów marketingu.
+            </p>
+            <p className="inline-flex items-center gap-2 text-primary-foreground/40 text-sm">
+              <Lock className="h-3.5 w-3.5" aria-hidden="true" />
+              Dane szyfrowane, hostowane w UE
+            </p>
           </div>
         </div>
       </footer>
