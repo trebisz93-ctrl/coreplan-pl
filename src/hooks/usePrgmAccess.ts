@@ -1,24 +1,48 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/context/AuthContext';
+import { useOrganization } from '@/context/OrganizationContext';
 
 // Sprawdza, czy zalogowany użytkownik ma uprawnienie PRGM (kontroling) —
-// dostęp do zakładki "Estymacje sprzedaży" i sekcji estymacji w formularzu aktywności.
-// Admin i super_admin mają dostęp automatycznie, bez konieczności nadawania osobnej roli.
+// dostęp do zakładki "Estymacje sprzedaży", sekcji estymacji w formularzu
+// aktywności i cennika produktów.
+//
+// WAŻNE (poprawka): admin firmy ma dostęp automatycznie — sprawdzamy
+// organization_members.org_role === 'org_admin', czyli TĘ SAMĄ rolę, którą
+// wszędzie indziej w aplikacji rozumiemy jako "admin firmy" (patrz useIsAdmin
+// w useRole.ts). Wcześniej ten hook sprawdzał tylko globalną rolę
+// user_roles.role === 'admin' — to inne, rzadziej nadawane pojęcie (bliższe
+// "adminowi platformy" niż "adminowi konkretnej firmy"), przez co realny
+// admin firmy bez tej dodatkowej, globalnej roli nie widział opcji cennika
+// ani estymacji, mimo że powinien mieć do nich dostęp.
 export const usePrgmAccess = () => {
   const { user } = useAuth();
+  const { orgId, isSuperAdmin } = useOrganization();
   return useQuery({
-    queryKey: ['user_roles', user?.id, 'prgm-access'],
+    queryKey: ['prgm-access', user?.id, orgId, isSuperAdmin],
     queryFn: async () => {
-      const { data, error } = await supabase
+      if (isSuperAdmin) return true;
+
+      if (orgId) {
+        const { data: member, error: memberError } = await supabase
+          .from('organization_members')
+          .select('org_role')
+          .eq('user_id', user!.id)
+          .eq('organization_id', orgId)
+          .maybeSingle();
+        if (memberError) throw memberError;
+        if (member?.org_role === 'org_admin') return true;
+      }
+
+      // Albo dedykowana rola PRGM nadana przez admina firmy — patrz grant_prgm_role.
+      const { data: roles, error: rolesError } = await supabase
         .from('user_roles')
         .select('role')
         .eq('user_id', user!.id);
-      if (error) throw error;
-      return data;
+      if (rolesError) throw rolesError;
+      return roles.some(r => (r.role as string) === 'prgm' || r.role === 'super_admin');
     },
     enabled: !!user,
-    select: (data) => data.some(r => r.role === 'prgm' || r.role === 'admin' || r.role === 'super_admin'),
   });
 };
 
