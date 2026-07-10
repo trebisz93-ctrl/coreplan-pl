@@ -81,18 +81,29 @@ Deno.serve(async (req) => {
     
     const importOrder = ['clients', 'products', 'product_clients', 'packages', 'media_plans', 'activities', 'confirmations', 'campaign_types'];
 
-    // Tables that carry organization_id directly
-    const orgScopedTables = new Set(['clients', 'products', 'packages', 'media_plans', 'activities', 'campaign_types']);
+    // Tabele, które mają organization_id BEZPOŚREDNIO na wierszu.
+    // WAŻNE: "clients" celowo NIE jest tutaj — ta tabela nie ma kolumny
+    // organization_id (nigdy jej nie dostała w żadnej migracji). Jest
+    // scope'owana przez user_id + osobną tabelę łączącą organization_clients.
+    // Wcześniejsza wersja tego pliku błędnie traktowała clients tak samo jak
+    // pozostałe tabele — to powodowało błąd bazy przy każdym imporcie klienta
+    // ("column clients.organization_id does not exist").
+    const orgScopedTables = new Set(['products', 'packages', 'media_plans', 'activities', 'campaign_types']);
     // Dependent tables: verify referenced parent belongs to caller
-    const dependentRefs: Record<string, Array<{ column: string; table: string }>> = {
+    const dependentRefs: Record<string, Array<{ column: string; table: string; via: 'organization_id' | 'organization_clients' }>> = {
       product_clients: [
-        { column: 'product_id', table: 'products' },
-        { column: 'client_id', table: 'clients' },
+        { column: 'product_id', table: 'products', via: 'organization_id' },
+        { column: 'client_id', table: 'clients', via: 'organization_clients' },
       ],
       confirmations: [
-        { column: 'activity_id', table: 'activities' },
+        { column: 'activity_id', table: 'activities', via: 'organization_id' },
       ],
     };
+
+    // Organizacja, do której importujemy nowych klientów (tylko gdy caller
+    // ma dokładnie jedną — przy wielu trzeba by wskazać jawnie, tak samo jak
+    // dla pozostałych tabel org-scoped niżej).
+    const singleCallerOrgId = callerOrgIds.size === 1 ? Array.from(callerOrgIds)[0] : null;
 
     for (const table of importOrder) {
       const rows = tables[table];
@@ -107,6 +118,21 @@ Deno.serve(async (req) => {
       for (const row of rows) {
         if ('user_id' in row) {
           row.user_id = user.id;
+        }
+
+        // "clients" — brak ownership-checku przez organization_id (ta kolumna
+        // tu nie istnieje). Zamiast tego: jeśli id już istnieje, sprawdzamy
+        // właściciela przez user_id.
+        if (!isSuperAdmin && table === 'clients' && row.id) {
+          const { data: existingClient } = await supabaseAdmin
+            .from('clients')
+            .select('user_id')
+            .eq('id', row.id)
+            .maybeSingle();
+          if (existingClient && existingClient.user_id && existingClient.user_id !== user.id) {
+            errors.push(`${row.id}: record belongs to another account`);
+            continue;
+          }
         }
 
         // Cross-tenant guard for org-scoped tables:
@@ -143,6 +169,23 @@ Deno.serve(async (req) => {
           for (const ref of dependentRefs[table]) {
             const refId = row[ref.column];
             if (!refId) continue;
+
+            if (ref.via === 'organization_clients') {
+              // client_id — sprawdzamy przez tabelę łączącą, nie przez
+              // (nieistniejącą) organization_id na clients.
+              const { data: link } = await supabaseAdmin
+                .from('organization_clients')
+                .select('organization_id')
+                .eq('client_id', refId)
+                .maybeSingle();
+              if (!link || !callerOrgIds.has(link.organization_id)) {
+                errors.push(`${row.id}: ${ref.column} references record outside caller's organization`);
+                refOk = false;
+                break;
+              }
+              continue;
+            }
+
             const { data: parent } = await supabaseAdmin
               .from(ref.table)
               .select('organization_id')
@@ -162,6 +205,20 @@ Deno.serve(async (req) => {
           errors.push(`${row.id}: ${error.message}`);
         } else {
           inserted++;
+
+          // "clients" — nowy trigger enforce_client_org_link (dodany przez
+          // agenta bezpieczeństwa Lovable) wymaga, żeby KAŻDY nowo wstawiony
+          // klient miał w tej samej transakcji/przed commitem wpis w
+          // organization_clients. Bez tego import klientów zakończy się
+          // błędem bazy przy każdym nowym wierszu.
+          if (table === 'clients' && !isSuperAdmin && singleCallerOrgId) {
+            const { error: linkError } = await supabaseAdmin
+              .from('organization_clients')
+              .upsert({ organization_id: singleCallerOrgId, client_id: row.id }, { onConflict: 'organization_id,client_id' });
+            if (linkError) {
+              errors.push(`${row.id}: utworzono klienta, ale nie udało się połączyć z organizacją (${linkError.message})`);
+            }
+          }
         }
       }
 
