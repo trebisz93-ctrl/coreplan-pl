@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/context/AuthContext';
 import { useOrganization } from '@/context/OrganizationContext';
+import { toast } from 'sonner';
 import type { SeedProduct } from '@/data/seedProducts';
 
 export interface DbClient {
@@ -86,6 +87,24 @@ export const useCreateClient = () => {
   const { orgId } = useOrganization();
   return useMutation({
     mutationFn: async (name: string) => {
+      // DIAGNOSTYKA TYMCZASOWA — porównuje user.id z kontekstu React
+      // z user_id faktycznie zwracanym przez aktywną sesję Supabase.
+      const { data: sessionData } = await supabase.auth.getSession();
+      const liveUserId = sessionData.session?.user?.id;
+      const liveEmail = sessionData.session?.user?.email;
+      console.log('DIAGNOSTYKA useCreateClient', {
+        'user.id z kontekstu React': user?.id,
+        'user_id z aktywnej sesji': liveUserId,
+        'email z aktywnej sesji': liveEmail,
+        'orgId z kontekstu': orgId,
+        'zgadzaja_sie': user?.id === liveUserId,
+      });
+      if (user?.id !== liveUserId) {
+        toast.error(`DIAGNOSTYKA: user.id z kontekstu (${user?.id}) ≠ user_id z sesji (${liveUserId}) — to jest przyczyna błędu RLS!`, { duration: 15000 });
+      } else {
+        toast.info(`DIAGNOSTYKA: user_id wysyłany do bazy to ${liveUserId} (${liveEmail})`, { duration: 15000 });
+      }
+
       const { data, error } = await supabase
         .from('clients').insert({ name, user_id: user!.id }).select().single();
       if (error) throw error;
