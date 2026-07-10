@@ -87,40 +87,6 @@ export const useCreateClient = () => {
   const { orgId } = useOrganization();
   return useMutation({
     mutationFn: async (name: string) => {
-      // DIAGNOSTYKA TYMCZASOWA — porównuje user.id z kontekstu React
-      // z user_id faktycznie zwracanym przez aktywną sesję Supabase.
-      const { data: sessionData } = await supabase.auth.getSession();
-      const liveUserId = sessionData.session?.user?.id;
-      const liveEmail = sessionData.session?.user?.email;
-
-      let jwtPayload: Record<string, unknown> | null = null;
-      try {
-        const token = sessionData.session?.access_token;
-        if (token) {
-          const payloadB64 = token.split('.')[1];
-          jwtPayload = JSON.parse(atob(payloadB64.replace(/-/g, '+').replace(/_/g, '/')));
-        }
-      } catch (e) {
-        console.error('DIAGNOSTYKA: nie udało się zdekodować JWT', e);
-      }
-
-      console.log('DIAGNOSTYKA useCreateClient', {
-        'user.id z kontekstu React': user?.id,
-        'user_id z aktywnej sesji': liveUserId,
-        'email z aktywnej sesji': liveEmail,
-        'orgId z kontekstu': orgId,
-        'zgadzaja_sie': user?.id === liveUserId,
-        'JWT role': jwtPayload?.role,
-        'JWT sub': jwtPayload?.sub,
-        'JWT aud': jwtPayload?.aud,
-        'JWT exp (data wygaśnięcia)': jwtPayload?.exp ? new Date((jwtPayload.exp as number) * 1000).toLocaleString('pl-PL') : null,
-        'JWT wygasł?': jwtPayload?.exp ? (jwtPayload.exp as number) * 1000 < Date.now() : null,
-      });
-      toast.info(
-        `DIAGNOSTYKA: user_id=${liveUserId} | JWT role="${jwtPayload?.role}" | JWT sub=${jwtPayload?.sub} | wygasł=${jwtPayload?.exp ? ((jwtPayload.exp as number) * 1000 < Date.now()) : '?'}`,
-        { duration: 20000 }
-      );
-
       const { data, error } = await supabase
         .from('clients').insert({ name, user_id: user!.id }).select().single();
       if (error) throw error;
