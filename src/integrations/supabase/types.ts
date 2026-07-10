@@ -1355,6 +1355,27 @@ export type Database = {
     }
     Functions: {
       cleanup_old_backups: { Args: never; Returns: undefined }
+      create_client_for_org: {
+        Args: { _name: string; _organization_id: string }
+        Returns: {
+          annual_budget: number
+          created_at: string
+          currency: string
+          deleted_at: string | null
+          deleted_by: string | null
+          id: string
+          name: string
+          purge_at: string | null
+          updated_at: string
+          user_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "clients"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       delete_email: {
         Args: { message_id: number; queue_name: string }
         Returns: boolean
