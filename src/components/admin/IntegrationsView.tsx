@@ -1,6 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Plug, Webhook, Key, Globe } from 'lucide-react';
+import { DeploymentStatusGuide } from './DeploymentStatusGuide';
 
 const integrations = [
   { name: 'API REST', desc: 'Dostęp do danych przez API REST z autoryzacją Bearer Token', status: 'available', icon: Globe },
@@ -45,6 +46,8 @@ export const IntegrationsView = () => {
           </p>
         </CardContent>
       </Card>
+
+      <DeploymentStatusGuide />
     </div>
   );
 };
