@@ -1,0 +1,1 @@
+DROP POLICY IF EXISTS "Deny non-service access to backups" ON storage.objects;
