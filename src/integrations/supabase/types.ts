@@ -1370,6 +1370,7 @@ export type Database = {
       }
       get_user_org_ids: { Args: { _user_id: string }; Returns: string[] }
       grant_prgm_role: { Args: { _target_user_id: string }; Returns: undefined }
+      has_any_org_membership: { Args: { _user_id: string }; Returns: boolean }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
