@@ -83,7 +83,6 @@ export const useClients = () => {
 
 export const useCreateClient = () => {
   const qc = useQueryClient();
-  const { user } = useAuth();
   const { orgId } = useOrganization();
   return useMutation({
     mutationFn: async (name: string) => {
