@@ -87,15 +87,11 @@ export const useCreateClient = () => {
   const { orgId } = useOrganization();
   return useMutation({
     mutationFn: async (name: string) => {
+      if (!orgId) throw new Error('Brak aktywnej organizacji');
+
       const { data, error } = await supabase
-        .from('clients').insert({ name, user_id: user!.id }).select().single();
+        .rpc('create_client_for_org', { _name: name, _organization_id: orgId });
       if (error) throw error;
-      if (orgId) {
-        const { error: linkErr } = await supabase
-          .from('organization_clients')
-          .insert({ organization_id: orgId, client_id: data.id });
-        if (linkErr) throw linkErr;
-      }
       return data as DbClient;
     },
     onSuccess: () => {
