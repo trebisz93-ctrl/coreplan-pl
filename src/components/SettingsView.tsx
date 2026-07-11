@@ -128,6 +128,18 @@ export const SettingsView = forwardRef<HTMLDivElement>((_, ref) => {
 
       <MfaSetup />
 
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">🔬 Diagnostyka RLS (tymczasowe)</CardTitle>
+          <CardDescription>Insert do clients_test (WITH CHECK true) z user_id z sesji</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Button variant="outline" onClick={handleTestInsert}>
+            Test insert do clients_test
+          </Button>
+        </CardContent>
+      </Card>
+
       {/* Campaign Types CRUD */}
       <Card>
         <CardHeader>
