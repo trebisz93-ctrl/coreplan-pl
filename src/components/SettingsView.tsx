@@ -11,6 +11,7 @@ import { User, Mail, Shield, Plus, Pencil, Trash2, Check, X, Tag, Settings2, Eye
 import { MfaSetup } from './MfaSetup';
 import { BackupSection } from './BackupSection';
 import { toast } from 'sonner';
+import { supabase } from '@/integrations/supabase/client';
 import { format } from 'date-fns';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
@@ -48,6 +49,29 @@ export const SettingsView = forwardRef<HTMLDivElement>((_, ref) => {
   const markRead = useMarkDemoRead();
   const [editDemoEmail, setEditDemoEmail] = useState('');
   const [editingDemoEmail, setEditingDemoEmail] = useState(false);
+
+  const handleTestInsert = async () => {
+    const { data: sessionData } = await supabase.auth.getSession();
+    const sessionUserId = sessionData.session?.user?.id;
+    const contextUserId = user?.id;
+    toast.info(`ctx=${contextUserId ?? 'null'} | session=${sessionUserId ?? 'null'}`);
+    if (!sessionUserId) {
+      toast.error('Brak aktywnej sesji');
+      return;
+    }
+    const { data, error } = await (supabase as any)
+      .from('clients_test')
+      .insert({ name: 'test', user_id: sessionUserId })
+      .select();
+    if (error) {
+      toast.error(`clients_test FAIL: ${error.code ?? ''} ${error.message}`);
+      console.error('[clients_test] error', error);
+    } else {
+      toast.success(`clients_test OK: ${JSON.stringify(data)}`);
+      console.log('[clients_test] inserted', data);
+    }
+  };
+
   const handleCreateCT = async () => {
     if (!newCTName.trim() || !newCTLabel.trim()) { toast.error('Podaj nazwę i etykietę'); return; }
     try {
