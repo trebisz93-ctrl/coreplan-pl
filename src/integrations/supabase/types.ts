@@ -470,6 +470,24 @@ export type Database = {
         }
         Relationships: []
       }
+      clients_test: {
+        Row: {
+          id: string
+          name: string
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          name: string
+          user_id: string
+        }
+        Update: {
+          id?: string
+          name?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       confirmations: {
         Row: {
           activity_id: string
