@@ -5,6 +5,8 @@ project_id = "aswmmhxyqafqsvnnspqj"
     verify_jwt = false
   [functions.create-org-user]
     verify_jwt = false
+  [functions.get-user-details]
+    verify_jwt = false
   [functions.data-export]
     verify_jwt = false
   [functions.data-import]

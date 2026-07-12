@@ -1,128 +1,9 @@
-import * as React from 'npm:react@18.3.1';
-import { renderAsync } from 'npm:@react-email/components@0.0.22';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-import { InviteEmail } from '../_shared/email-templates/invite.tsx';
-import { RecoveryEmail } from '../_shared/email-templates/recovery.tsx';
+import { buildOrgContext, queueAuthEmail, ROOT_DOMAIN } from '../_shared/queue-auth-email.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
-};
-
-const SITE_NAME = 'coreplan-pl';
-const SENDER_DOMAIN = 'notify.coreplan.pl';
-const FROM_DOMAIN = 'notify.coreplan.pl';
-const ROOT_DOMAIN = 'coreplan.pl';
-
-const EMAIL_SUBJECTS = {
-  invite: "You've been invited",
-  recovery: 'Reset your password',
-} as const;
-
-const buildOrgContext = async (supabaseAdmin: ReturnType<typeof createClient>, email: string) => {
-  let orgName: string | undefined;
-  let invitedBy: string | undefined;
-
-  const { data: authUsers } = await supabaseAdmin.auth.admin.listUsers({
-    page: 1,
-    perPage: 1000,
-  });
-
-  const authUser = authUsers?.users.find(
-    (u) => u.email?.toLowerCase() === email.toLowerCase()
-  );
-
-  const metadata = authUser?.user_metadata ?? {};
-  if (typeof metadata.org_name === 'string') orgName = metadata.org_name;
-  if (typeof metadata.invited_by === 'string') invitedBy = metadata.invited_by;
-
-  if (!orgName) {
-    const { data: profile } = await supabaseAdmin
-      .from('profiles')
-      .select('organization_id, user_id')
-      .eq('user_id', authUser?.id ?? '')
-      .maybeSingle();
-
-    const organizationId = profile?.organization_id;
-    if (organizationId) {
-      const { data: org } = await supabaseAdmin
-        .from('organizations')
-        .select('name')
-        .eq('id', organizationId)
-        .maybeSingle();
-      if (org?.name) orgName = org.name;
-    }
-  }
-
-  return { orgName, invitedBy };
-};
-
-const queueAuthEmail = async (
-  supabaseAdmin: ReturnType<typeof createClient>,
-  params: {
-    action: 'invite' | 'recovery';
-    confirmationUrl: string;
-    email: string;
-    orgName?: string;
-    invitedBy?: string;
-  }
-) => {
-  const { action, confirmationUrl, email, orgName, invitedBy } = params;
-  const messageId = crypto.randomUUID();
-
-  const template = action === 'invite'
-    ? React.createElement(InviteEmail, {
-        siteName: SITE_NAME,
-        siteUrl: `https://${ROOT_DOMAIN}`,
-        confirmationUrl,
-        orgName,
-        invitedBy,
-      })
-    : React.createElement(RecoveryEmail, {
-        siteName: SITE_NAME,
-        confirmationUrl,
-        orgName,
-      });
-
-  const html = await renderAsync(template);
-  const text = await renderAsync(template, { plainText: true });
-
-  await supabaseAdmin.from('email_send_log').insert({
-    message_id: messageId,
-    template_name: action,
-    recipient_email: email,
-    status: 'pending',
-    metadata: { source: 'resend-user-invite' },
-  });
-
-  const { error: enqueueError } = await supabaseAdmin.rpc('enqueue_email', {
-    queue_name: 'auth_emails',
-    payload: {
-      run_id: `manual-resend-${messageId}`,
-      message_id: messageId,
-      to: email,
-      from: `${SITE_NAME} <noreply@${FROM_DOMAIN}>`,
-      sender_domain: SENDER_DOMAIN,
-      subject: EMAIL_SUBJECTS[action],
-      html,
-      text,
-      purpose: 'transactional',
-      label: action,
-      queued_at: new Date().toISOString(),
-    },
-  });
-
-  if (enqueueError) {
-    await supabaseAdmin.from('email_send_log').insert({
-      message_id: messageId,
-      template_name: action,
-      recipient_email: email,
-      status: 'failed',
-      error_message: enqueueError.message,
-      metadata: { source: 'resend-user-invite' },
-    });
-    throw enqueueError;
-  }
 };
 
 Deno.serve(async (req) => {
@@ -215,6 +96,7 @@ Deno.serve(async (req) => {
         email,
         orgName,
         invitedBy,
+        source: 'resend-user-invite',
       });
       action = 'invite';
       resultMessage = `Wysłano nowe zaproszenie do ${email}`;
@@ -237,6 +119,7 @@ Deno.serve(async (req) => {
         confirmationUrl: recoveryConfirmationUrl,
         email,
         orgName,
+        source: 'resend-user-invite',
       });
       action = 'recovery';
       resultMessage = `Wysłano nowy link do ustawienia hasła do ${email}`;
