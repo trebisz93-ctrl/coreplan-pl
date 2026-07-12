@@ -63,10 +63,30 @@ Deno.serve(async (req) => {
     let resultMessage: string;
 
     if (!existingUser) {
-      const { error: inviteError } = await supabaseAdmin.auth.admin.inviteUserByEmail(email, {
-        redirectTo,
+      // Ta sama poprawka co w pozostałych gałęziach niżej — patrz komentarz
+      // przy generateLink({ type: 'invite' }) poniżej. Bez tego, dla
+      // zupełnie nowego adresu (nigdy wcześniej niezaproszonego), mail
+      // powitalny mógłby się nie wysłać bez żadnego śladu w logach.
+      const { data: freshInviteLink, error: freshInviteError } = await supabaseAdmin.auth.admin.generateLink({
+        type: 'invite',
+        email,
+        options: { redirectTo },
       });
-      if (inviteError) throw inviteError;
+      if (freshInviteError) throw freshInviteError;
+      if (!freshInviteLink?.properties?.action_link) throw new Error('Nie udało się wygenerować linku zaproszenia');
+
+      const freshInviteConfirmationUrl = freshInviteLink.properties.hashed_token
+        ? `https://${ROOT_DOMAIN}/reset-password?token_hash=${encodeURIComponent(freshInviteLink.properties.hashed_token)}&type=invite`
+        : freshInviteLink.properties.action_link;
+      const { orgName: freshOrgName, invitedBy: freshInvitedBy } = await buildOrgContext(supabaseAdmin, email);
+      await queueAuthEmail(supabaseAdmin, {
+        action: 'invite',
+        confirmationUrl: freshInviteConfirmationUrl,
+        email,
+        orgName: freshOrgName,
+        invitedBy: freshInvitedBy,
+        source: 'resend-user-invite',
+      });
       action = 'invite';
       resultMessage = `Wysłano nowe zaproszenie do ${email}`;
     } else if (existingUser.invited_at && !existingUser.email_confirmed_at) {
