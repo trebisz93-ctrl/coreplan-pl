@@ -1,4 +1,5 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { buildOrgContext, queueAuthEmail, ROOT_DOMAIN } from '../_shared/queue-auth-email.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -74,16 +75,41 @@ Deno.serve(async (req) => {
         );
       }
 
-      const { error: linkError } = await supabaseAdmin.auth.admin.generateLink({
+      const { data: recoveryLink, error: linkError } = await supabaseAdmin.auth.admin.generateLink({
         type: 'recovery',
         email,
-        options: { redirectTo: `https://coreplan.pl/reset-password` },
+        options: { redirectTo: `https://${ROOT_DOMAIN}/reset-password` },
       });
-      if (linkError) console.error('Recovery link error:', linkError);
+      if (linkError) throw linkError;
+
+      const recoveryConfirmationUrl = recoveryLink?.properties?.hashed_token
+        ? `https://${ROOT_DOMAIN}/reset-password?token_hash=${encodeURIComponent(recoveryLink.properties.hashed_token)}&type=recovery`
+        : recoveryLink?.properties?.action_link;
+
+      if (recoveryConfirmationUrl) {
+        const { orgName: existingOrgName } = await buildOrgContext(supabaseAdmin, email);
+        await queueAuthEmail(supabaseAdmin, {
+          action: 'recovery',
+          confirmationUrl: recoveryConfirmationUrl,
+          email,
+          orgName: existingOrgName || orgName,
+          source: 'create-org-user',
+        });
+      }
     } else {
-      const { data: authData, error: authError } = await supabaseAdmin.auth.admin.inviteUserByEmail(
+      // WAŻNE: nie używamy już supabaseAdmin.auth.admin.inviteUserByEmail(),
+      // które polega na tym, że Supabase automatycznie wywoła Send Email
+      // Hook — zaobserwowaliśmy, że to wywołanie czasem w ogóle się nie
+      // uruchamia (brak jakiegokolwiek śladu w logach czy email_send_log),
+      // bez żadnego błędu do złapania. Zamiast tego: generateLink tworzy
+      // konto TAK SAMO jak inviteUserByEmail (type: 'invite' robi dokładnie
+      // to samo), ale zwraca link zamiast polegać na automatycznej wysyłce —
+      // a mail wysyłamy sami, tym samym sprawdzonym mechanizmem co
+      // "Wyślij ponownie zaproszenie" w panelu użytkowników.
+      const { data: inviteLink, error: inviteError } = await supabaseAdmin.auth.admin.generateLink({
+        type: 'invite',
         email,
-        {
+        options: {
           data: {
             first_name: first_name || null,
             last_name: last_name || null,
@@ -92,13 +118,29 @@ Deno.serve(async (req) => {
             org_name: orgName,
             invited_by: 'super_admin',
           },
-          redirectTo: `https://coreplan.pl/reset-password`,
-        }
-      );
+          redirectTo: `https://${ROOT_DOMAIN}/reset-password`,
+        },
+      });
 
-      if (authError) throw authError;
-      userId = authData.user.id;
+      if (inviteError) throw inviteError;
+      if (!inviteLink?.user?.id) throw new Error('Nie udało się utworzyć konta użytkownika');
+      userId = inviteLink.user.id;
       wasInvited = true;
+
+      const inviteConfirmationUrl = inviteLink.properties?.hashed_token
+        ? `https://${ROOT_DOMAIN}/reset-password?token_hash=${encodeURIComponent(inviteLink.properties.hashed_token)}&type=invite`
+        : inviteLink.properties?.action_link;
+
+      if (!inviteConfirmationUrl) throw new Error('Nie udało się wygenerować linku zaproszenia');
+
+      await queueAuthEmail(supabaseAdmin, {
+        action: 'invite',
+        confirmationUrl: inviteConfirmationUrl,
+        email,
+        orgName,
+        invitedBy: 'super_admin',
+        source: 'create-org-user',
+      });
     }
 
     const displayName = `${first_name || ''} ${last_name || ''}`.trim() || email;
@@ -110,7 +152,13 @@ Deno.serve(async (req) => {
         display_name: displayName,
         organization_id,
         status: 'active',
-        onboarding_completed: true,
+        // WAŻNE: NIE ustawiamy onboarding_completed na true tutaj — to
+        // konto dopiero powstaje, użytkownik jeszcze nie widział ekranu
+        // powitalnego. Ustawiane na true dopiero po jego przejściu
+        // (patrz OnboardingWelcome.tsx). Wcześniej to pole było tu na
+        // sztywno true, co czyniło ekran powitalny bezużytecznym — zawsze
+        // wyglądałoby na "już ukończony".
+        onboarding_completed: wasInvited ? false : true,
       })
       .eq('user_id', userId);
 

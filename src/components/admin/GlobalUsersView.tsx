@@ -1,10 +1,12 @@
+import { useState } from 'react';
 import { useGlobalProfiles, useOrganizations } from '@/hooks/useSuperAdmin';
 import { useUserRoles } from '@/hooks/useData';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Trash2, Eye, ShieldBan, ShieldCheck, Sparkles } from 'lucide-react';
+import { Trash2, Eye, ShieldBan, ShieldCheck, Sparkles, Info } from 'lucide-react';
+import { UserDetailsDialog } from './UserDetailsDialog';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/context/AuthContext';
 import { useOrganization } from '@/context/OrganizationContext';
@@ -23,6 +25,7 @@ export const GlobalUsersView = () => {
   const { impersonateUser } = useOrganization();
   const qc = useQueryClient();
   const { toast } = useToast();
+  const [detailsUser, setDetailsUser] = useState<{ id: string; name: string } | null>(null);
 
   const activeProfiles = profiles.filter((p: any) => !p.deleted_at);
 
@@ -155,6 +158,9 @@ export const GlobalUsersView = () => {
                       <div className="flex items-center justify-end gap-1">
                         {getRole(p.user_id) !== 'super_admin' && (
                           <>
+                            <Button variant="ghost" size="sm" onClick={() => setDetailsUser({ id: p.user_id, name: p.display_name || p.first_name || 'Użytkownik' })} className="h-8 w-8 p-0" title="Szczegóły konta">
+                              <Info className="h-4 w-4" />
+                            </Button>
                             <Button variant="ghost" size="sm" onClick={() => impersonateUser(p.user_id, p.display_name || p.first_name || 'Użytkownik')} className="h-8 w-8 p-0" title="Podejrzyj">
                               <Eye className="h-4 w-4" />
                             </Button>
@@ -208,6 +214,12 @@ export const GlobalUsersView = () => {
           )}
         </CardContent>
       </Card>
+
+      <UserDetailsDialog
+        userId={detailsUser?.id ?? null}
+        userName={detailsUser?.name ?? ''}
+        onOpenChange={(open) => !open && setDetailsUser(null)}
+      />
     </div>
   );
 };
